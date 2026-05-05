@@ -1,5 +1,5 @@
 # Context and Role
-You are an Expert AI Architect and Python Backend Developer specializing in Compound AI Systems, PyTorch, and the Model Context Protocol (MCP). Your task is to build an end-to-end Python framework called "NeuralToolRouter". 
+You are an Expert AI Architect and Python Backend Developer specializing in Compound AI Systems, PyTorch, and the Model Context Protocol (MCP). Your task is to build an end-to-end Python framework called "ToolRouter". 
 
 # Project Overview
 Most Agentic AI architectures suffer from context window bloat and high latency because they pass all available tool schemas into the LLM's context for every call. We are building a framework that solves this by separating *Tool Retrieval* (using a fast, fine-tuned PyTorch embedding model) from *Parameter Extraction and Execution* (using a heavy LLM). 

@@ -1,13 +1,13 @@
 # IBM BeeAI Multi-Agent Mediclaim Processing Example
 
-This example demonstrates how to use **NeuralToolRouter** with the **IBM BeeAI Framework** to orchestrate multiple specialized agents for processing post-hospitalization medical insurance claims.
+This example demonstrates how to use **ToolRouter** with the **IBM BeeAI Framework** to orchestrate multiple specialized agents for processing post-hospitalization medical insurance claims.
 
 ## Overview
 
 The example showcases:
 
-1. **Dynamic Tool Retrieval**: Using NeuralToolRouter's hybrid retrieval (Dense + BM25 with RRF) to fetch only relevant tools for each agent
-2. **Multi-Agent Orchestration**: Three specialized IBM BeeAgents working together
+1. **Dynamic Tool Retrieval**: Using ToolRouter's hybrid retrieval (Dense + BM25 with RRF) to fetch only relevant tools for each agent
+2. **Multi-Agent Orchestration**: Three specialized IBM BeeAgents (using `RequirementAgent`) working together
 3. **Context Passing**: Agents share information to accomplish a complex workflow
 4. **FastMCP Integration**: Mock medical claim processing tools via FastMCP
 
@@ -47,16 +47,16 @@ cd examples/beeai_mediclaim_processing
 pip install -r requirements.txt
 ```
 
-### 2. Ensure NeuralToolRouter is Trained
+### 2. Ensure ToolRouter is Trained
 
-The example requires a trained NeuralToolRouter model. From the project root:
+The example requires a trained ToolRouter model. From the project root:
 
 ```bash
 # Generate training data
-python phase1_generator.py
+python main.py generate
 
 # Train model and build indices
-python phase2_trainer.py
+python main.py train
 ```
 
 ### 3. Configure MCP Server
@@ -75,10 +75,14 @@ servers: Dict[str, Dict[str, Any]] = {
 
 ## Usage
 
-Run the orchestrator:
+Run the orchestrator. You can choose the LLM provider (Ollama or OpenAI):
 
 ```bash
-python multi_agent_orchestrator.py
+# Run with Ollama (default local execution)
+python multi_agent_orchestrator.py --llm ollama --model ollama/llama3
+
+# Run with OpenAI
+python multi_agent_orchestrator.py --llm openai --model gpt-4o
 ```
 
 ## Example Output
@@ -91,10 +95,10 @@ IBM BeeAI Multi-Agent Mediclaim Processing Orchestrator
 Starting FastMCP Server...
 ✓ FastMCP server started
 
-Initializing NeuralToolRouter...
+Initializing ToolRouter...
   ✓ Hybrid retrieval enabled (Dense + BM25)
   ✓ Connected to MCP server with 6 tools
-✓ NeuralToolRouter initialized
+✓ ToolRouter initialized
 
 ============================================================
 ORCHESTRATION GOAL
@@ -230,14 +234,14 @@ servers: Dict[str, Dict[str, Any]] = {
 Run Phase 2 training first:
 ```bash
 cd ../..
-python phase2_trainer.py
+python main.py train
 ```
 
 ### "BM25 index not found"
 The system will fall back to dense-only retrieval. To enable hybrid:
 ```bash
 cd ../..
-python phase2_trainer.py  # Rebuilds both indices
+python main.py train  # Rebuilds both indices
 ```
 
 ### "FastMCP server failed to start"
@@ -257,9 +261,10 @@ With this architecture:
 ## Learn More
 
 - [IBM BeeAI Framework](https://framework.beeai.dev/)
+- [RequirementAgent Implementation](https://framework.beeai.dev/modules/agents/requirement-agent)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [FastMCP](https://github.com/jlowin/fastmcp)
-- [NeuralToolRouter Documentation](../../README.md)
+- [ToolRouter Documentation](../../README.md)
 
 ## License
 

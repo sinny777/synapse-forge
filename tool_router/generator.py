@@ -19,8 +19,8 @@ from dataclasses import dataclass
 from litellm import completion
 from tqdm import tqdm
 
-from config import config, DataGenerationConfig, LLMConfig
-from mcp_client import MCPClient, ToolSchema
+from tool_router.config import config, DataGenerationConfig, LLMConfig
+from tool_router.mcp_client import MCPClient, ToolSchema
 
 # Configure logging
 logging.basicConfig(
@@ -455,6 +455,9 @@ async def main():
         if connected == 0:
             logger.error("No MCP servers connected and no predefined tools found. Cannot proceed.")
             return
+            
+        logger.info("Listing tools from connected servers...")
+        await mcp_client.list_tools()
     
     # Initialize generator
     logger.info("\n2. Initializing data generator...")

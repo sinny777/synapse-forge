@@ -1,4 +1,4 @@
-# Git Setup Guide for NeuralToolRouter
+# Git Setup Guide for ToolRouter
 
 This guide will help you initialize Git, commit your code, and push it to a remote repository.
 
@@ -12,7 +12,7 @@ This guide will help you initialize Git, commit your code, and push it to a remo
 If you haven't already initialized Git:
 
 ```bash
-cd neural-tool-router
+cd tool-router
 git init
 ```
 
@@ -52,7 +52,7 @@ git add phase1_generator.py
 ## Step 4: Create Initial Commit
 
 ```bash
-git commit -m "Initial commit: NeuralToolRouter framework
+git commit -m "Initial commit: ToolRouter framework
 
 - Complete three-phase architecture
 - Phase 1: Synthetic data generation
@@ -69,21 +69,21 @@ git commit -m "Initial commit: NeuralToolRouter framework
 ### Option A: GitHub
 
 1. Go to https://github.com/new
-2. Create a new repository named `neural-tool-router`
+2. Create a new repository named `tool-router`
 3. **Do NOT** initialize with README, .gitignore, or license (we already have these)
 4. Copy the repository URL
 
 ### Option B: GitLab
 
 1. Go to https://gitlab.com/projects/new
-2. Create a new project named `neural-tool-router`
+2. Create a new project named `tool-router`
 3. Choose "Create blank project"
 4. Copy the repository URL
 
 ### Option C: Bitbucket
 
 1. Go to https://bitbucket.org/repo/create
-2. Create a new repository named `neural-tool-router`
+2. Create a new repository named `tool-router`
 3. Copy the repository URL
 
 ## Step 6: Add Remote Repository
@@ -92,13 +92,13 @@ Replace `YOUR_USERNAME` and `YOUR_REPO_URL` with your actual values:
 
 ```bash
 # For GitHub
-git remote add origin https://github.com/YOUR_USERNAME/neural-tool-router.git
+git remote add origin https://github.com/YOUR_USERNAME/tool-router.git
 
 # For GitLab
-git remote add origin https://gitlab.com/YOUR_USERNAME/neural-tool-router.git
+git remote add origin https://gitlab.com/YOUR_USERNAME/tool-router.git
 
 # For Bitbucket
-git remote add origin https://bitbucket.org/YOUR_USERNAME/neural-tool-router.git
+git remote add origin https://bitbucket.org/YOUR_USERNAME/tool-router.git
 ```
 
 Verify the remote was added:
@@ -131,7 +131,7 @@ git push -u origin main
 ```bash
 # First, set up SSH keys (if not already done)
 # Then use SSH URL
-git remote set-url origin git@github.com:YOUR_USERNAME/neural-tool-router.git
+git remote set-url origin git@github.com:YOUR_USERNAME/tool-router.git
 git push -u origin main
 ```
 
@@ -322,4 +322,4 @@ git branch -d feature/name
 
 ---
 
-**Ready to push your code?** Follow the steps above and your NeuralToolRouter framework will be safely stored in your Git repository!
+**Ready to push your code?** Follow the steps above and your ToolRouter framework will be safely stored in your Git repository!

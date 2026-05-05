@@ -19,12 +19,12 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 from litellm import completion
 
-from config import config, RuntimeConfig, LLMConfig, EmbeddingConfig, VectorStoreConfig
-from mcp_client import MCPClient, ToolSchema
+from tool_router.config import config, RuntimeConfig, LLMConfig, EmbeddingConfig, VectorStoreConfig
+from tool_router.mcp_client import MCPClient, ToolSchema
 
 # Configure logging
 logging.basicConfig(
-    level=getattr(logging, config.runtime.log_level),
+    level=getattr(config.runtime, 'log_level', 'INFO'),
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
@@ -403,13 +403,13 @@ class ToolExecutor:
             }
 
 
-class NeuralToolRouter:
+class ToolRouter:
     """
     Main runtime system that orchestrates the entire flow.
     """
     
     def __init__(self):
-        """Initialize the NeuralToolRouter system."""
+        """Initialize the ToolRouter system."""
         self.query_expander = QueryExpander(config.llm, config.runtime)
         self.semantic_router: Optional[SemanticRouter] = None
         self.mcp_client: Optional[MCPClient] = None
@@ -418,7 +418,7 @@ class NeuralToolRouter:
     
     async def initialize(self):
         """Initialize all components."""
-        logger.info("Initializing NeuralToolRouter...")
+        logger.info("Initializing ToolRouter...")
         
         # Load embedding model
         logger.info("Loading fine-tuned embedding model...")
@@ -452,7 +452,7 @@ class NeuralToolRouter:
         # Initialize tool executor
         self.tool_executor = ToolExecutor(self.mcp_client, config.runtime)
         
-        logger.info("✓ NeuralToolRouter initialized successfully")
+        logger.info("✓ ToolRouter initialized successfully")
     
     def _create_fallback_tool_schema(self) -> Dict[str, Any]:
         """Create the search_available_tools fallback tool schema."""
@@ -657,17 +657,17 @@ What tool(s) should be called to fulfill this request?"""
         """Clean up resources."""
         if self.mcp_client:
             await self.mcp_client.close_all()
-        logger.info("NeuralToolRouter closed")
+        logger.info("ToolRouter closed")
 
 
 async def main():
     """Main execution function for interactive mode."""
     # Initialize router
-    router = NeuralToolRouter()
+    router = ToolRouter()
     await router.initialize()
     
     print("\n" + "=" * 60)
-    print("NeuralToolRouter - Interactive Mode")
+    print("ToolRouter - Interactive Mode")
     print("=" * 60)
     print("Enter your queries (or 'quit' to exit)\n")
     

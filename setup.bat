@@ -1,9 +1,9 @@
 @echo off
-REM NeuralToolRouter Setup Script for Windows
+REM ToolRouter Setup Script for Windows
 REM This script helps you set up the project quickly
 
 echo ==========================================
-echo NeuralToolRouter Setup
+echo ToolRouter Setup
 echo ==========================================
 echo.
 

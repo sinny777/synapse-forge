@@ -12,12 +12,13 @@ from typing import List, Dict, Any, Optional, Union
 from dataclasses import dataclass
 from pathlib import Path
 import sys
+from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 
-from config import MCPConfig
+from tool_router.config import MCPConfig
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -76,7 +77,7 @@ class MCPClient:
         self.sessions: Dict[str, ClientSession] = {}
         self.tools: Dict[str, ToolSchema] = {}  # tool_id -> ToolSchema
         self.server_tools: Dict[str, List[str]] = {}  # server_name -> [tool_ids]
-        self.stdio_contexts: Dict[str, Any] = {}  # server_name -> stdio context manager
+        self.exit_stack = AsyncExitStack()
         
     async def connect_server(self, server_name: str, server_config: Dict[str, Any]) -> bool:
         """
@@ -113,17 +114,17 @@ class MCPClient:
             
             # Connect using stdio with timeout
             logger.debug(f"Creating stdio context...")
-            stdio_context = stdio_client(server_params)
-            
-            logger.debug(f"Entering stdio context...")
             read, write = await asyncio.wait_for(
-                stdio_context.__aenter__(),
+                self.exit_stack.enter_async_context(stdio_client(server_params)),
                 timeout=10.0
             )
             
             logger.debug(f"Creating client session...")
             # Create session
-            session = ClientSession(read, write)
+            session = await asyncio.wait_for(
+                self.exit_stack.enter_async_context(ClientSession(read, write)),
+                timeout=10.0
+            )
             
             logger.debug(f"Initializing session...")
             await asyncio.wait_for(
@@ -133,7 +134,6 @@ class MCPClient:
             
             # Store session and context for cleanup
             self.sessions[server_name] = session
-            self.stdio_contexts[server_name] = stdio_context
             
             logger.info(f"✓ Connected to {server_name}")
             return True
@@ -325,25 +325,15 @@ class MCPClient:
     
     async def close_all(self):
         """Close all server connections."""
-        for server_name, session in self.sessions.items():
-            try:
-                await session.close()
-                logger.info(f"Closed connection to {server_name}")
-            except Exception as e:
-                logger.error(f"Error closing {server_name}: {e}")
-        
-        # Clean up stdio contexts
-        for server_name, stdio_context in self.stdio_contexts.items():
-            try:
-                await stdio_context.__aexit__(None, None, None)
-                logger.info(f"Closed stdio context for {server_name}")
-            except Exception as e:
-                logger.error(f"Error closing stdio context for {server_name}: {e}")
+        try:
+            await self.exit_stack.aclose()
+            logger.info("Closed all MCP connections and contexts")
+        except Exception as e:
+            logger.error(f"Error closing contexts: {e}")
         
         self.sessions.clear()
         self.tools.clear()
         self.server_tools.clear()
-        self.stdio_contexts.clear()
     
     def get_all_tools(self) -> List[ToolSchema]:
         """Get all available tools."""
@@ -439,7 +429,7 @@ class MCPClient:
 
 async def main():
     """Example usage of MCPClient."""
-    from config import config
+    from tool_router.config import config
     
     # Create client
     client = MCPClient(config.mcp)

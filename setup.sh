@@ -1,12 +1,12 @@
 #!/bin/bash
 
-# NeuralToolRouter Setup Script
+# ToolRouter Setup Script
 # This script helps you set up the project quickly
 
 set -e  # Exit on error
 
 echo "=========================================="
-echo "NeuralToolRouter Setup"
+echo "ToolRouter Setup"
 echo "=========================================="
 echo ""
 
@@ -90,7 +90,7 @@ echo ""
 echo "Next steps:"
 echo "1. Edit .env and add your API keys"
 echo "2. Run: source venv/bin/activate"
-echo "3. Run: python phase1_generator.py"
+echo "3. Run: python main.py generate"
 echo ""
 echo "For more information, see QUICKSTART.md"
 echo ""

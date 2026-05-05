@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Mock MCP Server for Testing
-Provides a simple set of tools for testing the NeuralToolRouter framework.
+Provides a simple set of tools for testing the ToolRouter framework.
 """
 
 import asyncio

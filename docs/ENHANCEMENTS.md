@@ -1,6 +1,6 @@
-# NeuralToolRouter - Enhancements Documentation
+# ToolRouter - Enhancements Documentation
 
-This document describes the three major enhancements added to the NeuralToolRouter framework based on state-of-the-art Agentic AI research and enterprise requirements.
+This document describes the three major enhancements added to the ToolRouter framework based on state-of-the-art Agentic AI research and enterprise requirements.
 
 ## Table of Contents
 
@@ -210,7 +210,7 @@ results = self.semantic_router.retrieve_tools(query, top_k=3, use_hybrid=False)
 
 ### Overview
 
-A complete, production-ready example demonstrating how to use NeuralToolRouter with the **IBM BeeAI Framework** to orchestrate multiple specialized agents for processing post-hospitalization medical insurance claims.
+A complete, production-ready example demonstrating how to use ToolRouter with the **IBM BeeAI Framework** to orchestrate multiple specialized agents for processing post-hospitalization medical insurance claims.
 
 ### Problem Solved
 
@@ -254,13 +254,13 @@ A complete, production-ready example demonstrating how to use NeuralToolRouter w
 2. **`multi_agent_orchestrator.py`** (476 lines)
    - Main orchestration script
    - Three specialized IBM BeeAgents
-   - Dynamic tool injection via NeuralToolRouter
+   - Dynamic tool injection via ToolRouter
    - Context passing between agents
 
 3. **`requirements.txt`**
    - IBM BeeAI Framework
    - FastMCP
-   - NeuralToolRouter dependencies
+   - ToolRouter dependencies
 
 4. **`README.md`** (276 lines)
    - Complete setup instructions

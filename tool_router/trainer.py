@@ -19,8 +19,8 @@ import numpy as np
 from sentence_transformers import SentenceTransformer, InputExample, losses
 from sentence_transformers.evaluation import InformationRetrievalEvaluator
 
-from config import config, TrainingConfig, EmbeddingConfig, VectorStoreConfig
-from mcp_client import ToolSchema
+from tool_router.config import config, TrainingConfig, EmbeddingConfig, VectorStoreConfig
+from tool_router.mcp_client import ToolSchema
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -344,7 +344,7 @@ class VectorIndexBuilder:
         # Create or get collection
         collection = client.get_or_create_collection(
             name=self.vector_config.chromadb_collection_name,
-            metadata={"description": "Tool embeddings for NeuralToolRouter"}
+            metadata={"description": "Tool embeddings for ToolRouter"}
         )
         
         # Prepare data

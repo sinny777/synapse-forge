@@ -1,11 +1,11 @@
 #!/bin/bash
-# NeuralToolRouter - Complete Pipeline Runner
+# ToolRouter - Complete Pipeline Runner
 # This script runs all three phases sequentially
 
 set -e  # Exit on error
 
 echo "=========================================="
-echo "NeuralToolRouter - Complete Pipeline"
+echo "ToolRouter - Complete Pipeline"
 echo "=========================================="
 echo ""
 
@@ -30,7 +30,7 @@ echo ""
 echo "=========================================="
 echo "Phase 1: Synthetic Data Generation"
 echo "=========================================="
-python phase1_generator.py
+python main.py generate
 if [ $? -ne 0 ]; then
     echo "❌ Phase 1 failed!"
     exit 1
@@ -42,7 +42,7 @@ echo ""
 echo "=========================================="
 echo "Phase 2: Model Training & Fine-Tuning"
 echo "=========================================="
-python phase2_trainer.py
+python main.py train
 if [ $? -ne 0 ]; then
     echo "❌ Phase 2 failed!"
     exit 1
@@ -57,7 +57,7 @@ echo "=========================================="
 echo "Starting interactive mode..."
 echo "Type 'quit' to exit"
 echo ""
-python phase3_runtime.py
+python main.py run
 
 echo ""
 echo "=========================================="

@@ -9,7 +9,7 @@ fastmcp>=0.1.0
 # MCP Protocol
 mcp>=0.9.0
 
-# NeuralToolRouter dependencies (from parent project)
+# ToolRouter dependencies (from parent project)
 torch>=2.0.0
 sentence-transformers>=2.2.0
 numpy>=1.24.0

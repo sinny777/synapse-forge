@@ -1,6 +1,6 @@
-# NeuralToolRouter - Quick Start Guide
+# ToolRouter - Quick Start Guide
 
-Get up and running with NeuralToolRouter in 5 minutes!
+Get up and running with ToolRouter in 5 minutes!
 
 ## Prerequisites
 

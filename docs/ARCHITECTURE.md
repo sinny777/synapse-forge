@@ -1,7 +1,7 @@
-# NeuralToolRouter - Reference Architecture
+# ToolRouter - Reference Architecture
 
 ## Overview
-NeuralToolRouter is a compound AI system that optimizes agentic AI architectures by separating tool retrieval from parameter extraction and execution, reducing context window bloat and latency.
+ToolRouter is a compound AI system that optimizes agentic AI architectures by separating tool retrieval from parameter extraction and execution, reducing context window bloat and latency.
 
 ## System Architecture
 

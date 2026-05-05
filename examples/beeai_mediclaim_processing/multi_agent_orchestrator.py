@@ -1,7 +1,7 @@
 """
 IBM BeeAI Multi-Agent Mediclaim Processing Orchestrator
 
-This script demonstrates how to use NeuralToolRouter to dynamically inject
+This script demonstrates how to use ToolRouter to dynamically inject
 different subsets of FastMCP tools into multiple specialized IBM BeeAgents
 working together to process a medical insurance claim.
 """
@@ -11,26 +11,29 @@ import sys
 import os
 import subprocess
 import time
+import time
+import argparse
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
 
-# Add parent directory to path to import NeuralToolRouter
+# Add parent directory to path to import ToolRouter
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sentence_transformers import SentenceTransformer
-from bee_agent_framework.agents.bee import BeeAgent
+# Reference: https://framework.beeai.dev/modules/agents/requirement-agent
+from bee_agent_framework.agents.requirement import RequirementAgent
 from bee_agent_framework.memory import TokenMemory
 from bee_agent_framework.llms import ChatLLM
 from litellm import completion
 
-from config import config
-from mcp_client import MCPClient, ToolSchema
-from phase3_runtime import SemanticRouter
+from tool_router.config import config
+from tool_router.mcp_client import MCPClient, ToolSchema
+from tool_router.runtime import SemanticRouter
 
 
 class ToolRouterForBeeAI:
     """
-    Adapter that wraps NeuralToolRouter for use with IBM BeeAI agents.
+    Adapter that wraps ToolRouter for use with IBM BeeAI agents.
     Provides Top-K tool retrieval for dynamic tool injection.
     """
     
@@ -43,7 +46,7 @@ class ToolRouterForBeeAI:
     
     async def initialize(self):
         """Initialize all components."""
-        print("Initializing NeuralToolRouter...")
+        print("Initializing ToolRouter...")
         
         # Load embedding model
         print("  Loading fine-tuned embedding model...")
@@ -77,7 +80,7 @@ class ToolRouterForBeeAI:
             self.all_tools[tool.id] = tool
         
         print(f"  ✓ Connected to MCP server with {len(self.all_tools)} tools")
-        print("✓ NeuralToolRouter initialized\n")
+        print("✓ ToolRouter initialized\n")
     
     async def get_top_k_tools(self, query: str, k: int = 2) -> List[ToolSchema]:
         """
@@ -180,7 +183,8 @@ async def start_fastmcp_server():
 async def run_policy_agent(
     tools: List[ToolSchema],
     mcp_client: MCPClient,
-    user_query: str
+    user_query: str,
+    llm_model: str
 ) -> str:
     """
     Run the Policy Agent to fetch policy details and check coverage.
@@ -211,7 +215,7 @@ async def run_policy_agent(
         async def generate(self, messages, **kwargs):
             # Use litellm for generation
             response = completion(
-                model=config.llm.heavy_model,
+                model=llm_model,
                 messages=[{"role": m.role, "content": m.content} for m in messages],
                 temperature=0.0
             )
@@ -219,7 +223,8 @@ async def run_policy_agent(
     
     llm = SimpleLLM()
     
-    agent = BeeAgent(
+    # Implementation based on: https://framework.beeai.dev/modules/agents/requirement-agent
+    agent = RequirementAgent(
         llm=llm,
         memory=memory,
         tools=beeai_tools
@@ -240,7 +245,8 @@ async def run_policy_agent(
 async def run_billing_agent(
     tools: List[ToolSchema],
     mcp_client: MCPClient,
-    user_query: str
+    user_query: str,
+    llm_model: str
 ) -> str:
     """
     Run the Billing Agent to fetch discharge summary and verify bills.
@@ -269,7 +275,7 @@ async def run_billing_agent(
     class SimpleLLM(ChatLLM):
         async def generate(self, messages, **kwargs):
             response = completion(
-                model=config.llm.heavy_model,
+                model=llm_model,
                 messages=[{"role": m.role, "content": m.content} for m in messages],
                 temperature=0.0
             )
@@ -277,7 +283,8 @@ async def run_billing_agent(
     
     llm = SimpleLLM()
     
-    agent = BeeAgent(
+    # Implementation based on: https://framework.beeai.dev/modules/agents/requirement-agent
+    agent = RequirementAgent(
         llm=llm,
         memory=memory,
         tools=beeai_tools
@@ -300,7 +307,8 @@ async def run_claim_processing_agent(
     mcp_client: MCPClient,
     user_query: str,
     policy_info: str,
-    billing_info: str
+    billing_info: str,
+    llm_model: str
 ) -> str:
     """
     Run the Claim Processing Agent to calculate and submit the claim.
@@ -331,7 +339,7 @@ async def run_claim_processing_agent(
     class SimpleLLM(ChatLLM):
         async def generate(self, messages, **kwargs):
             response = completion(
-                model=config.llm.heavy_model,
+                model=llm_model,
                 messages=[{"role": m.role, "content": m.content} for m in messages],
                 temperature=0.0
             )
@@ -339,7 +347,8 @@ async def run_claim_processing_agent(
     
     llm = SimpleLLM()
     
-    agent = BeeAgent(
+    # Implementation based on: https://framework.beeai.dev/modules/agents/requirement-agent
+    agent = RequirementAgent(
         llm=llm,
         memory=memory,
         tools=beeai_tools
@@ -370,11 +379,25 @@ Please calculate the final claimable amount and submit the mediclaim."""
 
 async def main():
     """Main orchestration function."""
+    parser = argparse.ArgumentParser(description="IBM BeeAI Multi-Agent Mediclaim Processing")
+    parser.add_argument("--llm", type=str, choices=["ollama", "openai"], default="ollama",
+                        help="Choose LLM provider (ollama or openai)")
+    parser.add_argument("--model", type=str, default="", 
+                        help="Specific model name (default: ollama/llama3 for ollama, gpt-4o for openai)")
+    args = parser.parse_args()
+
+    # Configure LLM
+    if args.llm == "ollama":
+        llm_model = args.model if args.model else "ollama/llama3"
+    else:
+        llm_model = args.model if args.model else "gpt-4o"
+        
+    print(f"Using LLM Model: {llm_model}")
     print("\n" + "=" * 70)
     print("IBM BeeAI Multi-Agent Mediclaim Processing Orchestrator")
     print("=" * 70)
     print("\nThis example demonstrates:")
-    print("  1. Dynamic tool retrieval using NeuralToolRouter")
+    print("  1. Dynamic tool retrieval using ToolRouter")
     print("  2. Hybrid retrieval (Dense + BM25 with RRF)")
     print("  3. Multi-agent orchestration with IBM BeeAI")
     print("  4. Context passing between specialized agents")
@@ -387,7 +410,7 @@ async def main():
         return
     
     try:
-        # Initialize NeuralToolRouter
+        # Initialize ToolRouter
         router = ToolRouterForBeeAI()
         await router.initialize()
         
@@ -410,7 +433,8 @@ Verify their coverage, analyze the hospital bills, and submit the final claim.""
         policy_response = await run_policy_agent(
             policy_tools,
             router.mcp_client,
-            policy_query
+            policy_query,
+            llm_model
         )
         
         # Step 2: Billing Agent
@@ -422,7 +446,8 @@ Verify their coverage, analyze the hospital bills, and submit the final claim.""
         billing_response = await run_billing_agent(
             billing_tools,
             router.mcp_client,
-            billing_query
+            billing_query,
+            llm_model
         )
         
         # Step 3: Claim Processing Agent
@@ -436,7 +461,8 @@ Verify their coverage, analyze the hospital bills, and submit the final claim.""
             router.mcp_client,
             claim_query,
             policy_response,
-            billing_response
+            billing_response,
+            llm_model
         )
         
         # Final Summary

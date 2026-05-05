@@ -59,6 +59,9 @@ data/*.jsonl
 data/*.json
 !data/predefined_tools.json
 
+# results
+results/
+
 # Logs
 logs/
 *.log

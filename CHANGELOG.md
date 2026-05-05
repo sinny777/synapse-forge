@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to the NeuralToolRouter project will be documented in this file.
+All notable changes to the ToolRouter project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial implementation of NeuralToolRouter framework
+- Initial implementation of ToolRouter framework
 - Phase 1: Synthetic data generation with Teacher LLM
 - Phase 2: PyTorch model fine-tuning with contrastive learning
 - Phase 3: Runtime agentic loop with semantic routing
@@ -35,7 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.1.0] - 2024-12-XX
 
 ### Added
-- Initial release of NeuralToolRouter
+- Initial release of ToolRouter
 - Core framework implementation
 - Three-phase architecture
 - MCP integration support

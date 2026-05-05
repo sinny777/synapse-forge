@@ -1,7 +1,7 @@
 """
-NeuralToolRouter Configuration Module
+ToolRouter Configuration Module
 
-This module contains all configuration settings for the NeuralToolRouter framework.
+This module contains all configuration settings for the ToolRouter framework.
 Modify these settings to customize the behavior of data generation, training, and runtime.
 """
 
@@ -16,24 +16,26 @@ class LLMConfig:
     """Configuration for LLM providers."""
     
     # Teacher LLM for synthetic data generation (Phase 1)
-    teacher_model: str = "gpt-4o"  # Options: gpt-4o, claude-3-5-sonnet-20241022, etc.
+    teacher_model: str = "ollama/llama3"  # Options: ollama/llama3, gpt-4o, claude-3-5-sonnet-20241022, groq/llama3-70b-8192, etc.
     teacher_temperature: float = 0.7
     teacher_max_tokens: int = 2000
     
     # Query expansion LLM (Phase 3 - fast/cheap)
-    expansion_model: str = "gpt-4o-mini"  # Options: gpt-4o-mini, llama-3-8b, etc.
+    expansion_model: str = "ollama/llama3"  # Options: ollama/llama3, gpt-4o-mini, groq/llama3-8b-8192, etc.
     expansion_temperature: float = 0.3
     expansion_max_tokens: int = 500
     
     # Heavy LLM for tool execution (Phase 3)
-    heavy_model: str = "gpt-4o"  # Options: gpt-4o, claude-3-5-sonnet-20241022, etc.
+    heavy_model: str = "ollama/llama3"  # Options: ollama/llama3, gpt-4o, claude-3-5-sonnet-20241022, groq/llama3-70b-8192, etc.
     heavy_temperature: float = 0.0
     heavy_max_tokens: int = 4000
     
-    # API keys (read from environment variables)
+    # API keys and endpoints (read from environment variables)
+    ollama_api_base: Optional[str] = field(default_factory=lambda: os.getenv("OLLAMA_API_BASE", "http://localhost:11434"))
     openai_api_key: Optional[str] = field(default_factory=lambda: os.getenv("OPENAI_API_KEY"))
     anthropic_api_key: Optional[str] = field(default_factory=lambda: os.getenv("ANTHROPIC_API_KEY"))
     google_api_key: Optional[str] = field(default_factory=lambda: os.getenv("GOOGLE_API_KEY"))
+    groq_api_key: Optional[str] = field(default_factory=lambda: os.getenv("GROQ_API_KEY"))
 
 
 @dataclass
@@ -94,7 +96,7 @@ class VectorStoreConfig:
     
     # Search settings
     top_k: int = 3  # Number of tools to retrieve
-    similarity_threshold: float = 0.5  # Minimum similarity score
+    similarity_threshold: float = 0.3  # Minimum similarity score
 
 
 @dataclass
@@ -104,16 +106,16 @@ class MCPConfig:
     # MCP server configurations
     # Format: {"server_name": {"command": "...", "args": [...], "env": {...}}}
     servers: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        "mock-test": {
-            "command": "python",
-            "args": ["mock_mcp_server.py"],
-            "transport": "stdio"
-        },
-        # "filesystem": {
-        #     "command": "npx",
-        #     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        # "mock-test": {
+        #     "command": "python",
+        #     "args": ["mock_mcp_server.py"],
         #     "transport": "stdio"
         # },
+        "filesystem": {
+            "command": "npx",
+            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+            "transport": "stdio"
+        },
         # "mediclaim": {
         #     "command": "python",
         #     "args": ["examples/beeai_mediclaim_processing/mock_fastmcp_server.py"],
@@ -178,7 +180,7 @@ Logical Steps:"""
 
 
 @dataclass
-class NeuralToolRouterConfig:
+class ToolRouterConfig:
     """Main configuration class combining all sub-configurations."""
     
     llm: LLMConfig = field(default_factory=LLMConfig)
@@ -235,7 +237,7 @@ class NeuralToolRouterConfig:
         return True
     
     @classmethod
-    def from_dict(cls, config_dict: Dict[str, Any]) -> "NeuralToolRouterConfig":
+    def from_dict(cls, config_dict: Dict[str, Any]) -> "ToolRouterConfig":
         """Create configuration from dictionary."""
         return cls(**config_dict)
     
@@ -253,10 +255,10 @@ class NeuralToolRouterConfig:
 
 
 # Global configuration instance
-config = NeuralToolRouterConfig()
+config = ToolRouterConfig()
 
 
-def load_config(config_path: Optional[Path] = None) -> NeuralToolRouterConfig:
+def load_config(config_path: Optional[Path] = None) -> ToolRouterConfig:
     """
     Load configuration from file or return default.
     
@@ -264,18 +266,18 @@ def load_config(config_path: Optional[Path] = None) -> NeuralToolRouterConfig:
         config_path: Path to configuration file (JSON or YAML)
     
     Returns:
-        NeuralToolRouterConfig instance
+        ToolRouterConfig instance
     """
     if config_path and config_path.exists():
         import json
         with open(config_path, 'r') as f:
             config_dict = json.load(f)
-        return NeuralToolRouterConfig.from_dict(config_dict)
+        return ToolRouterConfig.from_dict(config_dict)
     
-    return NeuralToolRouterConfig()
+    return ToolRouterConfig()
 
 
-def save_config(config: NeuralToolRouterConfig, config_path: Path):
+def save_config(config: ToolRouterConfig, config_path: Path):
     """
     Save configuration to file.
     
@@ -290,9 +292,9 @@ def save_config(config: NeuralToolRouterConfig, config_path: Path):
 
 if __name__ == "__main__":
     # Example usage and validation
-    config = NeuralToolRouterConfig()
+    config = ToolRouterConfig()
     
-    print("NeuralToolRouter Configuration")
+    print("ToolRouter Configuration")
     print("=" * 50)
     print(f"Teacher LLM: {config.llm.teacher_model}")
     print(f"Expansion LLM: {config.llm.expansion_model}")

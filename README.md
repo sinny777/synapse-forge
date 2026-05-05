@@ -1,4 +1,4 @@
-# NeuralToolRouter
+# ToolRouter
 
 A production-ready Python framework that optimizes Agentic AI architectures by separating **Tool Retrieval** (using a fine-tuned PyTorch embedding model) from **Parameter Extraction and Execution** (using a heavy LLM). This dramatically reduces context window bloat and latency.
 
@@ -12,7 +12,7 @@ Most Agentic AI systems suffer from:
 
 ## 💡 Solution
 
-NeuralToolRouter implements a **RAG-for-Tools** architecture:
+ToolRouter implements a **RAG-for-Tools** architecture:
 
 1. **Fast Retrieval**: Fine-tuned embedding model retrieves Top-K relevant tools
 2. **Query Expansion**: Fast LLM expands queries for better retrieval
@@ -40,7 +40,7 @@ NeuralToolRouter implements a **RAG-for-Tools** architecture:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd NeuralToolRouter
+cd ToolRouter
 
 # Create virtual environment
 python -m venv venv
@@ -79,7 +79,7 @@ servers: Dict[str, Dict[str, Any]] = {
 #### Phase 1: Generate Synthetic Training Data
 
 ```bash
-python phase1_generator.py
+python main.py generate
 ```
 
 This will:
@@ -93,7 +93,7 @@ This will:
 #### Phase 2: Fine-Tune Embedding Model
 
 ```bash
-python phase2_trainer.py
+python main.py train
 ```
 
 This will:
@@ -107,7 +107,7 @@ This will:
 #### Phase 3: Run the Agentic System
 
 ```bash
-python phase3_runtime.py
+python main.py run
 ```
 
 This starts an interactive session where you can query the system:
@@ -129,25 +129,40 @@ Tool Executions (1):
     Result: {"temperature": 68, "conditions": "Sunny", ...}
 ```
 
+#### Phase 4: Archive Results
+
+```bash
+python main.py archive
+```
+
+This cleans up the workspace by archiving the `data/`, `models/`, and `logs/` output into a timestamped folder inside `results/`, allowing you to run all phases again with fresh configurations.
+
 ## 📁 Project Structure
 
 ```
-NeuralToolRouter/
+ToolRouter/
 ├── ARCHITECTURE.md          # Detailed architecture documentation
 ├── README.md                # This file
 ├── requirements.txt         # Python dependencies
-├── config.py                # Configuration module
-├── mcp_client.py           # MCP client utility
-├── phase1_generator.py     # Synthetic data generation
-├── phase2_trainer.py       # Model fine-tuning
-├── phase3_runtime.py       # Runtime execution
-├── data/                   # Generated data
+├── main.py                  # CLI Entry point
+├── tool_router/      # Core package
+│   ├── __init__.py
+│   ├── config.py            # Configuration module
+│   ├── mcp_client.py        # MCP client utility
+│   ├── mock_mcp_server.py   # Mock MCP server for testing
+│   ├── generator.py         # Synthetic data generation (Phase 1)
+│   ├── trainer.py           # Model fine-tuning (Phase 2)
+│   ├── runtime.py           # Runtime execution (Phase 3)
+│   └── utils/
+│       └── archive.py       # Utility to archive results
+├── data/                    # Generated data
 │   ├── synthetic_queries.jsonl
 │   ├── tool_cache.json
 │   └── faiss_index.bin
-├── models/                 # Trained models
+├── models/                  # Trained models
 │   └── fine_tuned_tool_router/
-└── logs/                   # Execution logs
+├── results/                 # Archived run outputs
+└── logs/                    # Execution logs
 ```
 
 ## 🔧 Configuration Options
@@ -251,8 +266,8 @@ When you add/remove MCP servers or tools:
 For minor tool changes, you can skip retraining and just rebuild the index:
 
 ```python
-from phase2_trainer import VectorIndexBuilder, load_tools_from_cache
-from config import config
+from tool_router.trainer import VectorIndexBuilder, load_tools_from_cache
+from tool_router.config import config
 
 # Load tools and model
 tools = load_tools_from_cache(config.mcp.tool_cache_path)
@@ -287,11 +302,11 @@ chromadb_path: Path = Path("./data/chromadb")
 ### Programmatic API
 
 ```python
-from phase3_runtime import NeuralToolRouter
+from tool_router.runtime import ToolRouter
 import asyncio
 
 async def main():
-    router = NeuralToolRouter()
+    router = ToolRouter()
     await router.initialize()
     
     result = await router.process_query("What's the weather in SF?")
@@ -300,6 +315,31 @@ async def main():
     await router.close()
 
 asyncio.run(main())
+```
+
+### Using Artifacts in Custom Agentic AI Applications
+
+You can completely bypass the `ToolRouter` interactive runtime and directly inject the generated FAISS/BM25 indices and fine-tuned embedding models into your own agent architectures (like LangChain, AutoGen, or IBM BeeAI):
+
+```python
+from tool_router.config import config
+from sentence_transformers import SentenceTransformer
+from tool_router.runtime import SemanticRouter
+
+# 1. Load the fine-tuned embedding model
+model = SentenceTransformer(str(config.embedding.fine_tuned_model_dir))
+
+# 2. Initialize the Semantic Router with Hybrid Retrieval
+semantic_router = SemanticRouter(model, config.vector_store)
+semantic_router.load_faiss_index()
+semantic_router.load_bm25_index()
+
+# 3. Retrieve only the highly relevant tools for a specific sub-task
+task = "Fetch the patient's hospital discharge summary"
+top_tools = semantic_router.retrieve_tools(task, top_k=2, use_hybrid=True)
+
+# 4. Map IDs back to schemas and pass ONLY these tools into your Agent!
+# (See examples/beeai_mediclaim_processing/multi_agent_orchestrator.py for a complete example)
 ```
 
 ## 🐛 Troubleshooting
@@ -312,12 +352,12 @@ asyncio.run(main())
 
 ### "Training data not found"
 
-- Run Phase 1 first: `python phase1_generator.py`
+- Run Phase 1 first: `python main.py generate`
 - Check that `data/synthetic_queries.jsonl` exists
 
 ### "Fine-tuned model not found"
 
-- Run Phase 2 first: `python phase2_trainer.py`
+- Run Phase 2 first: `python main.py train`
 - Check that `models/fine_tuned_tool_router/` exists
 
 ### "CUDA out of memory"

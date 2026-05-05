@@ -1,6 +1,6 @@
-# NeuralToolRouter - Quick Start Guide
+# ToolRouter - Quick Start Guide
 
-Get up and running with NeuralToolRouter in 5 minutes!
+Get up and running with ToolRouter in 5 minutes!
 
 ## Prerequisites
 
@@ -13,8 +13,8 @@ Get up and running with NeuralToolRouter in 5 minutes!
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/neural-tool-router.git
-cd neural-tool-router
+git clone https://github.com/YOUR_USERNAME/tool-router.git
+cd tool-router
 ```
 
 ### 2. Create Virtual Environment
@@ -175,7 +175,7 @@ pip install -r requirements.txt
 ## Project Structure
 
 ```
-neural-tool-router/
+tool-router/
 ├── config.py              # Configuration
 ├── mcp_client.py          # MCP integration
 ├── phase1_generator.py    # Data generation

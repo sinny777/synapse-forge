@@ -1,6 +1,6 @@
-# Contributing to NeuralToolRouter
+# Contributing to ToolRouter
 
-Thank you for your interest in contributing to NeuralToolRouter! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to ToolRouter! This document provides guidelines and instructions for contributing.
 
 ## Table of Contents
 
@@ -19,8 +19,8 @@ By participating in this project, you agree to maintain a respectful and inclusi
 ## Getting Started
 
 1. Fork the repository
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/neural-tool-router.git`
-3. Add upstream remote: `git remote add upstream https://github.com/ORIGINAL_OWNER/neural-tool-router.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/tool-router.git`
+3. Add upstream remote: `git remote add upstream https://github.com/ORIGINAL_OWNER/tool-router.git`
 
 ## Development Setup
 
@@ -139,7 +139,7 @@ Fixes #123
 ## Project Structure
 
 ```
-neural-tool-router/
+tool-router/
 ├── config.py              # Configuration management
 ├── mcp_client.py          # MCP server client
 ├── phase1_generator.py    # Synthetic data generation
@@ -168,4 +168,4 @@ If you have questions or need help, please:
 - Check existing issues and documentation
 - Reach out to maintainers
 
-Thank you for contributing to NeuralToolRouter!
+Thank you for contributing to ToolRouter!

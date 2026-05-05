@@ -1,8 +1,8 @@
-# NeuralToolRouter - Project Summary
+# ToolRouter - Project Summary
 
 ## 📦 Deliverables
 
-This project implements a complete, production-ready **NeuralToolRouter** framework as specified in the requirements. All components have been successfully implemented.
+This project implements a complete, production-ready **ToolRouter** framework as specified in the requirements. All components have been successfully implemented.
 
 ## ✅ Completed Components
 
@@ -67,7 +67,7 @@ This project implements a complete, production-ready **NeuralToolRouter** framew
 ## 📊 Project Structure
 
 ```
-NeuralToolRouter/
+ToolRouter/
 ├── ARCHITECTURE.md              # System architecture documentation
 ├── README.md                    # Main documentation
 ├── QUICKSTART.md               # Quick start guide
