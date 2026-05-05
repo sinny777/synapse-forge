@@ -11,10 +11,15 @@ import sys
 import os
 import subprocess
 import time
-import time
 import argparse
+import base64
+import uuid
 from pathlib import Path
 from typing import List, Dict, Any, Tuple
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Add parent directory to path to import ToolRouter
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -94,6 +99,7 @@ class ToolRouterForBeeAI:
             List of ToolSchema objects
         """
         print(f"  Retrieving Top-{k} tools for: '{query[:60]}...'")
+        start_time = time.time()
         
         # Use semantic router to get top-k
         results = self.semantic_router.retrieve_tools(query, top_k=k, use_hybrid=True)
@@ -104,6 +110,9 @@ class ToolRouterForBeeAI:
             if tool_id in self.all_tools:
                 tools.append(self.all_tools[tool_id])
                 print(f"    ✓ {tool_id} (score: {score:.3f})")
+        
+        latency = time.time() - start_time
+        print(f"  ✓ Tool retrieval completed in {latency:.2f} seconds")
         
         return tools
     
@@ -155,7 +164,13 @@ class BeeAIToolAdapter:
 
         async def tool_function(**kwargs) -> str:
             """Dynamically generated tool function."""
+            start_time = time.time()
+            print(f"\n  [Tool Execution] Executing '{tool_schema.name}' with args: {kwargs}")
+            
             result = await mcp_client.call_tool(tool_schema.id, kwargs)
+            
+            latency = time.time() - start_time
+            print(f"  [Tool Execution] ✓ '{tool_schema.name}' completed in {latency:.2f} seconds")
             
             if result.get("success"):
                 # Extract text content
@@ -247,9 +262,11 @@ async def run_policy_agent(
     print(f"\nQuery: {user_query}")
     print("\nAgent working...")
     
+    start_time = time.time()
     response = await agent.run(user_query)
+    latency = time.time() - start_time
     
-    print(f"\nPolicy Agent Response:\n{response}")
+    print(f"\nPolicy Agent Response (completed in {latency:.2f}s):\n{response}")
     print("=" * 70)
     
     return response
@@ -298,9 +315,11 @@ async def run_billing_agent(
     print(f"\nQuery: {user_query}")
     print("\nAgent working...")
     
+    start_time = time.time()
     response = await agent.run(user_query)
+    latency = time.time() - start_time
     
-    print(f"\nBilling Agent Response:\n{response}")
+    print(f"\nBilling Agent Response (completed in {latency:.2f}s):\n{response}")
     print("=" * 70)
     
     return response
@@ -364,12 +383,85 @@ Please calculate the final claimable amount and submit the mediclaim."""
     print(f"\nQuery: {user_query}")
     print("\nAgent working...")
     
+    start_time = time.time()
     response = await agent.run(enriched_query)
+    latency = time.time() - start_time
     
-    print(f"\nClaim Processing Agent Response:\n{response}")
+    print(f"\nClaim Processing Agent Response (completed in {latency:.2f}s):\n{response}")
     print("=" * 70)
     
     return response
+
+
+def setup_observability():
+    """Set up Langfuse observability if configured via environment variables."""
+    # Check if Langfuse or OTEL is configured
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+    otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_traces_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+    
+    if not ((public_key and secret_key) or otel_endpoint or otel_traces_endpoint):
+        return None
+        
+    try:
+        from openinference.instrumentation.beeai import BeeAIInstrumentor
+        from opentelemetry import trace as trace_api
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk import trace as trace_sdk
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace import SpanProcessor
+        
+        class LangfuseSessionProcessor(SpanProcessor):
+            """OpenTelemetry SpanProcessor to inject Langfuse session ID into all spans."""
+            def __init__(self, session_id: str):
+                self.session_id = session_id
+                
+            def on_start(self, span, parent_context=None):
+                span.set_attribute("langfuse.session.id", self.session_id)
+                
+            def on_end(self, span):
+                pass
+        
+        # If OTEL env vars are not set but LANGFUSE vars are, set the OTEL vars dynamically
+        if not otel_endpoint and not otel_traces_endpoint and public_key and secret_key:
+            host = os.environ.get("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
+            endpoint = f"{host.rstrip('/')}/api/public/otel/v1/traces"
+            
+            auth_string = f"{public_key}:{secret_key}"
+            auth_base64 = base64.b64encode(auth_string.encode()).decode()
+            headers = f"Authorization=Basic {auth_base64},x-langfuse-ingestion-version=4"
+            
+            os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = endpoint
+            os.environ["OTEL_EXPORTER_OTLP_TRACES_HEADERS"] = headers
+            
+            exporter = OTLPSpanExporter(
+                endpoint=endpoint,
+                headers={
+                    "Authorization": f"Basic {auth_base64}",
+                    "x-langfuse-ingestion-version": "4"
+                }
+            )
+        else:
+            # Let OTLPSpanExporter use environment variables
+            exporter = OTLPSpanExporter()
+
+        resource = Resource(attributes={})
+        tracer_provider = trace_sdk.TracerProvider(resource=resource)
+        
+        session_id = str(uuid.uuid4())
+        tracer_provider.add_span_processor(LangfuseSessionProcessor(session_id))
+        tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+        trace_api.set_tracer_provider(tracer_provider)
+        
+        BeeAIInstrumentor().instrument()
+        print(f"✓ Langfuse observability enabled via OpenTelemetry (Session: {session_id})\n")
+        return session_id
+    except ImportError as e:
+        print(f"⚠ Langfuse observability skipped: Missing dependencies ({e}).")
+        print("  To enable, run: pip install openinference-instrumentation-beeai opentelemetry-sdk opentelemetry-exporter-otlp\n")
+        return None
 
 
 async def main():
@@ -400,6 +492,9 @@ async def main():
     print("  4. Context passing between specialized agents")
     print("=" * 70 + "\n")
     
+    # Setup observability
+    session_id = setup_observability()
+    
     # Start FastMCP server
     server_process = await start_fastmcp_server()
     if server_process is None:
@@ -420,6 +515,8 @@ async def main():
 Verify their coverage, analyze the hospital bills, and submit the final claim."""
         print(goal)
         print("=" * 70 + "\n")
+        
+        total_start_time = time.time()
         
         # Step 1: Policy Agent
         print("\n[STEP 1/3] Policy Agent - Checking Coverage")
@@ -463,8 +560,11 @@ Verify their coverage, analyze the hospital bills, and submit the final claim.""
         )
         
         # Final Summary
+        total_latency = time.time() - total_start_time
         print("\n" + "=" * 70)
-        print("ORCHESTRATION COMPLETE")
+        print(f"ORCHESTRATION COMPLETE (Total Time: {total_latency:.2f}s)")
+        if session_id:
+            print(f"Langfuse Session ID: {session_id}")
         print("=" * 70)
         print("\n✓ Policy verified")
         print("✓ Bills verified")
