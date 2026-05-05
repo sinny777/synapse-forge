@@ -1,7 +1,7 @@
 # IBM BeeAI Mediclaim Processing Example Requirements
 
 # IBM BeeAI Framework
-bee-agent-framework>=0.0.1
+beeai-framework>=0.0.1
 
 # FastMCP for mock server
 fastmcp>=0.1.0

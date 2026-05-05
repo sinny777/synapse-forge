@@ -417,9 +417,9 @@ Contributions welcome! Areas for improvement:
 ## 📞 Support
 
 For issues and questions:
-- GitHub Issues: [Your Repo URL]
+- GitHub Issues: [[NeuralToolRouter](https://github.com/sinny777/neural-tool-router)]
 - Documentation: [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
-- Email: [Your Email]
+- Email: [sinny777@gmail.com]
 
 ---
 

@@ -16,17 +16,17 @@ class LLMConfig:
     """Configuration for LLM providers."""
     
     # Teacher LLM for synthetic data generation (Phase 1)
-    teacher_model: str = "ollama/llama3"  # Options: ollama/llama3, gpt-4o, claude-3-5-sonnet-20241022, groq/llama3-70b-8192, etc.
+    teacher_model: str = field(default_factory=lambda: os.getenv("TEACHER_MODEL", "ollama/granite4.1:8b"))
     teacher_temperature: float = 0.7
     teacher_max_tokens: int = 2000
     
     # Query expansion LLM (Phase 3 - fast/cheap)
-    expansion_model: str = "ollama/llama3"  # Options: ollama/llama3, gpt-4o-mini, groq/llama3-8b-8192, etc.
+    expansion_model: str = field(default_factory=lambda: os.getenv("EXPANSION_MODEL", "ollama/granite4.1:8b"))
     expansion_temperature: float = 0.3
     expansion_max_tokens: int = 500
     
     # Heavy LLM for tool execution (Phase 3)
-    heavy_model: str = "ollama/llama3"  # Options: ollama/llama3, gpt-4o, claude-3-5-sonnet-20241022, groq/llama3-70b-8192, etc.
+    heavy_model: str = field(default_factory=lambda: os.getenv("HEAVY_MODEL", "ollama/granite4.1:8b"))
     heavy_temperature: float = 0.0
     heavy_max_tokens: int = 4000
     
@@ -46,7 +46,7 @@ class EmbeddingConfig:
     base_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
     
     # Fine-tuned model paths
-    fine_tuned_model_dir: Path = Path("./models/fine_tuned_tool_router")
+    fine_tuned_model_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "models" / "fine_tuned_tool_router")
     
     # Embedding dimensions (auto-detected from model)
     embedding_dim: Optional[int] = None
@@ -73,10 +73,10 @@ class TrainingConfig:
     save_steps: int = 500
     
     # Data paths
-    training_data_path: Path = Path("./data/synthetic_queries.jsonl")
+    training_data_path: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data" / "synthetic_queries.jsonl")
     
     # Logging
-    logging_dir: Path = Path("./logs/training")
+    logging_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "logs" / "training")
 
 
 @dataclass
@@ -87,11 +87,11 @@ class VectorStoreConfig:
     store_type: str = "faiss"  # Options: "faiss", "chromadb"
     
     # FAISS settings
-    faiss_index_path: Path = Path("./data/faiss_index.bin")
+    faiss_index_path: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data" / "faiss_index.bin")
     faiss_index_type: str = "IndexFlatIP"  # Inner product (cosine similarity)
     
     # ChromaDB settings
-    chromadb_path: Path = Path("./data/chromadb")
+    chromadb_path: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data" / "chromadb")
     chromadb_collection_name: str = "tool_embeddings"
     
     # Search settings
@@ -106,21 +106,16 @@ class MCPConfig:
     # MCP server configurations
     # Format: {"server_name": {"command": "...", "args": [...], "env": {...}}}
     servers: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        # "mock-test": {
-        #     "command": "python",
-        #     "args": ["mock_mcp_server.py"],
+        # "filesystem": {
+        #     "command": "npx",
+        #     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
         #     "transport": "stdio"
         # },
-        "filesystem": {
-            "command": "npx",
-            "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+        "mediclaim": {
+            "command": "python",
+            "args": [str(Path(__file__).parent.parent / "examples" / "beeai_mediclaim_processing" / "mock_fastmcp_server.py")],
             "transport": "stdio"
-        },
-        # "mediclaim": {
-        #     "command": "python",
-        #     "args": ["examples/beeai_mediclaim_processing/mock_fastmcp_server.py"],
-        #     "transport": "stdio"
-        # }
+        }
         # Add more MCP servers here
     })
     
@@ -128,7 +123,7 @@ class MCPConfig:
     connection_timeout: int = 30
     
     # Tool schema cache
-    tool_cache_path: Path = Path("./data/tool_cache.json")
+    tool_cache_path: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data" / "tool_cache.json")
 
 
 @dataclass
@@ -147,7 +142,7 @@ class DataGenerationConfig:
     num_hard_negatives: int = 3
     
     # Output path
-    output_path: Path = Path("./data/synthetic_queries.jsonl")
+    output_path: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data" / "synthetic_queries.jsonl")
     
     # Batch processing
     batch_size: int = 5  # Tools to process in parallel
@@ -176,7 +171,7 @@ Logical Steps:"""
     
     # Logging
     log_level: str = "INFO"  # Options: DEBUG, INFO, WARNING, ERROR
-    log_file: Path = Path("./logs/runtime.log")
+    log_file: Path = field(default_factory=lambda: Path(__file__).parent.parent / "logs" / "runtime.log")
 
 
 @dataclass
@@ -192,10 +187,10 @@ class ToolRouterConfig:
     runtime: RuntimeConfig = field(default_factory=RuntimeConfig)
     
     # Project paths
-    project_root: Path = Path(".")
-    data_dir: Path = Path("./data")
-    models_dir: Path = Path("./models")
-    logs_dir: Path = Path("./logs")
+    project_root: Path = field(default_factory=lambda: Path(__file__).parent.parent)
+    data_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data")
+    models_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "models")
+    logs_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "logs")
     
     def __post_init__(self):
         """Create necessary directories."""

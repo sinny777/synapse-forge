@@ -21,10 +21,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from sentence_transformers import SentenceTransformer
 # Reference: https://framework.beeai.dev/modules/agents/requirement-agent
-from bee_agent_framework.agents.requirement import RequirementAgent
-from bee_agent_framework.memory import TokenMemory
-from bee_agent_framework.llms import ChatLLM
-from litellm import completion
+from beeai_framework.agents.requirement import RequirementAgent
+from beeai_framework.memory import TokenMemory
+from beeai_framework.backend import ChatModel
+from beeai_framework.tools import tool
 
 from tool_router.config import config
 from tool_router.mcp_client import MCPClient, ToolSchema
@@ -130,7 +130,30 @@ class BeeAIToolAdapter:
         Returns:
             BeeAI-compatible tool function
         """
-        async def tool_function(**kwargs):
+        from beeai_framework.tools import tool
+        from pydantic import create_model, Field
+        from typing import Any
+        
+        # Build Pydantic model from JSON schema
+        fields = {}
+        schema = tool_schema.parameters
+        for k, v in schema.get("properties", {}).items():
+            t_str = v.get("type", "string")
+            if t_str == "string": t = str
+            elif t_str == "integer": t = int
+            elif t_str == "number": t = float
+            elif t_str == "boolean": t = bool
+            elif t_str == "array": t = list
+            elif t_str == "object": t = dict
+            else: t = Any
+            
+            req = k in schema.get("required", [])
+            fields[k] = (t, Field(default=... if req else None, description=v.get("description", "")))
+        
+        model_name = "".join(x.capitalize() for x in tool_schema.name.split("_")) + "Input"
+        input_model = create_model(model_name, **fields)
+
+        async def tool_function(**kwargs) -> str:
             """Dynamically generated tool function."""
             result = await mcp_client.call_tool(tool_schema.id, kwargs)
             
@@ -148,7 +171,7 @@ class BeeAIToolAdapter:
         tool_function.__name__ = tool_schema.name
         tool_function.__doc__ = tool_schema.description
         
-        return tool_function
+        return tool(name=tool_schema.name, description=tool_schema.description, input_schema=input_model)(tool_function)
 
 
 async def start_fastmcp_server():
@@ -210,18 +233,8 @@ async def run_policy_agent(
     # Create BeeAI agent
     memory = TokenMemory()
     
-    # Create a simple LLM wrapper for BeeAI
-    class SimpleLLM(ChatLLM):
-        async def generate(self, messages, **kwargs):
-            # Use litellm for generation
-            response = completion(
-                model=llm_model,
-                messages=[{"role": m.role, "content": m.content} for m in messages],
-                temperature=0.0
-            )
-            return response.choices[0].message.content
-    
-    llm = SimpleLLM()
+    # Instantiate the LLM
+    llm = ChatModel.from_name(llm_model)
     
     # Implementation based on: https://framework.beeai.dev/modules/agents/requirement-agent
     agent = RequirementAgent(
@@ -272,16 +285,7 @@ async def run_billing_agent(
     # Create BeeAI agent
     memory = TokenMemory()
     
-    class SimpleLLM(ChatLLM):
-        async def generate(self, messages, **kwargs):
-            response = completion(
-                model=llm_model,
-                messages=[{"role": m.role, "content": m.content} for m in messages],
-                temperature=0.0
-            )
-            return response.choices[0].message.content
-    
-    llm = SimpleLLM()
+    llm = ChatModel.from_name(llm_model)
     
     # Implementation based on: https://framework.beeai.dev/modules/agents/requirement-agent
     agent = RequirementAgent(
@@ -336,16 +340,7 @@ async def run_claim_processing_agent(
     # Create BeeAI agent
     memory = TokenMemory()
     
-    class SimpleLLM(ChatLLM):
-        async def generate(self, messages, **kwargs):
-            response = completion(
-                model=llm_model,
-                messages=[{"role": m.role, "content": m.content} for m in messages],
-                temperature=0.0
-            )
-            return response.choices[0].message.content
-    
-    llm = SimpleLLM()
+    llm = ChatModel.from_name(llm_model)
     
     # Implementation based on: https://framework.beeai.dev/modules/agents/requirement-agent
     agent = RequirementAgent(
@@ -383,14 +378,16 @@ async def main():
     parser.add_argument("--llm", type=str, choices=["ollama", "openai"], default="ollama",
                         help="Choose LLM provider (ollama or openai)")
     parser.add_argument("--model", type=str, default="", 
-                        help="Specific model name (default: ollama/llama3 for ollama, gpt-4o for openai)")
+                        help="Specific model name (default: ollama/granite4.1:8b for ollama, gpt-4o for openai)")
     args = parser.parse_args()
 
     # Configure LLM
     if args.llm == "ollama":
-        llm_model = args.model if args.model else "ollama/llama3"
+        base_model = args.model if args.model else "ollama/granite4.1:8b"
+        llm_model = base_model.replace("/", ":", 1) if "/" in base_model else base_model
     else:
-        llm_model = args.model if args.model else "gpt-4o"
+        base_model = args.model if args.model else "gpt-4o"
+        llm_model = f"openai:{base_model}" if not base_model.startswith("openai:") else base_model
         
     print(f"Using LLM Model: {llm_model}")
     print("\n" + "=" * 70)
