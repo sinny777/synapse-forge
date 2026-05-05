@@ -1,4 +1,4 @@
-# ToolRouter
+# NeuralToolRouter
 
 A production-ready Python framework that optimizes Agentic AI architectures by separating **Tool Retrieval** (using a fine-tuned PyTorch embedding model) from **Parameter Extraction and Execution** (using a heavy LLM). This dramatically reduces context window bloat and latency.
 
@@ -12,7 +12,7 @@ Most Agentic AI systems suffer from:
 
 ## 💡 Solution
 
-ToolRouter implements a **RAG-for-Tools** architecture:
+NeuralToolRouter implements a **RAG-for-Tools** architecture:
 
 1. **Fast Retrieval**: Fine-tuned embedding model retrieves Top-K relevant tools
 2. **Query Expansion**: Fast LLM expands queries for better retrieval
@@ -40,7 +40,7 @@ ToolRouter implements a **RAG-for-Tools** architecture:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd ToolRouter
+cd neural-tool-router
 
 # Create virtual environment
 python -m venv venv
@@ -113,20 +113,20 @@ python main.py run
 This starts an interactive session where you can query the system:
 
 ```
-Query: What's the weather in San Francisco?
+Query: List all files in the /tmp directory
 
 RESULTS:
 Retrieved Tools (3):
-  - weather_api.get_forecast (score: 0.892)
-  - location.geocode (score: 0.654)
-  - calendar.get_events (score: 0.543)
+  - filesystem.list_directory (score: 0.892)
+  - filesystem.read_file (score: 0.654)
+  - filesystem.get_file_info (score: 0.543)
 
 LLM Reasoning:
-The user wants weather information for San Francisco. I'll use the weather_api.get_forecast tool.
+The user wants to see the contents of the /tmp directory. I'll use the filesystem.list_directory tool to retrieve this information.
 
 Tool Executions (1):
-  ✓ get_forecast
-    Result: {"temperature": 68, "conditions": "Sunny", ...}
+  ✓ list_directory
+    Result: [{"name": "test.txt", "type": "file"}, {"name": "cache", "type": "directory"}...]
 ```
 
 #### Phase 4: Archive Results
