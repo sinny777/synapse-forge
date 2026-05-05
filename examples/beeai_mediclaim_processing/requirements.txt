@@ -1,0 +1,19 @@
+# IBM BeeAI Mediclaim Processing Example Requirements
+
+# IBM BeeAI Framework
+bee-agent-framework>=0.0.1
+
+# FastMCP for mock server
+fastmcp>=0.1.0
+
+# MCP Protocol
+mcp>=0.9.0
+
+# NeuralToolRouter dependencies (from parent project)
+torch>=2.0.0
+sentence-transformers>=2.2.0
+numpy>=1.24.0
+faiss-cpu>=1.7.4
+rank-bm25>=0.2.2
+litellm>=1.0.0
+python-dotenv>=1.0.0

@@ -1,0 +1,31 @@
+# NeuralToolRouter Requirements
+# Python 3.10+
+
+# Core ML/AI Libraries
+torch>=2.0.0
+sentence-transformers>=2.2.0
+numpy>=1.24.0
+
+# Vector Stores
+faiss-cpu>=1.7.4  # Use faiss-gpu for GPU support
+chromadb>=0.4.0
+
+# Hybrid Retrieval (Enhancement 2)
+rank-bm25>=0.2.2
+
+# LLM Integration
+litellm>=1.0.0
+
+# MCP Protocol
+mcp>=0.9.0
+
+# Data Processing
+tqdm>=4.65.0
+
+# Utilities
+python-dotenv>=1.0.0
+
+# Optional: For development
+pytest>=7.4.0
+black>=23.0.0
+mypy>=1.5.0
