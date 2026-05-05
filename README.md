@@ -199,7 +199,7 @@ learning_rate: float = 2e-5
 
 ## 🏗️ Architecture
 
-See [`ARCHITECTURE.md`](ARCHITECTURE.md) for detailed architecture documentation including:
+See [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for detailed architecture documentation including:
 - Mermaid diagrams
 - Component descriptions
 - Performance characteristics
@@ -378,7 +378,7 @@ Contributions welcome! Areas for improvement:
 
 For issues and questions:
 - GitHub Issues: [Your Repo URL]
-- Documentation: [`ARCHITECTURE.md`](ARCHITECTURE.md)
+- Documentation: [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
 - Email: [Your Email]
 
 ---
