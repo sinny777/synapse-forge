@@ -172,6 +172,75 @@ async def start_fastmcp_server():
     return process
 
 
+def setup_observability():
+    """Set up Langfuse observability if configured via environment variables."""
+    # Check if Langfuse or OTEL is configured
+    public_key = os.environ.get("LANGFUSE_PUBLIC_KEY")
+    secret_key = os.environ.get("LANGFUSE_SECRET_KEY")
+    otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+    otel_traces_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
+    
+    if not ((public_key and secret_key) or otel_endpoint or otel_traces_endpoint):
+        return None
+        
+    try:
+        from openinference.instrumentation.langchain import LangChainInstrumentor
+        from opentelemetry import trace as trace_api
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.sdk import trace as trace_sdk
+        from opentelemetry.sdk.resources import Resource
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+        from opentelemetry.sdk.trace import SpanProcessor
+        
+        class LangfuseSessionProcessor(SpanProcessor):
+            """OpenTelemetry SpanProcessor to inject Langfuse session ID into all spans."""
+            def __init__(self, session_id: str):
+                self.session_id = session_id
+                
+            def on_start(self, span, parent_context=None):
+                span.set_attribute("langfuse.session.id", self.session_id)
+                
+            def on_end(self, span):
+                pass
+        
+        # If OTEL env vars are not set but LANGFUSE vars are, set the OTEL vars dynamically
+        if not otel_endpoint and not otel_traces_endpoint and public_key and secret_key:
+            host = os.environ.get("LANGFUSE_BASE_URL", "https://cloud.langfuse.com")
+            endpoint = f"{host.rstrip('/')}/api/public/otel/v1/traces"
+            
+            auth_string = f"{public_key}:{secret_key}"
+            auth_base64 = base64.b64encode(auth_string.encode()).decode()
+            headers = f"Authorization=Basic {auth_base64},x-langfuse-ingestion-version=4"
+            
+            os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = endpoint
+            os.environ["OTEL_EXPORTER_OTLP_TRACES_HEADERS"] = headers
+            
+            exporter = OTLPSpanExporter(
+                endpoint=endpoint,
+                headers={
+                    "Authorization": f"Basic {auth_base64}",
+                    "x-langfuse-ingestion-version": "4"
+                }
+            )
+        else:
+            exporter = OTLPSpanExporter()
+
+        resource = Resource(attributes={})
+        tracer_provider = trace_sdk.TracerProvider(resource=resource)
+        
+        session_id = str(uuid.uuid4())
+        tracer_provider.add_span_processor(LangfuseSessionProcessor(session_id))
+        tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
+        trace_api.set_tracer_provider(tracer_provider)
+        
+        LangChainInstrumentor().instrument()
+        print(f"✓ Langfuse observability enabled via OpenTelemetry (Session: {session_id})\n")
+        return session_id
+    except ImportError as e:
+        print(f"⚠ Langfuse observability skipped: Missing dependencies ({e}).")
+        print("  To enable, run: pip install openinference-instrumentation-langchain opentelemetry-sdk opentelemetry-exporter-otlp\n")
+        return None
+
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     next: str
@@ -210,6 +279,9 @@ async def main():
     print("\n" + "=" * 70)
     print("UHNW Private Banking Multi-Agent Orchestrator")
     print("=" * 70)
+
+    # Setup observability
+    session_id = setup_observability()
 
     server_process = await start_fastmcp_server()
     if server_process is None:
@@ -387,6 +459,12 @@ IMPORTANT: If the user's core question has been fully answered by previous agent
                     last_msg = state["messages"][-1]
                     if isinstance(last_msg, AIMessage) and not last_msg.tool_calls:
                         print(f"\n[{node_name}] {last_msg.content}")
+
+        print("\n" + "=" * 70)
+        print("ORCHESTRATION COMPLETE")
+        if session_id:
+            print(f"Langfuse Session ID: {session_id}")
+        print("=" * 70)
 
         # Cleanup
         await router.close()
