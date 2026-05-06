@@ -214,7 +214,7 @@ learning_rate: float = 2e-5
 
 ## 🏗️ Architecture
 
-See [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for detailed architecture documentation including:
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for detailed architecture documentation including:
 - Mermaid diagrams
 - Component descriptions
 - Performance characteristics
@@ -416,18 +416,18 @@ Contributions welcome! Areas for improvement:
 
 ## 📚 Documentation & Resources
 
-- [Project Summary](./docs/PROJECT_SUMMARY.md)
-- [Architecture Details](./docs/ARCHITECTURE.md)
-- [Enhancements & Roadmap](./docs/ENHANCEMENTS.md)
-- [Quickstart Guide](./docs/QUICKSTART.md)
-- [Neural Tool Router Whitepaper (PDF)](./docs/NeuralToolRouter.pdf)
-- [Scaling Agentic AI Whitepaper (PDF)](./docs/Scaling_Agentic_AI_via_NeuralToolRouter.pdf)
+- [Project Summary](./PROJECT_SUMMARY.md)
+- [Architecture Details](./ARCHITECTURE.md)
+- [Enhancements & Roadmap](./ENHANCEMENTS.md)
+- [Quickstart Guide](./QUICKSTART.md)
+- [Neural Tool Router Whitepaper (PDF)](./NeuralToolRouter.pdf)
+- [Scaling Agentic AI Whitepaper (PDF)](./Scaling_Agentic_AI_via_NeuralToolRouter.pdf)
 
 ## 📞 Support
 
 For issues and questions:
 - GitHub Issues: [[NeuralToolRouter](https://github.com/sinny777/neural-tool-router)]
-- Documentation: [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+- Documentation: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 - Email: [sinny777@gmail.com]
 
 ---
