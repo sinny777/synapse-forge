@@ -4,9 +4,11 @@ Get up and running with ToolRouter in 5 minutes!
 
 ## Prerequisites
 
-- Python 3.8 or higher
+- Python 3.10+ (Recommended, minimum 3.8)
 - pip package manager
-- API key for at least one LLM provider (OpenAI, Anthropic, or Google)
+- CUDA-capable GPU (optional, for faster training)
+- API keys for LLM providers (OpenAI, Anthropic, or Google)
+- MCP servers configured (optional, framework falls back to predefined tools)
 
 ## Installation
 
@@ -139,23 +141,43 @@ For advanced options, see the full documentation in `README.md`.
 
 ## Troubleshooting
 
-### Issue: MCP Connection Hangs
-
-**Solution**: Use predefined tools instead. The framework automatically falls back to `data/predefined_tools.json` if available.
-
-### Issue: Out of Memory During Training
-
-**Solution**: Reduce batch size in `config.py`:
-```python
-batch_size = 8  # or even 4
-```
-
-### Issue: API Rate Limits
+### Issue: "No MCP servers connected" / MCP Connection Hangs
 
 **Solution**: 
-1. Reduce `queries_per_tool` in `config.py`
-2. Add delays between API calls
-3. Use a different LLM provider
+- Check your MCP server configurations in `config.py`
+- Ensure MCP server commands are installed (e.g., `npx` for Node.js servers)
+- Verify server paths and permissions
+- Alternatively, use predefined tools instead. The framework automatically falls back to `data/predefined_tools.json` if available.
+
+### Issue: "Training data not found"
+
+**Solution**: 
+- Run Phase 1 first: `python main.py generate` (or `python phase1_generator.py`)
+- Check that `data/synthetic_queries.jsonl` exists
+
+### Issue: "Fine-tuned model not found"
+
+**Solution**: 
+- Run Phase 2 first: `python main.py train` (or `python phase2_trainer.py`)
+- Check that `models/fine_tuned_tool_router/` exists
+
+### Issue: "CUDA out of memory" / Out of Memory During Training
+
+**Solution**: 
+- Reduce batch size in `config.py`:
+  ```python
+  batch_size = 8  # or even 4
+  ```
+- Use CPU instead: `device: str = "cpu"`
+- Use `faiss-cpu` instead of `faiss-gpu`
+
+### Issue: "LLM API errors" / API Rate Limits
+
+**Solution**: 
+- Verify API keys in `.env`
+- Reduce `queries_per_tool` in `config.py`
+- Add delays between API calls
+- Try a different model in `config.py` (e.g., use a different provider or a smaller model)
 
 ### Issue: Import Errors
 

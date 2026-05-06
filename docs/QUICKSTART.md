@@ -1,4 +1,4 @@
-# ToolRouter - Quick Start Guide
+# ToolRouter - 🚀 Quick Start Guide
 
 Get up and running with ToolRouter in 5 minutes!
 
@@ -8,24 +8,33 @@ Get up and running with ToolRouter in 5 minutes!
 - pip
 - API keys (OpenAI, Anthropic, or Google)
 
-## Installation
+### 1. Installation
 
 ```bash
-# 1. Create and activate virtual environment
+# Clone the repository
+git clone <repository-url>
+cd neural-tool-router
+
+# Create virtual environment
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 
-# 2. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
-
-# 3. Set up environment variables
-cp .env.example .env
-# Edit .env and add your API keys
 ```
 
-## Configuration
+### 2. Configuration
 
-Edit [`config.py`](config.py) to configure your MCP servers:
+Create a `.env` file with your API keys:
+
+```bash
+# .env
+OPENAI_API_KEY=your_openai_key_here
+ANTHROPIC_API_KEY=your_anthropic_key_here
+GOOGLE_API_KEY=your_google_key_here
+```
+
+Configure MCP servers in [`config.py`](config.py):
 
 ```python
 servers: Dict[str, Dict[str, Any]] = {
@@ -34,8 +43,146 @@ servers: Dict[str, Dict[str, Any]] = {
         "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
         "transport": "stdio"
     },
-    # Add your MCP servers here
+    # Add more servers...
 }
+```
+
+### 3. Three-Phase Execution
+
+#### Phase 1: Generate Synthetic Training Data
+
+```bash
+python main.py generate
+```
+
+This will:
+- Connect to your MCP servers
+- Fetch all tool schemas
+- Use a Teacher LLM to generate diverse queries
+- Create `data/synthetic_queries.jsonl`
+
+**Output**: `data/synthetic_queries.jsonl`, `data/tool_cache.json`
+
+#### Phase 2: Fine-Tune Embedding Model
+
+```bash
+python main.py train
+```
+
+This will:
+- Load the synthetic dataset
+- Fine-tune `all-MiniLM-L6-v2` using contrastive learning
+- Save the model to `models/fine_tuned_tool_router/`
+- Build a FAISS/ChromaDB vector index
+
+**Output**: `models/fine_tuned_tool_router/`, `data/faiss_index.bin`
+
+#### Phase 3: Run the Agentic System
+
+```bash
+python main.py run
+```
+
+This starts an interactive session where you can query the system:
+
+```
+Query: List all files in the /tmp directory
+
+RESULTS:
+Retrieved Tools (3):
+  - filesystem.list_directory (score: 0.892)
+  - filesystem.read_file (score: 0.654)
+  - filesystem.get_file_info (score: 0.543)
+
+LLM Reasoning:
+The user wants to see the contents of the /tmp directory. I'll use the filesystem.list_directory tool to retrieve this information.
+
+Tool Executions (1):
+  ✓ list_directory
+    Result: [{"name": "test.txt", "type": "file"}, {"name": "cache", "type": "directory"}...]
+```
+
+#### Phase 4: Archive Results
+
+```bash
+python main.py archive
+```
+
+This cleans up the workspace by archiving the `data/`, `models/`, and `logs/` output into a timestamped folder inside `results/`, allowing you to run all phases again with fresh configurations.
+
+## 📁 Project Structure
+
+```
+ToolRouter/
+├── ARCHITECTURE.md          # Detailed architecture documentation
+├── README.md                # This file
+├── requirements.txt         # Python dependencies
+├── main.py                  # CLI Entry point
+├── tool_router/      # Core package
+│   ├── __init__.py
+│   ├── config.py            # Configuration module
+│   ├── mcp_client.py        # MCP client utility
+│   ├── mock_mcp_server.py   # Mock MCP server for testing
+│   ├── generator.py         # Synthetic data generation (Phase 1)
+│   ├── trainer.py           # Model fine-tuning (Phase 2)
+│   ├── runtime.py           # Runtime execution (Phase 3)
+│   └── utils/
+│       └── archive.py       # Utility to archive results
+├── data/                    # Generated data
+│   ├── synthetic_queries.jsonl
+│   ├── tool_cache.json
+│   └── faiss_index.bin
+├── models/                  # Trained models
+│   └── fine_tuned_tool_router/
+├── results/                 # Archived run outputs
+└── logs/                    # Execution logs
+```
+
+## 🔧 Configuration Options
+
+All configuration is centralized in [`config.py`](config.py). Key settings:
+
+### LLM Configuration
+
+```python
+# Teacher LLM (Phase 1)
+teacher_model: str = "gpt-4o"
+teacher_temperature: float = 0.7
+
+# Query Expansion LLM (Phase 3)
+expansion_model: str = "gpt-4o-mini"
+
+# Heavy LLM (Phase 3)
+heavy_model: str = "gpt-4o"
+```
+
+### Embedding Configuration
+
+```python
+# Base model to fine-tune
+base_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+
+# Device
+device: str = "cpu"  # or "cuda", "mps"
+```
+
+### Vector Store Configuration
+
+```python
+# Store type
+store_type: str = "faiss"  # or "chromadb"
+
+# Retrieval settings
+top_k: int = 3
+similarity_threshold: float = 0.5
+```
+
+### Training Configuration
+
+```python
+batch_size: int = 16
+num_epochs: int = 3
+learning_rate: float = 2e-5
 ```
 
 ## Run All Phases

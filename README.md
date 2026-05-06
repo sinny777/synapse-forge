@@ -2,231 +2,164 @@
 
 A production-ready Python framework that optimizes Agentic AI architectures by separating **Tool Retrieval** (using a fine-tuned PyTorch embedding model) from **Parameter Extraction and Execution** (using a heavy LLM). This dramatically reduces context window bloat and latency.
 
-## 🎯 Problem Statement
+**A blueprint for eliminating context bloat and reducing API latency.**
 
-Most Agentic AI systems suffer from:
-- **Context Window Bloat**: All tool schemas passed to LLM on every call
-- **High Latency**: Large context = slower inference
-- **High Costs**: More tokens = higher API costs
-- **Poor Scalability**: Performance degrades with more tools
+## 🎯 Problem Statement: The Agentic Scaling Wall
 
-## 💡 Solution
+Standard architectures break when hitting the agentic scaling wall. Most Agentic AI systems suffer from:
+- **Context Bloat**: Passing all schemas on every request consumes massive input tokens (e.g. 100+ tool schemas can equal 10,000+ tokens).
+- **High Latency**: Bloated context directly inflates Time-to-First-Token (TTFT).
+- **Degraded Accuracy**: Triggers "lost-in-the-middle" syndrome, increasing LLM misrouting and hallucination.
+- **Exorbitant Costs**: Input token usage scales linearly with tool count, inflating API bills.
+
+## 💡 Solution: Decoupling Retrieval from Execution
 
 NeuralToolRouter implements a **RAG-for-Tools** architecture:
 
-1. **Fast Retrieval**: Fine-tuned embedding model retrieves Top-K relevant tools
-2. **Query Expansion**: Fast LLM expands queries for better retrieval
-3. **Reduced Context**: Only Top-K tools sent to heavy LLM
-4. **Fallback Mechanism**: LLM can search for better tools if needed
+1. **Query Expander**: Fast LLM (GPT-4o-mini) decomposes complex user intent into specific logical sub-steps.
+2. **Semantic Router**: Embeds queries and searches the Vector Index for exact tool signatures.
+3. **Context Assembler**: Fetches complete JSON schemas for only the Top-K matches (plus fallback).
+4. **Tool Executor**: Interacts dynamically via the Model Context Protocol (MCP) standard.
+5. **Self-Correcting Fallback**: Dynamic `search_available_tools` fallback mechanism if initial semantic retrieval misses.
 
-### Performance Gains
+**Why Fine-tuning?**
+Out-of-the-box embedding models fail to accurately map abstract human requests to strict programming terminology. Training via contrastive learning on your unique tool definitions ensures enterprise-specific terminology maps precisely, guaranteeing production-grade accuracy.
 
-- **90%+ Context Reduction**: From 10K+ tokens to 500-1000 tokens
-- **1.5-4.5s Faster**: Net latency improvement despite retrieval overhead
-- **90% Cost Savings**: Proportional to context reduction
-- **Scales to 1000+ Tools**: Constant-time retrieval
+### 🚀 Performance Gains
 
-## 📋 Prerequisites
+Targeted retrieval yields massive performance dividends:
+- **90%+ Context Reduction**: Payload condensed strictly to essential tools.
+- **1.5s - 4.5s Faster TTFT**: Net latency drops dramatically, easily absorbing the micro-overhead of vector retrieval.
+- **~90% Cost Savings**: Direct, proportional reduction in LLM input token billing.
+- **O(1) Search Latency**: Instantaneous lookups scaling to 1,000+ tools powered by high-speed vector retrieval (FAISS/ChromaDB).
 
-- Python 3.10+
-- CUDA-capable GPU (optional, for faster training)
-- API keys for LLM providers (OpenAI, Anthropic, etc.)
-- MCP servers configured
+## Presentation
 
-## 🚀 Quick Start
+If you are advocating for NeuralToolRouter within your organization, use this structured outline to build your presentation deck:
 
-### 1. Installation
+### 🚀 NeuralToolRouter: Scaling Agentic AI Architectures
+![Slide 1](./docs/slides/Slide1.png)
 
-```bash
-# Clone the repository
-git clone <repository-url>
-cd neural-tool-router
+> "Welcome. This is NeuralToolRouter—a production-ready Python framework designed to solve one of the biggest bottlenecks in modern Agentic AI: scaling tool usage without blowing up your context window, latency, or API costs."
 
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+### ⚠️ The Bottleneck in Current Agentic AI
+![Slide 2](./docs/slides/Slide2.png)
 
-# Install dependencies
-pip install -r requirements.txt
-```
+**The Challenge: Context Window Bloat:** 
 
-### 2. Configuration
+Standard Agentic systems send **all** available tool schemas to the LLM on every single request. As your agent’s capabilities grow, this approach breaks down:
+*   📈 **Context Window Bloat:** Passing 100+ complex JSON schemas per call consumes massive input tokens.
+*   ⏳ **High Latency:** Larger context sizes directly increase the Time-to-First-Token (TTFT) and overall inference speed.
+*   💸 **Exorbitant Costs:** Input tokens add up quickly, leading to heavily inflated API bills.
+*   📉 **Degraded Accuracy:** LLMs suffer from "lost-in-the-middle" syndrome; exposing them to irrelevant tools increases hallucination and misrouting.
 
-Create a `.env` file with your API keys:
+### 💡 The Solution - NeuralToolRouter
+![Slide 3](./docs/slides/Slide3.png)
 
-```bash
-# .env
-OPENAI_API_KEY=your_openai_key_here
-ANTHROPIC_API_KEY=your_anthropic_key_here
-GOOGLE_API_KEY=your_google_key_here
-```
+**Introducing a "RAG-for-Tools" Architecture:** 
 
-Configure MCP servers in [`config.py`](config.py):
+NeuralToolRouter decouples **Tool Retrieval** from **Execution** by treating tool selection as a semantic search problem. 
 
-```python
-servers: Dict[str, Dict[str, Any]] = {
-    "filesystem": {
-        "command": "npx",
-        "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-        "transport": "stdio"
-    },
-    # Add more servers...
-}
-```
+*   **Fast Retrieval:** Uses fine-tuned PyTorch embedding models to fetch only the Top-K relevant tools.
+*   **Query Expansion:** Employs a lightweight, fast LLM (e.g., GPT-4o-mini) to expand user intent before retrieval.
+*   **Reduced Context:** Only the schemas for the Top-K retrieved tools are passed to the heavy "brain" LLM (e.g., GPT-4o).
+*   **Dynamic Fallback:** The LLM retains a `search_available_tools` fallback function to self-correct if the right tool isn't initially found.
 
-### 3. Three-Phase Execution
+### 📊 Disruptive Performance Gains
+![Slide 4](./docs/slides/Slide4.png)
 
-#### Phase 1: Generate Synthetic Training Data
+**Measurable ROI & Scalability:** 
 
-```bash
-python main.py generate
-```
+By implementing NeuralToolRouter, AI architectures realize immediate, compounding benefits:
+*   📉 **90%+ Context Reduction:** Condenses payload from 10,000+ tokens down to 500–1,000 tokens.
+*   ⚡ **1.5 to 4.5s Faster Response:** Net latency drops dramatically despite the micro-overhead of the retrieval step.
+*   💰 **~90% Cost Savings:** Token API costs shrink proportionally to the context reduction.
+*   🌐 **Infinite Scalability:** Scales to 1,000+ tools with **O(1)** constant-time retrieval using FAISS/ChromaDB.
 
-This will:
-- Connect to your MCP servers
-- Fetch all tool schemas
-- Use a Teacher LLM to generate diverse queries
-- Create `data/synthetic_queries.jsonl`
+### ⚙️ Core Architecture Overview
+![Slide 5](./docs/slides/Slide5.png)
 
-**Output**: `data/synthetic_queries.jsonl`, `data/tool_cache.json`
+**How It Works Under the Hood:**
 
-#### Phase 2: Fine-Tune Embedding Model
+*   **Query Expander:** Breaks down the user’s prompt into specific logical sub-steps.
+*   **Semantic Router:** Embeds the expanded queries and searches the Vector Index for relevant MCP tool signatures.
+*   **Context Assembler:** Gathers the full JSON schemas for only the Top-K matching tools (plus the fallback tool).
+*   **Tool Executor:** Executes the chosen tool through the open **Model Context Protocol (MCP)** standard.
 
-```bash
-python main.py train
-```
+### 🔄 Three-Phase Execution Strategy
+![Slide 6](./docs/slides/Slide6.png)
 
-This will:
-- Load the synthetic dataset
-- Fine-tune `all-MiniLM-L6-v2` using contrastive learning
-- Save the model to `models/fine_tuned_tool_router/`
-- Build a FAISS/ChromaDB vector index
+**Built for Production Readiness:** 
 
-**Output**: `models/fine_tuned_tool_router/`, `data/faiss_index.bin`
+The framework operates in three distinct phases to ensure high accuracy:
+1.  **Phase 1: Synthetic Data Gen (`main.py generate`)**
+    *   Connects to your MCP servers to fetch schemas and uses a "Teacher LLM" to generate diverse synthetic user queries for your tools.
+2.  **Phase 2: Model Fine-Tuning (`main.py train`)**
+    *   Trains a lightweight embedding model (e.g., `all-MiniLM-L6-v2`) via contrastive learning on the synthetic data, then builds a FAISS/ChromaDB index.
+3.  **Phase 3: Agentic Runtime (`main.py run`)**
+    *   The live execution environment where hybrid retrieval (Semantic + BM25) routes user requests to the precise tool required.
 
-#### Phase 3: Run the Agentic System
+> "Unlike zero-shot semantic search, NeuralToolRouter actually fine-tunes the embedding model specifically on your unique tool definitions. This ensures domain-specific terminology maps perfectly to the correct function."
 
-```bash
-python main.py run
-```
+### 🛠️ Bleeding-Edge Tech Stack
+![Slide 7](./docs/slides/Slide7.png)
 
-This starts an interactive session where you can query the system:
+**Powered by Open Standards:** 
 
-```
-Query: List all files in the /tmp directory
+*   **Protocol:** Model Context Protocol (MCP) by Anthropic—standardizes how tools and data sources connect to AI models.
+*   **Vector Infrastructure:** FAISS (for high-speed CPU/GPU retrieval) or ChromaDB.
+*   **Embeddings:** `sentence-transformers` & PyTorch (CUDA-compatible for training).
+*   **LLM Orchestration:** `LiteLLM` (allows seamless swapping between OpenAI, Anthropic, Google, and local models).
 
-RESULTS:
-Retrieved Tools (3):
-  - filesystem.list_directory (score: 0.892)
-  - filesystem.read_file (score: 0.654)
-  - filesystem.get_file_info (score: 0.543)
+### 🎛️ Customization & Tuning
+![Slide 8](./docs/slides/Slide8.png)
 
-LLM Reasoning:
-The user wants to see the contents of the /tmp directory. I'll use the filesystem.list_directory tool to retrieve this information.
+**Adaptable to Any Agentic Use Case:** 
 
-Tool Executions (1):
-  ✓ list_directory
-    Result: [{"name": "test.txt", "type": "file"}, {"name": "cache", "type": "directory"}...]
-```
+NeuralToolRouter can be dynamically tuned based on your enterprise priorities:
+*   🚀 **Optimize for Speed:** Swap to `paraphrase-MiniLM-L3-v2`, reduce Top-K to 2, disable query expansion, use `faiss-cpu`.
+*   🎯 **Optimize for Accuracy:** Use `all-mpnet-base-v2`, increase Top-K to 5, train for more epochs, use Hybrid Retrieval (Vector + BM25).
+*   💸 **Optimize for Cost:** Swap the Expansion LLM to open-source or `gpt-4o-mini`, minimizing cloud dependency.
 
-#### Phase 4: Archive Results
+### 🔌 Seamless Enterprise Integration
+![Slide 9](./docs/slides/Slide9.png)
 
-```bash
-python main.py archive
-```
+**Drop-in Replacement for Any Framework:** 
 
-This cleans up the workspace by archiving the `data/`, `models/`, and `logs/` output into a timestamped folder inside `results/`, allowing you to run all phases again with fresh configurations.
+NeuralToolRouter is designed to bypass interactive runtime limitations. You can directly inject the generated FAISS/BM25 indices and fine-tuned embeddings into your existing orchestrators.
+*   **Compatible Frameworks:** LangChain, AutoGen, IBM BeeAI, CrewAI.
+*   **How it fits:** Replace your existing `ToolNode` or standard tool arrays with a `SemanticRouter.retrieve_tools()` call. Pass only the resulting schemas into your Agent's prompt context.
 
-## 📁 Project Structure
+### 🎯 Conclusion & Next Steps
+![Slide 10](./docs/slides/Slide10.png)
 
-```
-ToolRouter/
-├── ARCHITECTURE.md          # Detailed architecture documentation
-├── README.md                # This file
-├── requirements.txt         # Python dependencies
-├── main.py                  # CLI Entry point
-├── tool_router/      # Core package
-│   ├── __init__.py
-│   ├── config.py            # Configuration module
-│   ├── mcp_client.py        # MCP client utility
-│   ├── mock_mcp_server.py   # Mock MCP server for testing
-│   ├── generator.py         # Synthetic data generation (Phase 1)
-│   ├── trainer.py           # Model fine-tuning (Phase 2)
-│   ├── runtime.py           # Runtime execution (Phase 3)
-│   └── utils/
-│       └── archive.py       # Utility to archive results
-├── data/                    # Generated data
-│   ├── synthetic_queries.jsonl
-│   ├── tool_cache.json
-│   └── faiss_index.bin
-├── models/                  # Trained models
-│   └── fine_tuned_tool_router/
-├── results/                 # Archived run outputs
-└── logs/                    # Execution logs
-```
+**Future-Proofing Your Agentic AI**
 
-## 🔧 Configuration Options
+*   **The Paradigm Shift:** Moving from passing *all* tools to *dynamically retrieving* relevant tools is critical for scaling to hundreds of enterprise tools.
+*   **Get Started:** 
+    *   Clone the repository: `git clone https://github.com/sinny777/neural-tool-router`
+    *   Review `ARCHITECTURE.md`
+    *   Run the 3-phase pipeline setup
+*   **Looking Ahead:** Active learning from user feedback, multi-modal routing, and hierarchical tool logic.
 
-All configuration is centralized in [`config.py`](config.py). Key settings:
+### 💡 Tips for Presenting This Deck
+![Slide 11](./docs/slides/Slide11.png)
 
-### LLM Configuration
-
-```python
-# Teacher LLM (Phase 1)
-teacher_model: str = "gpt-4o"
-teacher_temperature: float = 0.7
-
-# Query Expansion LLM (Phase 3)
-expansion_model: str = "gpt-4o-mini"
-
-# Heavy LLM (Phase 3)
-heavy_model: str = "gpt-4o"
-```
-
-### Embedding Configuration
-
-```python
-# Base model to fine-tune
-base_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
-
-# Device
-device: str = "cpu"  # or "cuda", "mps"
-```
-
-### Vector Store Configuration
-
-```python
-# Store type
-store_type: str = "faiss"  # or "chromadb"
-
-# Retrieval settings
-top_k: int = 3
-similarity_threshold: float = 0.5
-```
-
-### Training Configuration
-
-```python
-batch_size: int = 16
-num_epochs: int = 3
-learning_rate: float = 2e-5
-```
+1. **Focus on the "Why":** Spend time on Slide 2. If the audience doesn't feel the pain of API costs and latency, they won't value the RAG-for-Tools solution.
+2. **Highlight "MCP":** The Model Context Protocol is highly trending right now. Emphasizing that this framework natively uses MCP will signal that this architecture is highly modern and future-proof.
+3. **Contrastive Learning:** Make sure to mention that out-of-the-box embeddings often fail to map natural language to code functions. NeuralToolRouter's Phase 1 & 2 (generating synthetic data and fine-tuning) is the "secret sauce" that makes it production-ready.
 
 ## 🏗️ Architecture
 
-See [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for detailed architecture documentation including:
-- Mermaid diagrams
-- Component descriptions
-- Performance characteristics
-- Extension points
+Built entirely on bleeding-edge open standards:
+- **Protocol Layer**: MCP (Model Context Protocol) by Anthropic — The new, standardised future of AI data/tool connection.
+- **Vector Infrastructure**: FAISS / ChromaDB — High-speed CPU/GPU retrieval.
+- **Embeddings**: PyTorch & sentence-transformers — CUDA-compatible training layer.
+- **Orchestration**: LiteLLM — Vendor-agnostic LLM swapping across OpenAI, Anthropic, Google, and Local models.
 
-### Key Components
+Seamless enterprise integration with existing orchestrators: Bypass standard runtime limitations without rebuilding your agents. Simply replace standard tool arrays or your existing ToolNode with a `SemanticRouter.retrieve_tools()` call. Pass only the resulting schemas into your Agent's prompt context.
 
-1. **Query Expander**: Uses fast LLM to break down queries into logical steps
-2. **Semantic Router**: Embeds queries and searches vector index for relevant tools
-3. **Context Assembler**: Fetches full schemas for Top-K tools + fallback
-4. **Tool Executor**: Executes tools via MCP protocol
-5. **Fallback Tool**: `search_available_tools` for self-correction
+See [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md) for detailed architecture documentation including Mermaid diagrams, component descriptions, and extension points.
 
 ## 📊 Monitoring & Logging
 
@@ -342,57 +275,30 @@ top_tools = semantic_router.retrieve_tools(task, top_k=2, use_hybrid=True)
 # (See examples/beeai_mediclaim_processing/multi_agent_orchestrator.py for a complete example)
 ```
 
-## 🐛 Troubleshooting
+## 📈 Performance Tuning: Architectural Dials
 
-### "No MCP servers connected"
+Balance speed, accuracy, and cost with configuration dials:
 
-- Check your MCP server configurations in [`config.py`](config.py)
-- Ensure MCP server commands are installed (e.g., `npx` for Node.js servers)
-- Verify server paths and permissions
+### Speed Optimisation
+- Switch to `paraphrase-MiniLM-L3-v2`
+- Reduce Top-K to 2
+- Disable query expansion
+- Deploy on CPU-based FAISS
 
-### "Training data not found"
+### Accuracy
+- Upgrade to `all-mpnet-base-v2`
+- Increase Top-K to 5
+- Maximise training epochs
+- Enforce Hybrid Retrieval (Semantic Vector + BM25)
 
-- Run Phase 1 first: `python main.py generate`
-- Check that `data/synthetic_queries.jsonl` exists
+### Cost Optimisation
+- Swap Expansion LLM from cloud providers to local open-source models or GPT-4o-mini
 
-### "Fine-tuned model not found"
+## 🚀 Future-proof your agentic infrastructure today
 
-- Run Phase 2 first: `python main.py train`
-- Check that `models/fine_tuned_tool_router/` exists
+**Coming Next:** Active learning from user feedback, multi-modal routing, and hierarchical tool logic.
 
-### "CUDA out of memory"
-
-- Reduce batch size in [`config.py`](config.py): `batch_size: int = 8`
-- Use CPU instead: `device: str = "cpu"`
-- Use `faiss-cpu` instead of `faiss-gpu`
-
-### "LLM API errors"
-
-- Verify API keys in `.env`
-- Check rate limits
-- Try a different model in [`config.py`](config.py)
-
-## 📈 Performance Tuning
-
-### For Speed
-
-- Use smaller embedding model: `all-MiniLM-L3-v2`
-- Reduce Top-K: `top_k: int = 2`
-- Use FAISS instead of ChromaDB
-- Disable query expansion: `enable_query_expansion: bool = False`
-
-### For Accuracy
-
-- Use larger embedding model: `all-mpnet-base-v2`
-- Increase Top-K: `top_k: int = 5`
-- Generate more training data: `queries_per_tool: int = 20`
-- Train for more epochs: `num_epochs: int = 5`
-
-### For Cost Optimization
-
-- Use cheaper expansion model: `expansion_model: str = "gpt-4o-mini"`
-- Reduce Top-K to minimize context
-- Use local/open-source LLMs where possible
+---
 
 ## 🤝 Contributing
 
