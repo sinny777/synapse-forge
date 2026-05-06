@@ -1,0 +1,3 @@
+theme: jekyll-theme-cayman
+title: NeuralToolRouter
+description: A production-ready Python framework that optimizes Agentic AI architectures by separating Tool Retrieval from Parameter Extraction and Execution.
