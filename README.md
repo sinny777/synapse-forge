@@ -4,39 +4,6 @@ A production-ready Python framework that optimizes Agentic AI architectures by s
 
 **A blueprint for eliminating context bloat and reducing API latency.**
 
-## 🎯 Problem Statement: The Agentic Scaling Wall
-
-Standard architectures break when hitting the agentic scaling wall. Most Agentic AI systems suffer from:
-- **Context Bloat**: Passing all schemas on every request consumes massive input tokens (e.g. 100+ tool schemas can equal 10,000+ tokens).
-- **High Latency**: Bloated context directly inflates Time-to-First-Token (TTFT).
-- **Degraded Accuracy**: Triggers "lost-in-the-middle" syndrome, increasing LLM misrouting and hallucination.
-- **Exorbitant Costs**: Input token usage scales linearly with tool count, inflating API bills.
-
-## 💡 Solution: Decoupling Retrieval from Execution
-
-NeuralToolRouter implements a **RAG-for-Tools** architecture:
-
-1. **Query Expander**: Fast LLM (GPT-4o-mini) decomposes complex user intent into specific logical sub-steps.
-2. **Semantic Router**: Embeds queries and searches the Vector Index for exact tool signatures.
-3. **Context Assembler**: Fetches complete JSON schemas for only the Top-K matches (plus fallback).
-4. **Tool Executor**: Interacts dynamically via the Model Context Protocol (MCP) standard.
-5. **Self-Correcting Fallback**: Dynamic `search_available_tools` fallback mechanism if initial semantic retrieval misses.
-
-**Why Fine-tuning?**
-Out-of-the-box embedding models fail to accurately map abstract human requests to strict programming terminology. Training via contrastive learning on your unique tool definitions ensures enterprise-specific terminology maps precisely, guaranteeing production-grade accuracy.
-
-### 🚀 Performance Gains
-
-Targeted retrieval yields massive performance dividends:
-- **90%+ Context Reduction**: Payload condensed strictly to essential tools.
-- **1.5s - 4.5s Faster TTFT**: Net latency drops dramatically, easily absorbing the micro-overhead of vector retrieval.
-- **~90% Cost Savings**: Direct, proportional reduction in LLM input token billing.
-- **O(1) Search Latency**: Instantaneous lookups scaling to 1,000+ tools powered by high-speed vector retrieval (FAISS/ChromaDB).
-
-## Presentation
-
-If you are advocating for NeuralToolRouter within your organization, use this structured outline to build your presentation deck:
-
 ### 🚀 NeuralToolRouter: Scaling Agentic AI Architectures
 ![Slide 1](./docs/slides/Slide1.png)
 
@@ -142,12 +109,40 @@ NeuralToolRouter is designed to bypass interactive runtime limitations. You can 
     *   Run the 3-phase pipeline setup
 *   **Looking Ahead:** Active learning from user feedback, multi-modal routing, and hierarchical tool logic.
 
-### 💡 Tips for Presenting This Deck
+### 💡 Start integrating today
 ![Slide 11](./docs/slides/Slide11.png)
 
-1. **Focus on the "Why":** Spend time on Slide 2. If the audience doesn't feel the pain of API costs and latency, they won't value the RAG-for-Tools solution.
-2. **Highlight "MCP":** The Model Context Protocol is highly trending right now. Emphasizing that this framework natively uses MCP will signal that this architecture is highly modern and future-proof.
-3. **Contrastive Learning:** Make sure to mention that out-of-the-box embeddings often fail to map natural language to code functions. NeuralToolRouter's Phase 1 & 2 (generating synthetic data and fine-tuning) is the "secret sauce" that makes it production-ready.
+### SUMMARY
+
+## 🎯 Problem Statement: The Agentic Scaling Wall
+
+Standard architectures break when hitting the agentic scaling wall. Most Agentic AI systems suffer from:
+- **Context Bloat**: Passing all schemas on every request consumes massive input tokens (e.g. 100+ tool schemas can equal 10,000+ tokens).
+- **High Latency**: Bloated context directly inflates Time-to-First-Token (TTFT).
+- **Degraded Accuracy**: Triggers "lost-in-the-middle" syndrome, increasing LLM misrouting and hallucination.
+- **Exorbitant Costs**: Input token usage scales linearly with tool count, inflating API bills.
+
+## 💡 Solution: Decoupling Retrieval from Execution
+
+NeuralToolRouter implements a **RAG-for-Tools** architecture:
+
+1. **Query Expander**: Fast LLM (GPT-4o-mini) decomposes complex user intent into specific logical sub-steps.
+2. **Semantic Router**: Embeds queries and searches the Vector Index for exact tool signatures.
+3. **Context Assembler**: Fetches complete JSON schemas for only the Top-K matches (plus fallback).
+4. **Tool Executor**: Interacts dynamically via the Model Context Protocol (MCP) standard.
+5. **Self-Correcting Fallback**: Dynamic `search_available_tools` fallback mechanism if initial semantic retrieval misses.
+
+**Why Fine-tuning?**
+Out-of-the-box embedding models fail to accurately map abstract human requests to strict programming terminology. Training via contrastive learning on your unique tool definitions ensures enterprise-specific terminology maps precisely, guaranteeing production-grade accuracy.
+
+### 🚀 Performance Gains
+
+Targeted retrieval yields massive performance dividends:
+- **90%+ Context Reduction**: Payload condensed strictly to essential tools.
+- **1.5s - 4.5s Faster TTFT**: Net latency drops dramatically, easily absorbing the micro-overhead of vector retrieval.
+- **~90% Cost Savings**: Direct, proportional reduction in LLM input token billing.
+- **O(1) Search Latency**: Instantaneous lookups scaling to 1,000+ tools powered by high-speed vector retrieval (FAISS/ChromaDB).
+
 
 ## 🏗️ Architecture
 
