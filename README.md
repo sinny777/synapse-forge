@@ -307,7 +307,27 @@ Contributions welcome! Areas for improvement:
 
 ## 📄 License
 
-[Your License Here]
+MIT License
+
+Copyright (c) 2024 NeuralToolRouter Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 ## 🙏 Acknowledgments
 
@@ -315,13 +335,20 @@ Contributions welcome! Areas for improvement:
 - Uses [sentence-transformers](https://www.sbert.net/)
 - Powered by [LiteLLM](https://github.com/BerriAI/litellm)
 
-## 📞 Support
+## 📞 Contributing & Support
+
+Contributions are welcome! If you find this repository helpful, please star it!
+
+<div align="center">
+  <br>
+  <p><b>Connect with me</b></p>
+  <a href="https://x.com/gurvinder_777"><img src="https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white"/></a>
+  <a href="https://www.linkedin.com/in/gurvindersingh777/"><img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white"/></a>
+  <a href="https://github.com/sinny777"><img src="https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white"/></a>
+</div>
 
 For issues and questions:
-- GitHub Issues: [[NeuralToolRouter](https://github.com/sinny777/neural-tool-router)]
+- GitHub Issues: [[NeuralToolRouter](https://github.com/sinny777/neural-tool-router/issues)]
 - Documentation: [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
-- Email: [sinny777@gmail.com]
 
----
-
-**Built with ❤️ for the Agentic AI community**
+**Built with ❤️ for the Agentic AI community by [Gurvinder Singh](https://github.com/sinny777)**
