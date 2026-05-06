@@ -15,8 +15,9 @@ from typing import List, Dict, Any, Tuple
 from pathlib import Path
 import random
 from dataclasses import dataclass
+import re
 
-from litellm import completion
+from litellm import completion, acompletion
 from tqdm import tqdm
 
 from tool_router.config import config, DataGenerationConfig, LLMConfig
@@ -55,6 +56,19 @@ class SyntheticDataGenerator:
     Uses a Teacher LLM to create diverse, realistic queries.
     """
     
+    PERSONAS = [
+        "A highly technical software engineer who uses jargon",
+        "A frustrated user in a hurry",
+        "An elderly person who is polite and slightly confused",
+        "A corporate executive asking for bottom-line results",
+        "A casual user texting a friend",
+        "A meticulous analyst asking for precise details",
+        "Someone who is angry and demanding",
+        "A student asking for educational purposes",
+        "A non-native English speaker with simple vocabulary",
+        "A highly structured project manager"
+    ]
+    
     def __init__(
         self,
         mcp_client: MCPClient,
@@ -80,144 +94,169 @@ class SyntheticDataGenerator:
         self.all_tools = self.mcp_client.get_all_tools()
         logger.info(f"Found {len(self.all_tools)} tools")
     
-    def _call_teacher_llm(self, prompt: str) -> str:
+    async def _acall_teacher_llm_json(self, prompt: str) -> List[str]:
         """
-        Call the Teacher LLM with a prompt.
-        
-        Args:
-            prompt: Input prompt
-        
-        Returns:
-            LLM response text
+        Call the Teacher LLM with a prompt asynchronously and parse a JSON array of strings.
         """
         try:
-            response = completion(
+            response = await acompletion(
                 model=self.llm_config.teacher_model,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=self.llm_config.teacher_temperature,
-                max_tokens=self.llm_config.teacher_max_tokens
+                temperature=max(self.llm_config.teacher_temperature, 0.8), # Boost temperature for diversity
+                max_tokens=self.llm_config.teacher_max_tokens,
+                response_format={"type": "json_object"}
             )
-            return response.choices[0].message.content.strip()
+            content = response.choices[0].message.content.strip()
+            
+            # Extract JSON block if surrounded by markdown
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+                
+            try:
+                parsed = json.loads(content)
+                if isinstance(parsed, dict):
+                    # Search for the list inside the dict
+                    for key in parsed:
+                        if isinstance(parsed[key], list):
+                            return parsed[key]
+                    return []
+                elif isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                # Fallback extraction
+                match = re.search(r'\[.*\]', content, re.DOTALL)
+                if match:
+                    try:
+                        return json.loads(match.group(0))
+                    except:
+                        pass
+            return []
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
-            return ""
-    
-    def _generate_direct_query(self, tool: ToolSchema) -> str:
-        """
-        Generate a direct, straightforward query for a tool.
+            return []
+            
+    async def _generate_direct_queries(self, tool: ToolSchema, count: int) -> List[str]:
+        if count <= 0: return []
+        personas = random.sample(self.PERSONAS, min(count, len(self.PERSONAS)))
+        personas_text = "\n".join([f"- {p}" for p in personas])
         
-        Args:
-            tool: Tool schema
-        
-        Returns:
-            Generated query
-        """
-        prompt = f"""Generate a direct, straightforward user query that would require using this tool:
+        prompt = f"""You are generating training data for an AI tool router. 
+Generate exactly {count} direct, straightforward user queries that would require using this specific tool.
 
 Tool Name: {tool.name}
 Description: {tool.description}
-Parameters: {json.dumps(tool.parameters.get('properties', {}), indent=2)}
+Parameters: {json.dumps(tool.parameters.get('properties', {{}}), indent=2)}
 
-Generate ONE realistic user query that directly asks for this tool's functionality.
-Output only the query, nothing else.
+CRITICAL REQUIREMENTS:
+1. Ensure MAXIMUM diversity in vocabulary, sentence length, and structure.
+2. DO NOT start multiple queries with the same phrase.
+3. Adopt varying personas for the queries, such as:
+{personas_text}
 
-Example format: "What's the weather in San Francisco?"
+Output ONLY a valid JSON object with a single key "queries" containing a list of {count} strings.
+Example format:
+{{
+  "queries": [
+    "What's the weather like in San Francisco right now?",
+    "I need the current temperature for SF.",
+    "Give me the SF forecast immediately."
+  ]
+}}
 """
-        return self._call_teacher_llm(prompt)
+        return await self._acall_teacher_llm_json(prompt)
     
-    def _generate_implicit_query(self, tool: ToolSchema) -> str:
-        """
-        Generate an implicit query that implies tool usage without directly asking.
+    async def _generate_implicit_queries(self, tool: ToolSchema, count: int) -> List[str]:
+        if count <= 0: return []
+        personas = random.sample(self.PERSONAS, min(count, len(self.PERSONAS)))
+        personas_text = "\n".join([f"- {p}" for p in personas])
         
-        Args:
-            tool: Tool schema
-        
-        Returns:
-            Generated query
-        """
-        prompt = f"""Generate an implicit, natural language query that would require using this tool, but doesn't directly mention it:
+        prompt = f"""You are generating training data for an AI tool router.
+Generate exactly {count} implicit, natural language queries that would require using this tool, but don't directly mention it.
 
 Tool Name: {tool.name}
 Description: {tool.description}
-Parameters: {json.dumps(tool.parameters.get('properties', {}), indent=2)}
+Parameters: {json.dumps(tool.parameters.get('properties', {{}}), indent=2)}
 
-Generate ONE realistic user query that implies needing this tool without explicitly asking for it.
-The query should be conversational and natural.
-Output only the query, nothing else.
+CRITICAL REQUIREMENTS:
+1. Ensure MAXIMUM diversity in vocabulary, sentence length, and structure.
+2. The query must imply needing the tool without explicitly asking for it.
+3. Adopt varying personas for the queries, such as:
+{personas_text}
 
-Example format: "I'm planning a picnic tomorrow, should I bring an umbrella?"
+Output ONLY a valid JSON object with a single key "queries" containing a list of {count} strings.
+Example format:
+{{
+  "queries": [
+    "I'm planning a picnic tomorrow, should I bring an umbrella?",
+    "My flight to Boston is in 3 hours, how should I pack?",
+    "Is it safe to go sailing today?"
+  ]
+}}
 """
-        return self._call_teacher_llm(prompt)
+        return await self._acall_teacher_llm_json(prompt)
     
-    def _generate_multi_tool_query(self, primary_tool: ToolSchema, related_tools: List[ToolSchema]) -> str:
-        """
-        Generate a complex query that might require multiple tools.
+    async def _generate_multi_tool_queries(self, primary_tool: ToolSchema, related_tools: List[ToolSchema], count: int) -> List[str]:
+        if count <= 0: return []
         
-        Args:
-            primary_tool: Primary tool for this query
-            related_tools: Other related tools
-        
-        Returns:
-            Generated query
-        """
         tools_context = f"Primary Tool: {primary_tool.name} - {primary_tool.description}\n"
         tools_context += "Related Tools:\n"
-        for tool in related_tools[:2]:  # Include up to 2 related tools
+        for tool in related_tools[:2]:
             tools_context += f"  - {tool.name}: {tool.description}\n"
+            
+        personas = random.sample(self.PERSONAS, min(count, len(self.PERSONAS)))
+        personas_text = "\n".join([f"- {p}" for p in personas])
         
-        prompt = f"""Generate a complex user query that would primarily require the main tool, but might also involve related tools:
+        prompt = f"""You are generating training data for an AI tool router.
+Generate exactly {count} complex user queries that would primarily require the main tool, but might also involve related tools.
 
 {tools_context}
 
-Generate ONE realistic, complex user query that would need the primary tool as the main solution.
-The query should be multi-step or involve multiple aspects.
-Output only the query, nothing else.
+CRITICAL REQUIREMENTS:
+1. Ensure MAXIMUM diversity in vocabulary, sentence length, and structure.
+2. The query should be multi-step or involve multiple aspects.
+3. Adopt varying personas for the queries, such as:
+{personas_text}
 
-Example format: "I need to check the weather for my trip next week and also find good restaurants in that area"
+Output ONLY a valid JSON object with a single key "queries" containing a list of {count} strings.
+Example format:
+{{
+  "queries": [
+    "I need to check the weather for my trip next week and also find good restaurants in that area.",
+    "Can you find me a flight to NY, and then tell me if it will rain when I arrive?",
+    "Book a hotel for me in Paris, but first make sure the local events schedule isn't too crowded."
+  ]
+}}
 """
-        return self._call_teacher_llm(prompt)
+        return await self._acall_teacher_llm_json(prompt)
     
-    def _select_hard_negatives_llm(
+    async def _select_hard_negatives_llm(
         self,
-        query: str,
         positive_tool: ToolSchema,
         num_negatives: int
     ) -> List[str]:
         """
-        Use Teacher LLM to select hard negative tools that are conceptually similar
-        but fundamentally wrong for the query.
-        
-        Args:
-            query: The user query
-            positive_tool: The correct tool
-            num_negatives: Number of negatives to select
-        
-        Returns:
-            List of negative tool IDs
+        Use Teacher LLM to select hard negative tools that operate in a similar domain
+        or share keywords, but serve a fundamentally different purpose.
         """
-        # Get candidate tools (exclude the positive tool)
         candidate_tools = [t for t in self.all_tools if t.id != positive_tool.id]
         
-        # If we have few tools, use heuristic fallback
         if len(candidate_tools) < num_negatives * 2:
             return self._select_hard_negatives_heuristic(positive_tool, num_negatives)
         
-        # Sample a larger pool for LLM to choose from
-        sample_size = min(20, len(candidate_tools))
+        sample_size = min(30, len(candidate_tools))
         sampled_tools = random.sample(candidate_tools, sample_size)
         
-        # Build tool list for LLM
         tools_text = ""
         for i, tool in enumerate(sampled_tools, 1):
             tools_text += f"{i}. {tool.id}\n   Name: {tool.name}\n   Description: {tool.description}\n\n"
         
         prompt = f"""You are an expert at identifying "hard negative" examples for machine learning training.
 
-Given a user query and the CORRECT tool, identify {num_negatives} "hard negative" tools from the list below.
+Given the CORRECT tool, identify {num_negatives} "hard negative" tools from the list below.
 
-**Definition of Hard Negative:** A tool that sounds conceptually related or similar to what the user needs, but is fundamentally the WRONG tool to use. These are tools that might confuse a model during training.
-
-**User Query:** {query}
+**Definition of Hard Negative:** A tool that sounds conceptually related, shares similar keywords, or operates in a similar domain, but serves a fundamentally different purpose. These are tools that a model might accidentally select instead of the correct tool.
 
 **Correct Tool:** {positive_tool.id}
 - Name: {positive_tool.name}
@@ -226,45 +265,56 @@ Given a user query and the CORRECT tool, identify {num_negatives} "hard negative
 **Candidate Tools:**
 {tools_text}
 
-**Task:** Select exactly {num_negatives} hard negative tool IDs that:
-1. Sound related to the query or correct tool
-2. But would be WRONG to use for this query
-3. Would be confusing/challenging for a model to distinguish
-
-Output ONLY the tool IDs, one per line, nothing else.
-Example output format:
-server.tool_name_1
-server.tool_name_2
-server.tool_name_3
+**Task:** Select exactly {num_negatives} hard negative tool IDs.
+Output ONLY a valid JSON object with a single key "tool_ids" containing a list of strings.
+Example format:
+{{
+  "tool_ids": [
+    "server.tool_name_1",
+    "server.tool_name_2",
+    "server.tool_name_3"
+  ]
+}}
 """
-        
         try:
-            response = self._call_teacher_llm(prompt)
+            response = await acompletion(
+                model=self.llm_config.teacher_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3, # Lower temperature for classification tasks
+                max_tokens=self.llm_config.teacher_max_tokens,
+                response_format={"type": "json_object"}
+            )
+            content = response.choices[0].message.content.strip()
             
-            # Parse tool IDs from response
-            lines = [line.strip() for line in response.split('\n') if line.strip()]
+            # Extract JSON block
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+                
             selected_ids = []
+            try:
+                parsed = json.loads(content)
+                if isinstance(parsed, dict) and "tool_ids" in parsed:
+                    selected_ids = parsed["tool_ids"]
+                elif isinstance(parsed, list):
+                    selected_ids = parsed
+            except json.JSONDecodeError:
+                pass
+                
+            # Filter valid IDs
+            valid_ids = [tid for tid in selected_ids if any(t.id == tid for t in sampled_tools)]
             
-            for line in lines:
-                # Extract tool ID (handle various formats)
-                tool_id = line.strip()
-                # Check if it's a valid tool ID from our candidates
-                if any(t.id == tool_id for t in sampled_tools):
-                    selected_ids.append(tool_id)
-                    if len(selected_ids) >= num_negatives:
-                        break
-            
-            # If LLM didn't return enough, fall back to heuristic
-            if len(selected_ids) < num_negatives:
-                logger.warning(f"LLM returned only {len(selected_ids)} hard negatives, using heuristic for remainder")
+            if len(valid_ids) < num_negatives:
+                logger.warning(f"LLM returned only {len(valid_ids)} valid hard negatives, using heuristic for remainder")
                 heuristic_negatives = self._select_hard_negatives_heuristic(positive_tool, num_negatives)
                 for neg_id in heuristic_negatives:
-                    if neg_id not in selected_ids:
-                        selected_ids.append(neg_id)
-                        if len(selected_ids) >= num_negatives:
+                    if neg_id not in valid_ids:
+                        valid_ids.append(neg_id)
+                        if len(valid_ids) >= num_negatives:
                             break
             
-            return selected_ids[:num_negatives]
+            return valid_ids[:num_negatives]
             
         except Exception as e:
             logger.error(f"LLM-based hard negative selection failed: {e}, falling back to heuristic")
@@ -278,15 +328,7 @@ server.tool_name_3
         """
         Heuristic-based hard negative selection (fallback method).
         Selects tools with similar words in name/description.
-        
-        Args:
-            positive_tool: The correct tool
-            num_negatives: Number of negatives to select
-        
-        Returns:
-            List of negative tool IDs
         """
-        # Simple heuristic: select tools with similar words in name/description
         positive_words = set(
             positive_tool.name.lower().split() +
             positive_tool.description.lower().split()
@@ -302,16 +344,13 @@ server.tool_name_3
                 tool.description.lower().split()
             )
             
-            # Calculate word overlap
             overlap = len(positive_words & tool_words)
             if overlap > 0:
                 candidates.append((tool.id, overlap))
         
-        # Sort by overlap (descending) and take top N
         candidates.sort(key=lambda x: x[1], reverse=True)
         hard_negatives = [tool_id for tool_id, _ in candidates[:num_negatives]]
         
-        # If not enough hard negatives, add random ones
         if len(hard_negatives) < num_negatives:
             remaining = [t.id for t in self.all_tools if t.id != positive_tool.id and t.id not in hard_negatives]
             hard_negatives.extend(random.sample(remaining, min(num_negatives - len(hard_negatives), len(remaining))))
@@ -320,92 +359,77 @@ server.tool_name_3
     
     async def generate_queries_for_tool(self, tool: ToolSchema) -> List[SyntheticQuery]:
         """
-        Generate multiple queries for a single tool.
-        
-        Args:
-            tool: Tool schema
-        
-        Returns:
-            List of synthetic queries
+        Generate multiple queries for a single tool concurrently.
         """
         queries = []
         
-        # Calculate number of each query type
         total = self.data_config.queries_per_tool
         num_direct = int(total * self.data_config.direct_query_ratio)
         num_implicit = int(total * self.data_config.implicit_query_ratio)
         num_multi = total - num_direct - num_implicit
         
-        # Generate direct queries
-        for _ in range(num_direct):
-            query_text = self._generate_direct_query(tool)
-            if query_text:
-                hard_negatives = self._select_hard_negatives_llm(query_text, tool, self.data_config.num_hard_negatives)
-                queries.append(SyntheticQuery(
-                    query=query_text,
-                    positive_tool_id=tool.id,
-                    hard_negative_tool_ids=hard_negatives,
-                    query_type="direct"
-                ))
+        related = random.sample([t for t in self.all_tools if t.id != tool.id], min(3, len(self.all_tools) - 1)) if len(self.all_tools) > 1 else []
         
-        # Generate implicit queries
-        for _ in range(num_implicit):
-            query_text = self._generate_implicit_query(tool)
-            if query_text:
-                hard_negatives = self._select_hard_negatives_llm(query_text, tool, self.data_config.num_hard_negatives)
-                queries.append(SyntheticQuery(
-                    query=query_text,
-                    positive_tool_id=tool.id,
-                    hard_negative_tool_ids=hard_negatives,
-                    query_type="implicit"
-                ))
+        # Concurrently generate direct, implicit, multi-tool queries, and get tool-level hard negatives
+        results = await asyncio.gather(
+            self._generate_direct_queries(tool, num_direct),
+            self._generate_implicit_queries(tool, num_implicit),
+            self._generate_multi_tool_queries(tool, related, num_multi),
+            self._select_hard_negatives_llm(tool, self.data_config.num_hard_negatives),
+            return_exceptions=True
+        )
         
-        # Generate multi-tool queries
-        for _ in range(num_multi):
-            # Select some related tools
-            related = random.sample([t for t in self.all_tools if t.id != tool.id], min(3, len(self.all_tools) - 1))
-            query_text = self._generate_multi_tool_query(tool, related)
-            if query_text:
-                hard_negatives = self._select_hard_negatives_llm(query_text, tool, self.data_config.num_hard_negatives)
-                queries.append(SyntheticQuery(
-                    query=query_text,
-                    positive_tool_id=tool.id,
-                    hard_negative_tool_ids=hard_negatives,
-                    query_type="multi_tool"
-                ))
+        direct_queries = results[0] if not isinstance(results[0], Exception) else []
+        implicit_queries = results[1] if not isinstance(results[1], Exception) else []
+        multi_tool_queries = results[2] if not isinstance(results[2], Exception) else []
+        hard_negatives = results[3] if not isinstance(results[3], Exception) else self._select_hard_negatives_heuristic(tool, self.data_config.num_hard_negatives)
         
+        # Build SyntheticQuery objects
+        for qt in direct_queries[:num_direct]:
+            queries.append(SyntheticQuery(query=qt, positive_tool_id=tool.id, hard_negative_tool_ids=hard_negatives, query_type="direct"))
+            
+        for qt in implicit_queries[:num_implicit]:
+            queries.append(SyntheticQuery(query=qt, positive_tool_id=tool.id, hard_negative_tool_ids=hard_negatives, query_type="implicit"))
+            
+        for qt in multi_tool_queries[:num_multi]:
+            queries.append(SyntheticQuery(query=qt, positive_tool_id=tool.id, hard_negative_tool_ids=hard_negatives, query_type="multi_tool"))
+            
         return queries
     
     async def generate_dataset(self) -> List[SyntheticQuery]:
         """
         Generate the complete synthetic dataset.
-        
-        Returns:
-            List of all synthetic queries
         """
         all_queries = []
         
         logger.info(f"Generating queries for {len(self.all_tools)} tools...")
         
-        # Process tools with progress bar
-        for tool in tqdm(self.all_tools, desc="Generating queries"):
-            try:
-                queries = await self.generate_queries_for_tool(tool)
-                all_queries.extend(queries)
-                logger.debug(f"Generated {len(queries)} queries for {tool.id}")
-            except Exception as e:
-                logger.error(f"Failed to generate queries for {tool.id}: {e}")
+        # Using semaphore to limit concurrency based on config batch_size
+        semaphore = asyncio.Semaphore(max(1, getattr(self.data_config, 'batch_size', 5)))
         
+        async def process_tool(tool):
+            async with semaphore:
+                try:
+                    res = await self.generate_queries_for_tool(tool)
+                    logger.debug(f"Generated {len(res)} queries for {tool.id}")
+                    return res
+                except Exception as e:
+                    logger.error(f"Failed to generate queries for {tool.id}: {e}")
+                    return []
+        
+        tasks = [process_tool(tool) for tool in self.all_tools]
+        
+        # Gather all tasks with progress tracking
+        for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating queries"):
+            result = await f
+            all_queries.extend(result)
+            
         logger.info(f"Generated {len(all_queries)} total queries")
         return all_queries
     
     def save_dataset(self, queries: List[SyntheticQuery], output_path: Path):
         """
         Save dataset to JSONL file.
-        
-        Args:
-            queries: List of synthetic queries
-            output_path: Output file path
         """
         output_path.parent.mkdir(parents=True, exist_ok=True)
         

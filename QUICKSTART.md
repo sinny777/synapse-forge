@@ -1,6 +1,6 @@
-# ToolRouter - Quick Start Guide
+# Neural ToolRouter - Quick Start Guide
 
-Get up and running with ToolRouter in 5 minutes!
+Get up and running with NeuralToolRouter in 5 minutes!
 
 ## Prerequisites
 
@@ -15,8 +15,8 @@ Get up and running with ToolRouter in 5 minutes!
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/tool-router.git
-cd tool-router
+git clone https://github.com/YOUR_USERNAME/neural-tool-router.git
+cd neural-tool-router
 ```
 
 ### 2. Create Virtual Environment
@@ -43,7 +43,7 @@ cp .env.example .env
 Edit `.env` and add your API key(s):
 
 ```bash
-# At minimum, add one of these:
+# At minimum, add one of these or you can also use local models running on Ollama:
 OPENAI_API_KEY=sk-your-key-here
 # ANTHROPIC_API_KEY=sk-ant-your-key-here
 # GOOGLE_API_KEY=your-key-here
@@ -57,13 +57,17 @@ The framework includes predefined tools for testing without MCP server setup:
 
 ```bash
 # Phase 1: Generate synthetic training data
-python phase1_generator.py
+python main.py generate 
 
 # Phase 2: Train the model (after Phase 1 completes)
-python phase2_trainer.py
+python main.py train 
 
 # Phase 3: Run the agentic loop
-python phase3_runtime.py
+python main.py run 
+
+# Archive all artifacts
+python main.py archive
+
 ```
 
 ### Option 2: Using MCP Servers
@@ -97,33 +101,68 @@ If you want to use actual MCP servers:
 - Executes tool calls
 - **Interactive**: Runs until you exit
 
-## Example Usage
+## Example Applications
 
-After completing all phases, you can test the system:
+The repository includes two full multi-agent example applications that demonstrate `NeuralToolRouter` in action. Both examples use hybrid search to dynamically inject only the relevant tools into each specialized agent.
 
+### 1. LangGraph UHNW Private Banking Example
+
+A LangGraph Supervisor agent coordinates 4 specialized LangChain agents (Portfolio, Tax, Market, Concierge) for a banking scenario.
+
+**To run:**
 ```bash
-python phase3_runtime.py
+# 1. Update config.py to use the banking MCP server
+# Un-comment the 'uhnwc_banking' server configuration in config.mcp.servers
+
+# 2. Run the orchestrator
+cd examples/langgraph_UHNW_banking
+python multi_agent_orchestrator.py --llm ollama --model granite4.1:8b
+# Or using OpenAI: python multi_agent_orchestrator.py --llm openai --model gpt-4o
 ```
 
-Example queries to try:
+### 2. IBM BeeAI Mediclaim Processing Example
+
+An orchestrator coordinates 3 specialized IBM BeeAgents (Policy, Billing, Claim) to process medical insurance claims.
+
+**To run:**
+```bash
+# 1. Update config.py to use the mediclaim MCP server
+# Un-comment the 'mediclaim' server configuration in config.mcp.servers
+
+# 2. Run the orchestrator
+cd examples/beeai_mediclaim_processing
+python multi_agent_orchestrator.py --llm ollama --model llama3
+# Or using OpenAI: python multi_agent_orchestrator.py --llm openai --model gpt-4o
 ```
-> Show me the contents of config.py
-> List all Python files in the current directory
-> Search for the word "neural" in all files
-> Create a new directory called "test"
+
+### Langfuse Observability Configuration
+
+Both example applications are fully instrumented with Langfuse for end-to-end trace observability. To enable Langfuse telemetry:
+
+1. Create a free account at [Langfuse](https://langfuse.com/) or run it locally.
+2. Add your Langfuse credentials to your `.env` file (in the project root or the example directories):
+```bash
+LANGFUSE_SECRET_KEY="sk-lf-..."
+LANGFUSE_PUBLIC_KEY="pk-lf-..."
+LANGFUSE_HOST="https://cloud.langfuse.com" # or your local endpoint
 ```
+3. When you run the example applications, a `Langfuse Session ID` will be printed to the console, and you can view the full multi-agent interactions, tool calls, latencies, and LLM reasoning steps in the Langfuse dashboard.
 
 ## Configuration
 
 ### Basic Configuration
 
-Edit `config.py` to customize:
+Edit `.env` to customize:
 
 ```python
 # LLM Models
-teacher_model = "gpt-4o"          # For data generation
-expansion_model = "gpt-4o-mini"   # For query expansion
-heavy_model = "gpt-4o"            # For tool execution
+# TEACHER_MODEL = "gpt-4o"          # For data generation
+# EXPANSION_MODEL = "gpt-4o-mini"   # For query expansion
+# HEAVY_MODEL = "gpt-4o"            # For tool execution
+## I tested the following models locally and they worked well:
+TEACHER_MODEL=ollama/granite4.1:8b
+EXPANSION_MODEL=ollama/granite4.1:8b
+HEAVY_MODEL=ollama/granite4.1:8b
 
 # Data Generation
 queries_per_tool = 10             # Queries to generate per tool

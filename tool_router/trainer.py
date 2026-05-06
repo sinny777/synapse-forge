@@ -30,13 +30,15 @@ logger = logging.getLogger(__name__)
 class ToolRetrievalDataset:
     """Dataset for tool retrieval training."""
     
-    def __init__(self, jsonl_path: Path):
+    def __init__(self, jsonl_path: Path, tools_dict: Dict[str, ToolSchema]):
         """
         Initialize dataset from JSONL file.
         
         Args:
             jsonl_path: Path to synthetic queries JSONL file
+            tools_dict: Mapping of tool_id to ToolSchema
         """
+        self.tools_dict = tools_dict
         self.examples: List[InputExample] = []
         self.load_data(jsonl_path)
     
@@ -53,14 +55,31 @@ class ToolRetrievalDataset:
             for line in f:
                 data = json.loads(line)
                 
-                # Create InputExample for sentence-transformers
-                # Format: (query, positive_tool_id)
-                # Negatives will be handled by the loss function
-                example = InputExample(
-                    texts=[data['query'], data['positive_tool_id']],
-                    label=1.0  # Positive pair
-                )
-                self.examples.append(example)
+                pos_id = data.get('positive_tool_id')
+                if not pos_id or pos_id not in self.tools_dict:
+                    continue
+                
+                # Use the actual semantic description text instead of just the ID string!
+                pos_text = self.tools_dict[pos_id].get_embedding_text()
+                
+                # Properly utilize the hard negatives generated in Phase 1
+                hard_negatives = data.get('hard_negative_tool_ids', [])
+                valid_negs = [self.tools_dict[n].get_embedding_text() for n in hard_negatives if n in self.tools_dict]
+                
+                if valid_negs:
+                    # Create an InputExample for each hard negative
+                    # MultipleNegativesRankingLoss supports [anchor, positive, negative] format
+                    for neg_text in valid_negs:
+                        example = InputExample(
+                            texts=[data['query'], pos_text, neg_text]
+                        )
+                        self.examples.append(example)
+                else:
+                    # Fallback to just positive pairs (in-batch negatives will still apply)
+                    example = InputExample(
+                        texts=[data['query'], pos_text]
+                    )
+                    self.examples.append(example)
         
         logger.info(f"Loaded {len(self.examples)} training examples")
     
@@ -427,6 +446,11 @@ def main():
     logger.info("Phase 2: Model Training & Fine-Tuning")
     logger.info("=" * 60)
     
+    # Load tools from cache FIRST so they can be used for semantic mapping
+    logger.info("\n1. Loading tool schemas...")
+    tools = load_tools_from_cache(config.mcp.tool_cache_path)
+    tools_dict = {t.id: t for t in tools}
+    
     # Check if training data exists
     if not config.training.training_data_path.exists():
         logger.error(f"Training data not found: {config.training.training_data_path}")
@@ -434,25 +458,21 @@ def main():
         return
     
     # Load dataset
-    logger.info("\n1. Loading training dataset...")
-    dataset = ToolRetrievalDataset(config.training.training_data_path)
+    logger.info("\n2. Loading training dataset...")
+    dataset = ToolRetrievalDataset(config.training.training_data_path, tools_dict)
     
     # Initialize trainer
-    logger.info("\n2. Initializing trainer...")
+    logger.info("\n3. Initializing trainer...")
     trainer = ToolEmbeddingTrainer(config.embedding, config.training)
     trainer.load_base_model()
     
     # Train model
-    logger.info("\n3. Fine-tuning model...")
+    logger.info("\n4. Fine-tuning model...")
     trainer.train(dataset)
     
     # Save model
-    logger.info("\n4. Saving fine-tuned model...")
+    logger.info("\n5. Saving fine-tuned model...")
     trainer.save_model()
-    
-    # Load tools from cache
-    logger.info("\n5. Loading tool schemas...")
-    tools = load_tools_from_cache(config.mcp.tool_cache_path)
     
     # Build vector index
     logger.info("\n6. Building dense vector index...")
