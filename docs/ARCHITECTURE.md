@@ -6,51 +6,76 @@ ToolRouter is a compound AI system that optimizes agentic AI architectures by se
 ## System Architecture
 
 ```mermaid
+%%{init: {"theme": "neutral", "layout": "elk", "themeVariables": {
+  "fontFamily": "Inter, sans-serif",
+  "fontSize": "14px",
+  "primaryColor": "#eef2ff",
+  "edgeLabelBackground":"#ffffff",
+  "tertiaryColor": "#f8fafc"
+}}}%%
+
 graph TB
-    subgraph "Phase 1: Data Generation"
-        A[MCP Servers] -->|tools/list| B[Tool Schema Collector]
-        B --> C[Teacher LLM<br/>GPT-4/Claude]
-        C --> D[Synthetic Query Generator]
-        D --> E[JSONL Dataset<br/>query + positive_tool + negatives]
-    end
-    
-    subgraph "Phase 2: Model Fine-Tuning"
-        E --> F[DataLoader]
-        F --> G[Pre-trained Model<br/>all-MiniLM-L6-v2]
-        G --> H[Fine-tuning Loop<br/>MultipleNegativesRankingLoss]
-        H --> I[Fine-tuned Embedding Model]
-        I --> J[Tool Embeddings]
-        J --> K[FAISS/ChromaDB<br/>Vector Index]
-    end
-    
-    subgraph "Phase 3: Runtime Execution"
-        L[User Query] --> M[Query Expansion LLM<br/>Llama-3-8B/GPT-4o-mini]
-        M --> N[Expanded Query<br/>Step-by-step actions]
-        N --> O[Fine-tuned Embedding Model]
-        O --> P[Query Embedding]
-        P --> Q[Vector Search<br/>Top-K Retrieval]
-        K --> Q
-        Q --> R[Top-K Tool IDs]
-        R --> S[Schema Fetcher]
-        A --> S
-        S --> T[Reduced Context<br/>Top-K + search_available_tools]
-        L --> U[Heavy LLM<br/>GPT-4/Claude]
-        T --> U
-        U --> V{Tool Call Decision}
-        V -->|Correct Tools| W[MCP Tool Executor]
-        V -->|Wrong Tools| X[search_available_tools]
-        X --> S
-        W --> A
-        W --> Y[Result]
-    end
-    
-    style A fill:#e1f5ff
-    style C fill:#fff4e1
-    style I fill:#e8f5e9
-    style K fill:#f3e5f5
-    style M fill:#fff4e1
-    style U fill:#fff4e1
-    style W fill:#e1f5ff
+%% =========================
+%% Phase 1: Synthetic Data Generation
+%% =========================
+subgraph P1["Phase 1 — Synthetic Data Generation"]
+direction TB
+A[MCP Servers]:::data -->|tools/list| B[Tool Schema Collector]:::data
+B --> C["Teacher LLM (GPT‑4 / Claude)"]:::logic
+C --> D[Synthetic Query Generator]:::logic
+D --> E["JSONL Dataset (query + positive_tool + negatives)"]:::data
+end
+
+%% =========================
+%% Phase 2: Model Fine‑Tuning
+%% =========================
+subgraph P2["Phase 2 — Model Fine‑Tuning"]
+direction TB
+E --> F[DataLoader]:::process
+F --> G["Pre‑trained Model (all‑MiniLM‑L6‑v2)"]:::model
+G --> H["Fine‑tuning Loop (MultipleNegativesRankingLoss)"]:::logic
+H --> I[Fine‑tuned Embedding Model]:::model
+I --> J[Tool Embeddings]:::model
+J --> K["FAISS/ChromaDB Vector Index"]:::storage
+end
+
+%% =========================
+%% Phase 3: Runtime Execution
+%% =========================
+subgraph P3["Phase 3 — Runtime Execution"]
+direction TB
+L[User Query]:::data --> M["Query Expansion LLM (Llama‑3‑8B / GPT‑4o‑mini)"]:::logic
+M --> N["Expanded Query (Step‑by‑step Actions)"]:::data
+N --> O[Fine‑tuned Embedding Model]:::model
+O --> P[Query Embedding]:::model
+P --> Q["Vector Search (Top‑K Retrieval)"]:::storage
+K --> Q
+Q --> R[Top‑K Tool IDs]:::data
+R --> S[Schema Fetcher]:::process
+A --> S
+S --> T["Reduced Context (Top‑K + search_available_tools)"]:::data
+L --> U["Heavy LLM (GPT‑4 / Claude)"]:::logic
+T --> U
+U --> V{Tool Call Decision}:::decision
+V -->|Correct Tools| W[MCP Tool Executor]:::data
+V -->|Wrong Tools| X[search_available_tools]:::process
+X --> S
+W --> A
+W --> Y[Result]:::data
+end
+
+%% =========================
+%% Styles
+%% =========================
+classDef data stroke:#38bdf8,fill:#f0f9ff,color:#0c4a6e,font-weight:bold;
+classDef logic stroke:#fb923c,fill:#fff7ed,color:#78350f,font-weight:bold;
+classDef process stroke:#facc15,fill:#fefce8,color:#713f12;
+classDef model stroke:#4ade80,fill:#f0fdf4,color:#14532d;
+classDef storage stroke:#a78bfa,fill:#f5f3ff,color:#4c1d95;
+classDef decision stroke:#f87171,fill:#fef2f2,color:#7f1d1d,font-weight:bold;
+
+%% Optional grouping visual (links between phases)
+P1 --> P2 --> P3
 ```
 
 ## Architecture Components
