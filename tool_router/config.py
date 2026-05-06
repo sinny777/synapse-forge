@@ -111,9 +111,14 @@ class MCPConfig:
         #     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
         #     "transport": "stdio"
         # },
-        "mediclaim": {
+        # "mediclaim": {
+        #     "command": "python",
+        #     "args": [str(Path(__file__).parent.parent / "examples" / "beeai_mediclaim_processing" / "mock_fastmcp_server.py")],
+        #     "transport": "stdio"
+        # },
+        "uhnwc_banking": {
             "command": "python",
-            "args": [str(Path(__file__).parent.parent / "examples" / "beeai_mediclaim_processing" / "mock_fastmcp_server.py")],
+            "args": [str(Path(__file__).parent.parent / "examples" / "langgraph_UHNW_banking" / "mock_fastmcp_server.py")],
             "transport": "stdio"
         }
         # Add more MCP servers here
