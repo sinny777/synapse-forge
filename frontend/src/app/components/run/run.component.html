@@ -1,0 +1,315 @@
+<div class="run-page">
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- Page Header                                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <header class="page-header">
+    <div class="page-header__info">
+      <h1 class="cds--type-productive-heading-05">Phase 3: Run</h1>
+      <p class="cds--type-body-compact-01 page-header__subtitle">
+        Interactive console for live tool routing — configure runtime parameters and test queries in real-time.
+      </p>
+    </div>
+    <div class="page-header__actions">
+      <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" title="Toggle all sections">
+        <svg cdsIcon="view" size="16" class="cds--btn__icon"></svg>
+        {{ allExpanded() ? 'Collapse All' : 'Expand All' }}
+      </button>
+      <button cdsButton="ghost" (click)="resetDefaults()" title="Reset to Defaults">
+        <svg cdsIcon="reset" size="16" class="cds--btn__icon"></svg>
+        Reset Defaults
+      </button>
+    </div>
+  </header>
+
+  <!-- Notification -->
+  <div class="notification-area" *ngIf="notification">
+    <cds-inline-notification
+      [notificationObj]="{ type: notification.type, title: notification.title, message: notification.message, showClose: true }"
+      (close)="notification = null">
+    </cds-inline-notification>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: Runtime Configuration                                -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="config-section">
+    <div class="config-section__header" (click)="toggleSection('runtimeConfig')">
+      <div class="config-section__header-left">
+        <svg cdsIcon="settings" size="20" class="config-section__icon"></svg>
+        <div>
+          <h2 class="cds--type-productive-heading-03">Runtime Configuration</h2>
+          <p class="cds--type-helper-text-01">Query expansion, tool retrieval, and execution parameters.</p>
+        </div>
+      </div>
+      <div class="config-section__header-right">
+        <cds-tag *ngIf="!getSectionValidation('runtimeConfig').valid" type="red" size="sm">⚠ Invalid</cds-tag>
+        <cds-tag *ngIf="getModifiedCount('runtimeConfig') > 0" type="blue" size="sm">{{ getModifiedCount('runtimeConfig') }} modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['runtimeConfig']"></svg>
+      </div>
+    </div>
+
+    <div class="config-section__body" *ngIf="sections['runtimeConfig']">
+      <div class="validation-errors" *ngIf="!getSectionValidation('runtimeConfig').valid">
+        <p *ngFor="let err of getSectionValidation('runtimeConfig').errors" class="validation-error">⚠ {{ err }}</p>
+      </div>
+
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('runtimeConfig', 'max_tool_calls')">
+          <cds-label>
+            Max Tool Calls
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['max_tool_calls'] }}</p></cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeConfig.max_tool_calls" (ngModelChange)="onConfigChange()" min="1" max="100" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('runtimeConfig', 'tool_call_timeout')">
+          <cds-label>
+            Tool Call Timeout (s)
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['tool_call_timeout'] }}</p></cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeConfig.tool_call_timeout" (ngModelChange)="onConfigChange()" min="5" max="300" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('runtimeConfig', 'log_level')">
+          <cds-label>
+            Log Level
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['log_level'] }}</p></cds-toggletip>
+            <select cdsSelect [(ngModel)]="runtimeConfig.log_level" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of logLevelOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <div class="config-field">
+          <div class="toggle-field">
+            <span class="cds--type-body-compact-01" style="color: var(--cds-text-primary)">
+              Enable Query Expansion
+              <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['enable_query_expansion'] }}</p></cds-toggletip>
+            </span>
+            <ibm-toggle [(ngModel)]="runtimeConfig.enable_query_expansion" (ngModelChange)="onConfigChange()" size="sm"></ibm-toggle>
+          </div>
+        </div>
+        <div class="config-field">
+          <div class="toggle-field">
+            <span class="cds--type-body-compact-01" style="color: var(--cds-text-primary)">
+              Enable Fallback Tool
+              <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['enable_fallback_tool'] }}</p></cds-toggletip>
+            </span>
+            <ibm-toggle [(ngModel)]="runtimeConfig.enable_fallback_tool" (ngModelChange)="onConfigChange()" size="sm"></ibm-toggle>
+          </div>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('runtimeConfig', 'fallback_tool_name')">
+          <cds-label>
+            Fallback Tool Name
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['fallback_tool_name'] }}</p></cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeConfig.fallback_tool_name" (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="cds--type-label-01 config-subsection-label">Logging</p>
+      <div class="config-row">
+        <div class="config-field config-field--wide" [class.config-field--modified]="isFieldModified('runtimeConfig', 'log_file')">
+          <cds-label>
+            Log File Path
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['log_file'] }}</p></cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeConfig.log_file" (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field"></div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="cds--type-label-01 config-subsection-label">
+        Query Expansion Prompt Template
+        <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['expansion_prompt_template'] }}</p></cds-toggletip>
+      </p>
+      <div class="config-row config-row--full">
+        <div class="config-field config-field--full">
+          <textarea
+            cdsTextArea
+            [(ngModel)]="runtimeConfig.expansion_prompt_template"
+            (ngModelChange)="onConfigChange()"
+            rows="5"
+            placeholder="Enter the expansion prompt template..."
+            class="prompt-editor">
+          </textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 2: Runtime LLM Models                                   -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="config-section">
+    <div class="config-section__header" (click)="toggleSection('llmConfig')">
+      <div class="config-section__header-left">
+        <svg cdsIcon="rocket" size="20" class="config-section__icon"></svg>
+        <div>
+          <h2 class="cds--type-productive-heading-03">Runtime LLM Models</h2>
+          <p class="cds--type-helper-text-01">Expansion (fast/cheap) and Heavy (execution) model settings for Phase 3.</p>
+        </div>
+      </div>
+      <div class="config-section__header-right">
+        <cds-tag *ngIf="!getSectionValidation('llmConfig').valid" type="red" size="sm">⚠ Invalid</cds-tag>
+        <cds-tag *ngIf="getModifiedCount('llmConfig') > 0" type="blue" size="sm">{{ getModifiedCount('llmConfig') }} modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['llmConfig']"></svg>
+      </div>
+    </div>
+
+    <div class="config-section__body" *ngIf="sections['llmConfig']">
+      <div class="validation-errors" *ngIf="!getSectionValidation('llmConfig').valid">
+        <p *ngFor="let err of getSectionValidation('llmConfig').errors" class="validation-error">⚠ {{ err }}</p>
+      </div>
+
+      <p class="cds--type-label-01 config-subsection-label">Expansion LLM <span class="config-subsection-hint">(fast query decomposition)</span></p>
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'expansion_model')">
+          <cds-label>
+            Expansion Model
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['expansion_model'] }}</p></cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model" (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'expansion_temperature')">
+          <cds-label>
+            Temperature
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['expansion_temperature'] }}</p></cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.expansion_temperature" (ngModelChange)="onConfigChange()" step="0.1" min="0" max="2" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'expansion_max_tokens')">
+          <cds-label>
+            Max Tokens
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['expansion_max_tokens'] }}</p></cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.expansion_max_tokens" (ngModelChange)="onConfigChange()" min="100" max="8000" />
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="cds--type-label-01 config-subsection-label">Heavy LLM <span class="config-subsection-hint">(tool execution & reasoning)</span></p>
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_model')">
+          <cds-label>
+            Heavy Model
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['heavy_model'] }}</p></cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_temperature')">
+          <cds-label>
+            Temperature
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['heavy_temperature'] }}</p></cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.heavy_temperature" (ngModelChange)="onConfigChange()" step="0.1" min="0" max="2" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_max_tokens')">
+          <cds-label>
+            Max Tokens
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['heavy_max_tokens'] }}</p></cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.heavy_max_tokens" (ngModelChange)="onConfigChange()" min="100" max="16000" />
+          </cds-label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 3: Interactive Query Console                            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="console-section">
+    <div class="console-layout">
+      <!-- Left: Query Input -->
+      <div class="console-input">
+        <div class="console-input__header">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <svg cdsIcon="keyboard" size="20"></svg>
+            <h3 class="cds--type-heading-02">User Query Input</h3>
+          </div>
+        </div>
+        <div class="console-input__body">
+          <textarea cdsTextArea [(ngModel)]="queryInput" placeholder="Enter natural language query to route to tools..." rows="6" class="console-input__textarea"></textarea>
+          <div class="console-input__actions">
+            <button cdsButton="primary" (click)="onSubmit()" [disabled]="isLoading || !queryInput.trim()" style="flex-grow: 1;">
+              <svg cdsIcon="play--filled" size="16" class="cds--btn__icon"></svg>
+              {{ isLoading ? 'Processing...' : 'Process Query' }}
+            </button>
+            <button cdsButton="ghost" (click)="clearQuery()" [iconOnly]="true" title="Clear Input">
+              <svg cdsIcon="trash-can" size="16" class="cds--btn__icon"></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Execution Trace -->
+      <div class="console-trace">
+        <div class="console-trace__header">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <svg cdsIcon="chart--line" size="20" style="fill: var(--cds-interactive)"></svg>
+            <h3 class="cds--type-heading-02">Execution Trace</h3>
+          </div>
+          <cds-tag [type]="resultData ? 'green' : 'blue'" size="sm">
+            {{ resultData ? 'Completed' : (isLoading ? 'Processing' : 'Ready') }}
+          </cds-tag>
+        </div>
+
+        <div class="console-trace__body">
+          <div *ngIf="!resultData && !isLoading" class="console-trace__empty">
+            <p class="cds--type-body-01">Submit a query to see the execution trace...</p>
+          </div>
+          <div *ngIf="isLoading" class="console-trace__empty">
+            <div class="console-trace__spinner"></div>
+            <p class="cds--type-body-01">Processing query through the tool router...</p>
+          </div>
+          <div *ngIf="resultData && !isLoading" class="console-trace__results">
+            <div class="trace-step" *ngIf="resultData.expanded_query">
+              <div class="trace-step__phase cds--type-label-01">Phase 1</div>
+              <div class="trace-step__line"><div class="trace-step__dot" style="background-color: #0f62fe;"></div></div>
+              <div class="trace-step__content">
+                <div class="trace-step__header">
+                  <cds-tag type="blue" size="sm">EXPANSION</cds-tag>
+                  <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Expanded User Query</span>
+                </div>
+                <div class="trace-step__output cds--type-code-01">{{ resultData.expanded_query }}</div>
+              </div>
+            </div>
+            <div class="trace-step" *ngIf="resultData.llm_reasoning">
+              <div class="trace-step__phase cds--type-label-01">Phase 2</div>
+              <div class="trace-step__line"><div class="trace-step__dot" style="background-color: #8a3ffc;"></div></div>
+              <div class="trace-step__content">
+                <div class="trace-step__header">
+                  <cds-tag type="purple" size="sm">REASONING</cds-tag>
+                  <span class="cds--type-body-01" style="color: var(--cds-text-primary)">LLM Agent Routing Logic</span>
+                </div>
+                <div class="trace-step__output cds--type-code-01">{{ resultData.llm_reasoning }}</div>
+              </div>
+            </div>
+            <div class="trace-step" *ngFor="let res of resultData.tool_results; let i = index">
+              <div class="trace-step__phase cds--type-label-01">Tool {{ i + 1 }}</div>
+              <div class="trace-step__line"><div class="trace-step__dot" [style.background-color]="res.success ? '#24a148' : '#fa4d56'"></div></div>
+              <div class="trace-step__content">
+                <div class="trace-step__header">
+                  <cds-tag [type]="res.success ? 'green' : 'red'" size="sm">{{ res.success ? 'SUCCESS' : 'ERROR' }}</cds-tag>
+                  <span class="cds--type-body-01" style="color: var(--cds-text-primary)">{{ res.tool_name }}</span>
+                </div>
+                <div class="trace-step__output cds--type-code-01"><pre style="margin: 0;">{{ res.result || res.error | json }}</pre></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="console-trace__footer" *ngIf="resultData">
+          <button cdsButton="ghost" size="sm">
+            <svg cdsIcon="download" size="16" class="cds--btn__icon"></svg> Export Logs
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="page-bottom-spacer"></div>
+</div>

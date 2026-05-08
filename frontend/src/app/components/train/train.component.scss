@@ -1,0 +1,396 @@
+// ═══════════════════════════════════════════════════════════════════
+// ─── Train Component Styles (Carbon Design System) ────────────────
+// ═══════════════════════════════════════════════════════════════════
+
+
+// ─── Page Container ───────────────────────────────────────────────
+.train-page {
+  max-width: 1312px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+// ─── Page Header ──────────────────────────────────────────────────
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem 0 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #393939);
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+
+    h1 {
+      color: var(--cds-text-primary, #f4f4f4);
+      margin-bottom: 0.25rem;
+    }
+  }
+
+  &__subtitle {
+    color: var(--cds-text-secondary, #c6c6c6);
+    max-width: 640px;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    margin-left: 2rem;
+    align-items: center;
+  }
+}
+
+// ─── Notification ─────────────────────────────────────────────────
+.notification-area {
+  margin-bottom: 1.5rem;
+}
+
+// ─── Config Section ───────────────────────────────────────────────
+.config-section {
+  background-color: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, #393939);
+  margin-bottom: 1rem;
+  transition: box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.11s ease-in-out;
+
+    &:hover {
+      background-color: var(--cds-layer-hover, #353535);
+    }
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+
+    h2 {
+      color: var(--cds-text-primary, #f4f4f4);
+      margin: 0;
+      line-height: 1.3;
+    }
+
+    p {
+      color: var(--cds-text-secondary, #c6c6c6);
+      margin: 0.125rem 0 0;
+    }
+  }
+
+  // Right side: validation + modified + chevron
+  &__header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  &__icon {
+    fill: var(--cds-icon-secondary, #c6c6c6);
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+  }
+
+  &__chevron {
+    fill: var(--cds-icon-secondary, #c6c6c6);
+    flex-shrink: 0;
+    transition: transform 0.24s cubic-bezier(0.2, 0, 0.38, 0.9);
+    transform: rotate(-90deg);
+
+    &--open {
+      transform: rotate(0deg);
+    }
+  }
+
+  &__body {
+    padding: 0.5rem 1.5rem 1.5rem;
+    border-top: 1px solid var(--cds-border-subtle, #393939);
+    animation: slideDown 0.2s ease-out;
+  }
+
+  &__divider {
+    border-top: 1px solid var(--cds-border-subtle, #393939);
+    margin: 1.25rem 0 0.75rem;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+// ─── Config Row (max 3 fields) ────────────────────────────────────
+.config-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.config-field {
+  min-width: 0;
+
+  &--wide {
+    grid-column: span 2;
+  }
+
+  &--full {
+    grid-column: span 3;
+  }
+
+  cds-label,
+  .cds--label {
+    display: block;
+    margin-bottom: 0;
+    color: var(--cds-text-secondary, #c6c6c6);
+    font-size: 0.75rem;
+    letter-spacing: 0.32px;
+    line-height: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  input[cdsText],
+  select[cdsSelect] {
+    width: 100%;
+    background-color: var(--cds-field, #262626);
+    color: var(--cds-text-primary, #f4f4f4);
+  }
+
+  select[cdsSelect] {
+    appearance: auto;
+  }
+}
+
+.config-subsection-label {
+  color: var(--cds-text-secondary, #c6c6c6);
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+// ─── Monitoring: Progress ─────────────────────────────────────────
+.monitoring-progress {
+  margin-bottom: 1.5rem;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+  }
+
+  &__title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--cds-text-primary, #f4f4f4);
+  }
+
+  &__bar {
+    width: 100%;
+    height: 0.5rem;
+    background-color: var(--cds-border-subtle, #393939);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+  }
+
+  &__bar-fill {
+    height: 100%;
+    background-color: var(--cds-interactive, #0f62fe);
+    transition: width 0.5s ease;
+
+    &--active {
+      animation: progressPulse 1.5s infinite ease-in-out;
+    }
+  }
+}
+
+@keyframes progressPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.monitoring-metrics {
+  display: flex;
+  gap: 0;
+}
+
+.monitoring-metric {
+  flex: 1;
+  padding: 0.5rem 1rem;
+
+  &--bordered {
+    border-left: 1px solid var(--cds-border-subtle, #393939);
+    padding-left: 1.5rem;
+  }
+
+  &__label {
+    color: var(--cds-text-secondary, #c6c6c6);
+    margin-bottom: 0.25rem;
+  }
+
+  &__value {
+    font-size: 1.5rem;
+    font-family: 'IBM Plex Mono', monospace;
+    color: var(--cds-text-primary, #f4f4f4);
+    font-weight: 400;
+  }
+}
+
+// ─── Monitoring: Chart ────────────────────────────────────────────
+.monitoring-chart {
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    color: var(--cds-text-primary, #f4f4f4);
+  }
+
+  &__legend {
+    display: flex;
+    gap: 1rem;
+  }
+
+  &__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--cds-text-secondary, #c6c6c6);
+  }
+
+  &__legend-dot {
+    width: 8px;
+    height: 8px;
+    flex-shrink: 0;
+  }
+
+  &__area {
+    border: 1px solid var(--cds-border-subtle, #393939);
+    background-color: var(--cds-layer-accent, #333333);
+    min-height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 1rem;
+  }
+
+  &__placeholder-bars {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    height: 160px;
+    width: 100%;
+    padding: 0 2rem;
+  }
+
+  &__bar {
+    flex: 1;
+    border-radius: 2px 2px 0 0;
+    opacity: 0.8;
+    transition: height 0.5s ease;
+  }
+
+  &__axis-x {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background-color: var(--cds-border-strong, #6f6f6f);
+  }
+
+  &__axis-y {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 1px;
+    background-color: var(--cds-border-strong, #6f6f6f);
+  }
+}
+
+// ─── Spin animation ───────────────────────────────────────────────
+.spin {
+  animation: spinRotate 1s linear infinite;
+}
+
+@keyframes spinRotate {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// ─── Bottom Spacer ────────────────────────────────────────────────
+.page-bottom-spacer {
+  height: 3rem;
+}
+
+// ─── Responsive ───────────────────────────────────────────────────
+@media (max-width: 672px) {
+  .page-header {
+    flex-direction: column;
+    gap: 1rem;
+
+    &__actions {
+      margin-left: 0;
+    }
+  }
+
+  .config-row {
+    grid-template-columns: 1fr;
+  }
+
+  .config-field--wide,
+  .config-field--full {
+    grid-column: span 1;
+  }
+
+  .monitoring-metrics {
+    flex-direction: column;
+  }
+
+  .monitoring-metric--bordered {
+    border-left: none;
+    border-top: 1px solid var(--cds-border-subtle, #393939);
+    padding-left: 1rem;
+    padding-top: 0.75rem;
+  }
+}
+
+@media (min-width: 673px) and (max-width: 1056px) {
+  .config-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .config-field--wide {
+    grid-column: span 2;
+  }
+
+  .config-field--full {
+    grid-column: span 2;
+  }
+}

@@ -1,0 +1,70 @@
+<!-- Carbon UI Shell: Top Header -->
+<cds-header name="NeuralToolRouter" [brand]="''">
+  <cds-hamburger [active]="sidenavExpanded" (selected)="toggleSidenav()"></cds-hamburger>
+
+  <!-- Navigation area -->
+  <cds-header-navigation>
+    <!-- <cds-header-item (click)="setActivePhase('workflow'); closeSidenav()">
+      Workflow
+    </cds-header-item> -->
+  </cds-header-navigation>
+
+  <cds-header-global>
+    <!-- Help button -->
+    <cds-header-action title="Help">
+      <svg cdsIcon="help" size="20"></svg>
+    </cds-header-action>
+
+    <!-- Theme Toggle -->
+    <cds-header-action [title]="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'" (click)="toggleTheme()">
+      <span style="font-size: 1rem; padding: 0 8px;">{{ isDark ? '☀️' : '🌙' }}</span>
+    </cds-header-action>
+  </cds-header-global>
+</cds-header>
+
+<!-- IBM Carbon Sidenav -->
+<cds-sidenav [expanded]="sidenavExpanded" [rail]="true">
+
+  <cds-sidenav-item (click)="setActivePhase('dashboard'); closeSidenav()" [active]="activePhase === 'dashboard'">
+    <svg icon cdsIcon="dashboard" size="16"></svg>
+    Dashboard
+  </cds-sidenav-item>
+
+  <div class="cds--side-nav__divider"></div>
+  <h2 class="cds--side-nav__heading"
+    style="padding-left: 1rem; padding-top: 1rem; padding-bottom: 0.5rem; font-size: 0.75rem; text-transform: uppercase; color: var(--cds-text-secondary, #a8a8a8); letter-spacing: 0.08rem;">
+    Pipeline</h2>
+
+  <cds-sidenav-item (click)="setActivePhase('workflow'); closeSidenav()" [active]="activePhase === 'workflow'">
+    <svg icon cdsIcon="flow--data" size="16"></svg>
+    Workflow
+  </cds-sidenav-item>
+
+  <div class="cds--side-nav__divider"></div>
+  <h2 class="cds--side-nav__heading"
+    style="padding-left: 1rem; padding-top: 1rem; padding-bottom: 0.5rem; font-size: 0.75rem; text-transform: uppercase; color: var(--cds-text-secondary, #a8a8a8); letter-spacing: 0.08rem;">
+    Administration</h2>
+
+  <cds-sidenav-item (click)="setActivePhase('settings'); closeSidenav()" [active]="activePhase === 'settings'">
+    <svg icon cdsIcon="settings" size="16"></svg>
+    Settings
+  </cds-sidenav-item>
+
+</cds-sidenav>
+
+<!-- Overlay to close side panel when clicking outside -->
+<div *ngIf="sidenavExpanded" class="sidenav-overlay" (click)="closeSidenav()"></div>
+
+<!-- Main Content Area -->
+<div class="cds--content" style="height: 100vh; overflow-y: auto;">
+  <ng-container [ngSwitch]="activePhase">
+    <app-workflow *ngSwitchCase="'workflow'"></app-workflow>
+    <div *ngSwitchDefault class="dashboard-placeholder">
+      <h2>Welcome to NeuralToolRouter</h2>
+      <p>Select Workflow from the sidebar to configure and run the pipeline.</p>
+    </div>
+  </ng-container>
+</div>
+
+<!-- Placeholder for Carbon modals -->
+<ibm-placeholder></ibm-placeholder>

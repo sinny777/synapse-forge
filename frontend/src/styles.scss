@@ -1,0 +1,77 @@
+@use '@carbon/styles/scss/config' with (
+  $css--font-face: false
+);
+@use '@carbon/styles/scss/themes';
+@use '@carbon/styles/scss/theme';
+@use '@carbon/styles';
+
+[data-carbon-theme='white'] {
+  @include theme.theme(themes.$white);
+}
+
+[data-carbon-theme='g100'] {
+  @include theme.theme(themes.$g100);
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--cds-background, #161616);
+  color: var(--cds-text-primary, #f4f4f4);
+}
+
+// Force hamburger to display if hidden by default
+.cds--header__menu-toggle {
+  display: flex !important;
+}
+
+// Ensure side nav acts as overlay or behaves correctly
+.cds--side-nav {
+  z-index: 8000;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ─── Shared Config Enhancement Styles (Carbon Components) ─────────
+// ═══════════════════════════════════════════════════════════════════
+
+// Modified Field Left Border Indicator
+.config-field--modified {
+  border-left: 3px solid var(--cds-interactive, #0f62fe);
+  padding-left: 0.5rem;
+  transition: border-color 0.15s ease;
+}
+
+// Validation Error Block
+.validation-errors {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  background-color: rgba(250, 77, 86, 0.08);
+  border-left: 3px solid var(--cds-support-error, #fa4d56);
+}
+
+.validation-error {
+  color: var(--cds-support-error, #fa4d56);
+  font-size: 0.8125rem;
+  margin: 0.25rem 0;
+}
+
+// Section Header Right Side (shared across all phases)
+.config-section__header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+// Carbon Toggletip — inline sizing in label contexts
+cds-toggletip {
+  display: inline;
+  vertical-align: middle;
+  margin-left: 0.25rem;
+}
+
+// Carbon Tag — compact sizing in section headers
+.config-section__header-right cds-tag {
+  white-space: nowrap;
+}

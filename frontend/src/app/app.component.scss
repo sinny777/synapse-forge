@@ -1,0 +1,59 @@
+.cds--content {
+  margin-top: 3rem; // 48px header offset
+  margin-left: 3rem; // Prevent overlap with 48px rail
+  padding: 2rem;
+  height: calc(100vh - 3rem);
+  overflow-y: auto;
+}
+
+// Override Carbon default behavior that hides the hamburger on large screens
+cds-hamburger,
+.cds--header__menu-toggle,
+.cds--header__menu-trigger,
+.cds--header__action.cds--header__menu-toggle,
+.cds--header__action.cds--header__menu-trigger {
+  display: flex !important;
+}
+
+// Ensure the side nav starts below the header and acts as an overlay
+.cds--side-nav {
+  top: 3rem !important;
+  height: calc(100vh - 3rem) !important;
+  z-index: 7999 !important;
+}
+
+.sidenav-overlay {
+  position: fixed;
+  top: 3rem;
+  left: 0;
+  width: 100vw;
+  height: calc(100vh - 3rem);
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 7998;
+}
+
+// Override Carbon desktop media query that forces the side nav open
+@media (min-width: 66rem) {
+  cds-sidenav {
+    position: fixed;
+    z-index: 7999;
+  }
+  
+  // Content always takes full width minus rail because side nav acts as an overlay
+  .cds--content {
+    margin-left: 3rem !important;
+    transition: none; // Remove margin transition to avoid layout shifts
+  }
+}
+
+// Hide custom headings gracefully when collapsed (rail mode)
+.cds--side-nav:not(.cds--side-nav--expanded) .cds--side-nav__heading {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.11s ease-in-out;
+}
+.cds--side-nav.cds--side-nav--expanded .cds--side-nav__heading {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.11s ease-in-out;
+}

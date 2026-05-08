@@ -1,0 +1,84 @@
+<div class="workflow-container">
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- Workflow Title Bar                                              -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="workflow-title-wrapper">
+    <!-- Breadcrumbs -->
+    <!-- <div class="page-breadcrumb">
+      <cds-breadcrumb [noTrailingSlash]="false">
+        <cds-breadcrumb-item href="#">Homepage</cds-breadcrumb-item>
+        <cds-breadcrumb-item href="#">Workflows</cds-breadcrumb-item>
+      </cds-breadcrumb>
+    </div> -->
+
+    <div class="workflow-title">
+      <div class="workflow-title__left">
+        <h1>NeuralToolRouter Workflow</h1>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- Toolbar: Profile Dropdown + Import/Export + Sync Tag            -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="workflow-toolbar">
+    <!-- Profile Selector — Carbon Dropdown -->
+    <div class="toolbar-group toolbar-group--profile">
+      <cds-dropdown label="Configuration Profile" placeholder="Select a profile" [appendInline]="true" size="sm"
+        (selected)="onProfileChange($event)">
+        <cds-dropdown-list [items]="profileItems"></cds-dropdown-list>
+      </cds-dropdown>
+    </div>
+
+    <!-- Actions -->
+    <div class="toolbar-group toolbar-group--actions">
+      <!-- Import -->
+      <input type="file" #fileInput accept=".json" style="display: none" (change)="onFileSelected($event)" />
+      <button cdsButton="ghost" size="sm" (click)="triggerImport()" title="Import Configuration from JSON">
+        <svg cdsIcon="upload" size="16" class="cds--btn__icon"></svg>
+        Import
+      </button>
+
+      <!-- Export -->
+      <button cdsButton="ghost" size="sm" (click)="onExport()" title="Export Configuration as JSON">
+        <svg cdsIcon="download" size="16" class="cds--btn__icon"></svg>
+        Export
+      </button>
+
+      <!-- Sync Status — Carbon Tag -->
+      <cds-tag [type]="getSyncTagType()" size="sm">
+        {{ getSyncLabel() }}
+      </cds-tag>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- Notification                                                    -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <div class="notification-area" *ngIf="notification">
+    <cds-inline-notification [notificationObj]="{
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        showClose: true
+      }" (close)="notification = null">
+    </cds-inline-notification>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- Tabs & Content Area                                             -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <cds-tabs>
+    <cds-tab heading="Phase 1: Generate" (selected)="activeTab = 0" [active]="activeTab === 0"></cds-tab>
+    <cds-tab heading="Phase 2: Train" (selected)="activeTab = 1" [active]="activeTab === 1"></cds-tab>
+    <cds-tab heading="Phase 3: Run" (selected)="activeTab = 2" [active]="activeTab === 2"></cds-tab>
+  </cds-tabs>
+
+  <div class="workflow-content">
+    <app-generate *ngIf="activeTab === 0"></app-generate>
+    <app-train *ngIf="activeTab === 1"></app-train>
+    <app-run *ngIf="activeTab === 2"></app-run>
+  </div>
+
+</div>

@@ -1,0 +1,143 @@
+// ═══════════════════════════════════════════════════════════════════
+// ─── Workflow Component Styles (Carbon Design System) ─────────────
+// ═══════════════════════════════════════════════════════════════════
+
+.workflow-container {
+  max-width: 1312px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+// ─── Title & Breadcrumbs ──────────────────────────────────────────
+.workflow-title-wrapper {
+  padding: 1.5rem 0 1rem;
+}
+
+.page-breadcrumb {
+  margin-bottom: 0.5rem;
+
+  :host ::ng-deep {
+    .cds--breadcrumb-item {
+      font-size: 0.875rem;
+    }
+  }
+}
+
+.workflow-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  &__left {
+    flex: 1;
+    min-width: 0;
+  }
+
+  h1 {
+    color: var(--cds-text-primary, #f4f4f4);
+    margin: 0;
+    line-height: 1.2;
+    font-size: 1.5rem;
+  }
+
+  &__subtitle {
+    color: var(--cds-text-secondary, #c6c6c6);
+    max-width: 800px;
+    margin-top: 0.25rem;
+  }
+}
+
+// ─── Toolbar ──────────────────────────────────────────────────────
+.workflow-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background-color: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, #393939);
+  border-radius: 0;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  &--profile {
+    flex: 1;
+    min-width: 280px;
+    max-width: 380px;
+  }
+
+  &--actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+}
+
+// ─── Notification ─────────────────────────────────────────────────
+.notification-area {
+  margin-bottom: 1rem;
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────
+:host ::ng-deep {
+  .cds--tabs {
+    border-bottom: 1px solid var(--cds-border-subtle, #393939);
+    margin-bottom: 0;
+  }
+
+  .cds--tabs__nav-link {
+    font-weight: 500;
+    letter-spacing: 0.01rem;
+  }
+
+  .cds--tabs__nav-item--selected .cds--tabs__nav-link {
+    border-bottom-color: var(--cds-interactive, #0f62fe);
+    color: var(--cds-text-primary, #f4f4f4);
+  }
+
+  .cds--tabs__nav-link svg {
+    margin-right: 0.5rem;
+    fill: currentColor;
+  }
+}
+
+// ─── Content Area ─────────────────────────────────────────────────
+.workflow-content {
+  padding-top: 0.5rem;
+
+  :host ::ng-deep {
+
+    .generate-page,
+    .train-page,
+    .run-page {
+      max-width: 100%;
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+}
+
+// ─── Responsive ───────────────────────────────────────────────────
+@media (max-width: 672px) {
+  .workflow-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .toolbar-group--profile {
+    min-width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .toolbar-group--actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

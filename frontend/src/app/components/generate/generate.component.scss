@@ -1,0 +1,394 @@
+// ═══════════════════════════════════════════════════════════════════
+// ─── Generate Component Styles (Carbon Design System) ─────────────
+// ═══════════════════════════════════════════════════════════════════
+
+// ─── Page Container ───────────────────────────────────────────────
+.generate-page {
+  max-width: 1312px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+// ─── Page Header ──────────────────────────────────────────────────
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.5rem 0 1.25rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--cds-border-subtle, #393939);
+
+  &__info {
+    flex: 1;
+    min-width: 0;
+
+    h1 {
+      color: var(--cds-text-primary, #f4f4f4);
+      margin-bottom: 0.25rem;
+    }
+  }
+
+  &__subtitle {
+    color: var(--cds-text-secondary, #c6c6c6);
+    max-width: 640px;
+  }
+
+  &__actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-shrink: 0;
+    margin-left: 2rem;
+    align-items: center;
+  }
+}
+
+// ─── Notification ─────────────────────────────────────────────────
+.notification-area {
+  margin-bottom: 1.5rem;
+}
+
+// ─── Config Section ───────────────────────────────────────────────
+.config-section {
+  background-color: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, #393939);
+  margin-bottom: 1rem;
+  transition: box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.11s ease-in-out;
+
+    &:hover {
+      background-color: var(--cds-layer-hover, #353535);
+    }
+  }
+
+  &__header-left {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex: 1;
+    min-width: 0;
+
+    h2 {
+      color: var(--cds-text-primary, #f4f4f4);
+      margin: 0;
+      line-height: 1.3;
+    }
+
+    p {
+      color: var(--cds-text-secondary, #c6c6c6);
+      margin: 0.125rem 0 0;
+    }
+  }
+
+  // Right side: validation + modified + chevron
+  &__header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+
+  &__icon {
+    fill: var(--cds-icon-secondary, #c6c6c6);
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+  }
+
+  &__chevron {
+    fill: var(--cds-icon-secondary, #c6c6c6);
+    flex-shrink: 0;
+    transition: transform 0.24s cubic-bezier(0.2, 0, 0.38, 0.9);
+    transform: rotate(-90deg);
+
+    &--open {
+      transform: rotate(0deg);
+    }
+  }
+
+  &__body {
+    padding: 0.5rem 1.5rem 1.5rem;
+    border-top: 1px solid var(--cds-border-subtle, #393939);
+    animation: slideDown 0.2s ease-out;
+  }
+
+  &__divider {
+    border-top: 1px solid var(--cds-border-subtle, #393939);
+    margin: 1.25rem 0 0.75rem;
+  }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+// ─── Config Row ───────────────────────────────────────────────────
+.config-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem 1.5rem;
+  margin-bottom: 1rem;
+
+  &--full {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ─── Config Field ─────────────────────────────────────────────────
+.config-field {
+  min-width: 0;
+
+  &--wide { grid-column: span 2; }
+  &--full { grid-column: span 3; }
+
+  // Recommendation #5: Modified field indicator
+  &--modified {
+    border-left: 3px solid var(--cds-interactive, #0f62fe);
+    padding-left: 0.5rem;
+    transition: border-color 0.15s ease;
+  }
+
+  cds-label, .cds--label {
+    display: block;
+    margin-bottom: 0;
+    color: var(--cds-text-secondary, #c6c6c6);
+    font-size: 0.75rem;
+    letter-spacing: 0.32px;
+    line-height: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  input[cdsText], select[cdsSelect], textarea[cdsTextArea] {
+    width: 100%;
+    background-color: var(--cds-field, #262626);
+    color: var(--cds-text-primary, #f4f4f4);
+  }
+
+  select[cdsSelect] { appearance: auto; }
+}
+
+// ─── Recommendation #3: Inline Tooltip Badge ─────────────────────
+.field-tooltip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--cds-text-on-color, #ffffff);
+  background-color: var(--cds-icon-secondary, #6f6f6f);
+  border-radius: 50%;
+  cursor: help;
+  margin-left: 0.375rem;
+  vertical-align: middle;
+  transition: background-color 0.15s ease;
+  position: relative;
+
+  &:hover {
+    background-color: var(--cds-interactive, #0f62fe);
+  }
+}
+
+// ─── Recommendation #5: Modified Badge ───────────────────────────
+.modified-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--cds-interactive, #0f62fe);
+  background-color: rgba(15, 98, 254, 0.1);
+  border: 1px solid rgba(15, 98, 254, 0.3);
+  border-radius: 12px;
+  white-space: nowrap;
+  letter-spacing: 0.02rem;
+}
+
+// ─── Recommendation #6: Validation Badge ─────────────────────────
+.validation-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem;
+  color: var(--cds-support-warning, #f1c21b);
+
+  svg {
+    fill: var(--cds-support-warning, #f1c21b);
+  }
+}
+
+.validation-errors {
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 1rem;
+  background-color: rgba(250, 77, 86, 0.08);
+  border-left: 3px solid var(--cds-support-error, #fa4d56);
+}
+
+.validation-error {
+  color: var(--cds-support-error, #fa4d56);
+  font-size: 0.8125rem;
+  margin: 0.25rem 0;
+}
+
+// ─── Subsection Labels ────────────────────────────────────────────
+.config-subsection-label {
+  color: var(--cds-text-secondary, #c6c6c6);
+  text-transform: uppercase;
+  letter-spacing: 0.08rem;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.config-subsection-hint {
+  text-transform: none;
+  color: var(--cds-text-helper, #6f6f6f);
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+// ─── Recommendation #7: MCP Servers Table ────────────────────────
+.mcp-table-wrapper {
+  overflow-x: auto;
+}
+
+.mcp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  th {
+    text-align: left;
+    padding: 0.625rem 0.75rem;
+    color: var(--cds-text-secondary, #c6c6c6);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08rem;
+    border-bottom: 2px solid var(--cds-border-subtle, #393939);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 0.375rem 0.5rem;
+    border-bottom: 1px solid var(--cds-border-subtle, #393939);
+    vertical-align: middle;
+
+    input[cdsText], select[cdsSelect] {
+      width: 100%;
+      background-color: transparent;
+      border: none;
+      border-bottom: 1px solid var(--cds-border-subtle, #393939);
+      color: var(--cds-text-primary, #f4f4f4);
+      padding: 0.25rem 0.375rem;
+      font-size: 0.8125rem;
+
+      &:focus {
+        border-bottom-color: var(--cds-focus, #0f62fe);
+        outline: none;
+      }
+    }
+
+    select[cdsSelect] {
+      appearance: auto;
+      min-width: 100px;
+    }
+  }
+
+  &__empty {
+    text-align: center;
+    color: var(--cds-text-helper, #6f6f6f);
+    padding: 1.5rem !important;
+    font-style: italic;
+  }
+}
+
+.mcp-add-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+
+  input[cdsText], select[cdsSelect] {
+    background-color: var(--cds-field, #262626);
+    color: var(--cds-text-primary, #f4f4f4);
+    font-size: 0.8125rem;
+    padding: 0.375rem 0.5rem;
+    border: 1px solid var(--cds-border-subtle, #393939);
+  }
+
+  select[cdsSelect] {
+    appearance: auto;
+  }
+}
+
+.mcp-add-field {
+  flex: 1;
+  min-width: 120px;
+
+  &--wide {
+    flex: 2;
+  }
+}
+
+// ─── Ratio Indicator ──────────────────────────────────────────────
+.ratio-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  border-radius: 0;
+  margin-top: 0.25rem;
+
+  svg { flex-shrink: 0; }
+
+  &--valid {
+    color: var(--cds-support-success, #42be65);
+    background-color: rgba(66, 190, 101, 0.1);
+    border-left: 3px solid var(--cds-support-success, #42be65);
+    svg { fill: var(--cds-support-success, #42be65); }
+  }
+
+  &--invalid {
+    color: var(--cds-support-error, #fa4d56);
+    background-color: rgba(250, 77, 86, 0.1);
+    border-left: 3px solid var(--cds-support-error, #fa4d56);
+    svg { fill: var(--cds-support-error, #fa4d56); }
+  }
+}
+
+// ─── Bottom Spacer ────────────────────────────────────────────────
+.page-bottom-spacer {
+  height: 3rem;
+}
+
+// ─── Responsive ───────────────────────────────────────────────────
+@media (max-width: 672px) {
+  .page-header {
+    flex-direction: column;
+    gap: 1rem;
+    &__actions { margin-left: 0; }
+  }
+  .config-row { grid-template-columns: 1fr; }
+  .config-field--wide, .config-field--full { grid-column: span 1; }
+  .mcp-add-row { flex-direction: column; }
+}
+
+@media (min-width: 673px) and (max-width: 1056px) {
+  .config-row { grid-template-columns: repeat(2, 1fr); }
+  .config-field--wide { grid-column: span 2; }
+  .config-field--full { grid-column: span 2; }
+}
