@@ -19,6 +19,14 @@
   margin-bottom: 1.5rem;
   border-bottom: 1px solid var(--cds-border-subtle, #393939);
 
+  h2 {
+    color: var(--cds-text-primary, #f4f4f4);
+    margin: 0;
+    line-height: 2.5;
+    font-size: 1.2rem;
+  }
+
+
   &__info {
     flex: 1;
     min-width: 0;
@@ -126,6 +134,7 @@
     opacity: 0;
     transform: translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -346,8 +355,13 @@
 }
 
 @keyframes spinRotate {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // ─── Trace Steps ──────────────────────────────────────────────────

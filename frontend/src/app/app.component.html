@@ -59,9 +59,144 @@
 <div class="cds--content" style="height: 100vh; overflow-y: auto;">
   <ng-container [ngSwitch]="activePhase">
     <app-workflow *ngSwitchCase="'workflow'"></app-workflow>
-    <div *ngSwitchDefault class="dashboard-placeholder">
-      <h2>Welcome to NeuralToolRouter</h2>
-      <p>Select Workflow from the sidebar to configure and run the pipeline.</p>
+    <div *ngSwitchDefault class="dashboard-content">
+      <!-- Header/Hero -->
+      <div class="hero-section">
+        <h1 class="cds--type-productive-heading-06">NeuralToolRouter</h1>
+        <p class="cds--type-productive-heading-03 hero-subtitle">Scaling Agentic AI architectures via decoupled tool retrieval. A blueprint for eliminating context bloat and reducing API latency.</p>
+      </div>
+
+      <!-- Section 1: The Agentic Scaling Wall -->
+      <section class="dashboard-section">
+        <h2 class="cds--type-productive-heading-04 section-title">The Agentic Scaling Wall (The Problem)</h2>
+        <div class="cards-grid">
+          <div class="dashboard-card warning-card">
+            <h3 class="cds--type-productive-heading-02">Context Bloat</h3>
+            <p class="cds--type-body-long-01">Input Overflow limits the context window when passing thousands of tool schemas.</p>
+          </div>
+          <div class="dashboard-card warning-card">
+            <h3 class="cds--type-productive-heading-02">High Latency</h3>
+            <p class="cds--type-body-long-01">TTFT (Time To First Token) spikes dramatically as payload size increases.</p>
+          </div>
+          <div class="dashboard-card warning-card">
+            <h3 class="cds--type-productive-heading-02">Exorbitant Costs</h3>
+            <p class="cds--type-body-long-01">API Expenditure Escalation from sending massive tool schemas every request.</p>
+          </div>
+          <div class="dashboard-card warning-card">
+            <h3 class="cds--type-productive-heading-02">Degraded Accuracy</h3>
+            <p class="cds--type-body-long-01">System Integrity Failure due to LLM distraction from irrelevant tools.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 2: Decoupling Retrieval -->
+      <section class="dashboard-section">
+        <h2 class="cds--type-productive-heading-04 section-title">Decoupling Retrieval (The Solution)</h2>
+        <div class="cards-grid compare-grid">
+          <div class="dashboard-card legacy-card">
+            <h3 class="cds--type-productive-heading-02">The Legacy Approach</h3>
+            <ul class="cds--list--unordered">
+              <li class="cds--list__item">Passes all tools directly into the prompt.</li>
+              <li class="cds--list__item"><b>10,000+ Tokens</b> consumed per query.</li>
+              <li class="cds--list__item">Breaks at ~50 tools due to context limits.</li>
+            </ul>
+          </div>
+          <div class="dashboard-card solution-card">
+            <h3 class="cds--type-productive-heading-02">NeuralToolRouter (RAG-for-Tools)</h3>
+            <ul class="cds--list--unordered">
+              <li class="cds--list__item">Dynamically retrieves only necessary tools.</li>
+              <li class="cds--list__item"><b>500-1,000 Tokens</b> consumed per query.</li>
+              <li class="cds--list__item"><b>O(1) constant-time scaling</b> to 1,000+ tools.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 3: Massive Performance Dividends -->
+      <section class="dashboard-section">
+        <h2 class="cds--type-productive-heading-04 section-title">Massive Performance Dividends</h2>
+        <div class="cards-grid metrics-grid">
+          <div class="dashboard-card metric-card">
+            <h3 class="metric-value">90%+</h3>
+            <p class="metric-label">Context Reduction</p>
+          </div>
+          <div class="dashboard-card metric-card">
+            <h3 class="metric-value">1.5s - 4.5s</h3>
+            <p class="metric-label">Faster TTFT</p>
+          </div>
+          <div class="dashboard-card metric-card">
+            <h3 class="metric-value">~90%</h3>
+            <p class="metric-label">Cost Savings</p>
+          </div>
+          <div class="dashboard-card metric-card">
+            <h3 class="metric-value">O(1)</h3>
+            <p class="metric-label">Search Latency</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 4: Anatomy of Execution Flow -->
+      <section class="dashboard-section">
+        <h2 class="cds--type-productive-heading-04 section-title">Anatomy of Execution Flow</h2>
+        <div class="flow-container">
+          <div class="flow-step">1. User Prompt</div>
+          <svg cdsIcon="arrow--right" size="20" class="flow-arrow"></svg>
+          <div class="flow-step">2. Query Expander</div>
+          <svg cdsIcon="arrow--right" size="20" class="flow-arrow"></svg>
+          <div class="flow-step">3. Semantic Router</div>
+          <svg cdsIcon="arrow--right" size="20" class="flow-arrow"></svg>
+          <div class="flow-step">4. Context Assembler</div>
+          <svg cdsIcon="arrow--right" size="20" class="flow-arrow"></svg>
+          <div class="flow-step">5. Tool Executor</div>
+        </div>
+      </section>
+
+      <!-- Section 5: Bridging the Semantic Gap -->
+      <section class="dashboard-section">
+        <h2 class="cds--type-productive-heading-04 section-title">Bridging the Semantic Gap</h2>
+        <div class="cards-grid compare-grid">
+          <div class="dashboard-card semantic-card">
+            <h3 class="cds--type-productive-heading-02">The Zero-Shot Problem</h3>
+            <p class="cds--type-body-long-01">Out-of-the-box embedding failure. Standard embedding models struggle to map vague human language to strict programmatic tool schemas.</p>
+          </div>
+          <div class="dashboard-card semantic-card solution-card">
+            <h3 class="cds--type-productive-heading-02">The Fine-Tuned Solution</h3>
+            <p class="cds--type-body-long-01">Contrastive learning for enterprise accuracy. We fine-tune lightweight models (like MiniLM) using generated synthetic data to perfectly align queries and tools.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 6: Open Standards & Architecture Dials -->
+      <section class="dashboard-section">
+        <h2 class="cds--type-productive-heading-04 section-title">Open Standards & Architecture Dials</h2>
+        <div class="cards-grid stack-grid">
+          <div class="dashboard-card">
+            <h3 class="cds--type-productive-heading-02">Stack/Layers</h3>
+            <ul class="cds--list--unordered">
+              <li class="cds--list__item"><b>MCP:</b> Model Context Protocol for tool discovery.</li>
+              <li class="cds--list__item"><b>FAISS/ChromaDB:</b> High-speed vector indexing.</li>
+              <li class="cds--list__item"><b>PyTorch:</b> Contrastive learning foundation.</li>
+              <li class="cds--list__item"><b>LiteLLM:</b> Universal LLM gateway.</li>
+            </ul>
+          </div>
+          <div class="dashboard-card">
+            <h3 class="cds--type-productive-heading-02">Dials</h3>
+            <ul class="cds--list--unordered">
+              <li class="cds--list__item"><b>Speed:</b> Adjustable retrieval latency.</li>
+              <li class="cds--list__item"><b>Accuracy:</b> Hybrid retrieval (Semantic + BM25).</li>
+              <li class="cds--list__item"><b>Cost:</b> Granular model selection (Expansion vs Heavy).</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Call to Action -->
+      <section class="dashboard-section cta-section">
+        <h2 class="cds--type-productive-heading-04 section-title">Ready to Scale?</h2>
+        <div class="code-block">
+          <code>&gt; git clone https://github.com/sinny777/neural-tool-router</code>
+        </div>
+      </section>
     </div>
   </ng-container>
 </div>

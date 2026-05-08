@@ -5,10 +5,7 @@
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <header class="page-header">
     <div class="page-header__info">
-      <h1 class="cds--type-productive-heading-05">Phase 1: Generate</h1>
-      <p class="cds--type-body-compact-01 page-header__subtitle">
-        Configure all parameters for synthetic training data generation via Teacher LLM &amp; MCP tool discovery.
-      </p>
+      <h2>Phase 1: Synthetic Data Gen</h2>
     </div>
     <div class="page-header__actions">
       <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" title="Toggle all sections">
@@ -48,10 +45,10 @@
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="!getSectionValidation('llm').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="getModifiedCount('llm') > 0" type="blue" size="sm">{{ getModifiedCount('llm') }} modified</cds-tag>
-        <svg cdsIcon="chevron--down" size="16"
-             class="config-section__chevron"
-             [class.config-section__chevron--open]="sections['llm']"></svg>
+        <cds-tag *ngIf="getModifiedCount('llm') > 0" type="blue" size="sm">{{ getModifiedCount('llm') }}
+          modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['llm']"></svg>
       </div>
     </div>
 
@@ -64,22 +61,34 @@
         <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_model')">
           <cds-label>
             Teacher Model
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['teacher_model'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="llmConfig.teacher_model" (ngModelChange)="onConfigChange()" placeholder="e.g., ollama/granite4.1:8b" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['teacher_model'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="llmConfig.teacher_model" (ngModelChange)="onConfigChange()"
+              placeholder="e.g., ollama/granite4.1:8b" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_temperature')">
           <cds-label>
             Temperature
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['teacher_temperature'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_temperature" (ngModelChange)="onConfigChange()" step="0.1" min="0" max="2" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['teacher_temperature'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_temperature" (ngModelChange)="onConfigChange()"
+              step="0.1" min="0" max="2" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_max_tokens')">
           <cds-label>
             Max Tokens
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['teacher_max_tokens'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_max_tokens" (ngModelChange)="onConfigChange()" min="100" max="16000" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['teacher_max_tokens'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_max_tokens" (ngModelChange)="onConfigChange()"
+              min="100" max="16000" />
           </cds-label>
         </div>
       </div>
@@ -88,8 +97,12 @@
         <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'ollama_api_base')">
           <cds-label>
             Ollama API Base URL
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['ollama_api_base'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="llmConfig.ollama_api_base" (ngModelChange)="onConfigChange()" placeholder="http://localhost:11434" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['ollama_api_base'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="llmConfig.ollama_api_base" (ngModelChange)="onConfigChange()"
+              placeholder="http://localhost:11434" />
           </cds-label>
         </div>
         <div class="config-field"></div>
@@ -97,28 +110,41 @@
       </div>
 
       <div class="config-section__divider"></div>
-      <p class="cds--type-label-01 config-subsection-label">API Keys <span class="config-subsection-hint">(optional — read from environment if blank)</span></p>
+      <p class="cds--type-label-01 config-subsection-label">API Keys <span class="config-subsection-hint">(optional —
+          read from environment if blank)</span></p>
 
       <div class="config-row">
         <div class="config-field">
           <cds-label>
             OpenAI API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['openai_api_key'] }}</p></cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.openai_api_key" (ngModelChange)="onConfigChange()" placeholder="sk-..." />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['openai_api_key'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="password" [(ngModel)]="llmConfig.openai_api_key" (ngModelChange)="onConfigChange()"
+              placeholder="sk-..." />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             Anthropic API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['anthropic_api_key'] }}</p></cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.anthropic_api_key" (ngModelChange)="onConfigChange()" placeholder="sk-ant-..." />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['anthropic_api_key'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="password" [(ngModel)]="llmConfig.anthropic_api_key" (ngModelChange)="onConfigChange()"
+              placeholder="sk-ant-..." />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             Google API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['google_api_key'] }}</p></cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.google_api_key" (ngModelChange)="onConfigChange()" placeholder="AIza..." />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['google_api_key'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="password" [(ngModel)]="llmConfig.google_api_key" (ngModelChange)="onConfigChange()"
+              placeholder="AIza..." />
           </cds-label>
         </div>
       </div>
@@ -127,8 +153,12 @@
         <div class="config-field">
           <cds-label>
             Groq API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['groq_api_key'] }}</p></cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.groq_api_key" (ngModelChange)="onConfigChange()" placeholder="gsk_..." />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['groq_api_key'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="password" [(ngModel)]="llmConfig.groq_api_key" (ngModelChange)="onConfigChange()"
+              placeholder="gsk_..." />
           </cds-label>
         </div>
         <div class="config-field"></div>
@@ -151,24 +181,34 @@
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="!getSectionValidation('embedding').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="getModifiedCount('embedding') > 0" type="blue" size="sm">{{ getModifiedCount('embedding') }} modified</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['embedding']"></svg>
+        <cds-tag *ngIf="getModifiedCount('embedding') > 0" type="blue" size="sm">{{ getModifiedCount('embedding') }}
+          modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['embedding']"></svg>
       </div>
     </div>
 
     <div class="config-section__body" *ngIf="sections['embedding']">
       <div class="config-row">
-        <div class="config-field config-field--wide" [class.config-field--modified]="isFieldModified('embedding', 'base_model_name')">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('embedding', 'base_model_name')">
           <cds-label>
             Base Model Name
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['base_model_name'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="embeddingConfig.base_model_name" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['base_model_name'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="embeddingConfig.base_model_name"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('embedding', 'device')">
           <cds-label>
             Device
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['device'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['device'] }}</p>
+            </cds-toggletip>
             <select cdsSelect [(ngModel)]="embeddingConfig.device" (ngModelChange)="onConfigChange()">
               <option *ngFor="let opt of deviceOptions" [value]="opt.value">{{ opt.content }}</option>
             </select>
@@ -179,15 +219,23 @@
         <div class="config-field config-field--wide">
           <cds-label>
             Fine-tuned Model Directory
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['fine_tuned_model_dir'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="embeddingConfig.fine_tuned_model_dir" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['fine_tuned_model_dir'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="embeddingConfig.fine_tuned_model_dir"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             Embedding Dimensions
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['embedding_dim'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="embeddingConfig.embedding_dim" (ngModelChange)="onConfigChange()" placeholder="Auto-detected" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['embedding_dim'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="embeddingConfig.embedding_dim" (ngModelChange)="onConfigChange()"
+              placeholder="Auto-detected" />
           </cds-label>
         </div>
       </div>
@@ -208,8 +256,10 @@
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="!getSectionValidation('vectorStore').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="getModifiedCount('vectorStore') > 0" type="blue" size="sm">{{ getModifiedCount('vectorStore') }} modified</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['vectorStore']"></svg>
+        <cds-tag *ngIf="getModifiedCount('vectorStore') > 0" type="blue" size="sm">{{ getModifiedCount('vectorStore') }}
+          modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['vectorStore']"></svg>
       </div>
     </div>
 
@@ -218,7 +268,10 @@
         <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'store_type')">
           <cds-label>
             Store Type
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['store_type'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['store_type'] }}</p>
+            </cds-toggletip>
             <select cdsSelect [(ngModel)]="vectorStoreConfig.store_type" (ngModelChange)="onConfigChange()">
               <option *ngFor="let opt of storeTypeOptions" [value]="opt.value">{{ opt.content }}</option>
             </select>
@@ -227,15 +280,24 @@
         <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'top_k')">
           <cds-label>
             Top-K Results
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['top_k'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.top_k" (ngModelChange)="onConfigChange()" min="1" max="50" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['top_k'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.top_k" (ngModelChange)="onConfigChange()"
+              min="1" max="50" />
           </cds-label>
         </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'similarity_threshold')">
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('vectorStore', 'similarity_threshold')">
           <cds-label>
             Similarity Threshold
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['similarity_threshold'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.similarity_threshold" (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['similarity_threshold'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.similarity_threshold"
+              (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
           </cds-label>
         </div>
       </div>
@@ -246,14 +308,21 @@
         <div class="config-field config-field--wide">
           <cds-label>
             FAISS Index Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['faiss_index_path'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.faiss_index_path" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['faiss_index_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.faiss_index_path"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             FAISS Index Type
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['faiss_index_type'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['faiss_index_type'] }}</p>
+            </cds-toggletip>
             <select cdsSelect [(ngModel)]="vectorStoreConfig.faiss_index_type" (ngModelChange)="onConfigChange()">
               <option *ngFor="let opt of faissIndexOptions" [value]="opt.value">{{ opt.content }}</option>
             </select>
@@ -267,15 +336,23 @@
         <div class="config-field config-field--wide">
           <cds-label>
             ChromaDB Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['chromadb_path'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_path" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['chromadb_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_path"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             Collection Name
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['chromadb_collection_name'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_collection_name" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['chromadb_collection_name'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_collection_name"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
       </div>
@@ -296,8 +373,10 @@
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="!getSectionValidation('mcp').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="mcpServers.length > 0" type="purple" size="sm">{{ mcpServers.length }} server{{ mcpServers.length !== 1 ? 's' : '' }}</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['mcp']"></svg>
+        <cds-tag *ngIf="mcpServers.length > 0" type="purple" size="sm">{{ mcpServers.length }} server{{
+          mcpServers.length !== 1 ? 's' : '' }}</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['mcp']"></svg>
       </div>
     </div>
 
@@ -306,14 +385,21 @@
         <div class="config-field">
           <cds-label>
             Connection Timeout (s)
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['connection_timeout'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="mcpConfig.connection_timeout" (ngModelChange)="onConfigChange()" min="5" max="120" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['connection_timeout'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="mcpConfig.connection_timeout" (ngModelChange)="onConfigChange()"
+              min="5" max="120" />
           </cds-label>
         </div>
         <div class="config-field config-field--wide">
           <cds-label>
             Tool Cache Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['tool_cache_path'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['tool_cache_path'] }}</p>
+            </cds-toggletip>
             <input cdsText type="text" [(ngModel)]="mcpConfig.tool_cache_path" (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
@@ -341,7 +427,8 @@
             <tr *ngFor="let srv of mcpServers; let i = index">
               <td><input cdsText type="text" [(ngModel)]="srv.name" (ngModelChange)="onServerChange()" /></td>
               <td><input cdsText type="text" [(ngModel)]="srv.command" (ngModelChange)="onServerChange()" /></td>
-              <td><input cdsText type="text" [(ngModel)]="srv.args" (ngModelChange)="onServerChange()" placeholder="space-separated" /></td>
+              <td><input cdsText type="text" [(ngModel)]="srv.args" (ngModelChange)="onServerChange()"
+                  placeholder="space-separated" /></td>
               <td>
                 <select cdsSelect [(ngModel)]="srv.transport" (ngModelChange)="onServerChange()">
                   <option value="stdio">stdio</option>
@@ -363,14 +450,17 @@
 
         <div class="mcp-add-row">
           <input cdsText type="text" [(ngModel)]="newServer.name" placeholder="Server name" class="mcp-add-field" />
-          <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)" class="mcp-add-field" />
-          <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)" class="mcp-add-field mcp-add-field--wide" />
+          <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)"
+            class="mcp-add-field" />
+          <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)"
+            class="mcp-add-field mcp-add-field--wide" />
           <select cdsSelect [(ngModel)]="newServer.transport" class="mcp-add-field">
             <option value="stdio">stdio</option>
             <option value="sse">sse</option>
             <option value="streamable-http">streamable-http</option>
           </select>
-          <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()" title="Add server">
+          <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()"
+            title="Add server">
             <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
             Add
           </button>
@@ -388,13 +478,16 @@
         <svg cdsIcon="document--export" size="20" class="config-section__icon"></svg>
         <div>
           <h2 class="cds--type-productive-heading-03">Data Generation Configuration</h2>
-          <p class="cds--type-helper-text-01">Synthetic query generation volume, types distribution, and output settings.</p>
+          <p class="cds--type-helper-text-01">Synthetic query generation volume, types distribution, and output
+            settings.</p>
         </div>
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="!getSectionValidation('dataGeneration').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="getModifiedCount('dataGeneration') > 0" type="blue" size="sm">{{ getModifiedCount('dataGeneration') }} modified</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['dataGeneration']"></svg>
+        <cds-tag *ngIf="getModifiedCount('dataGeneration') > 0" type="blue" size="sm">{{
+          getModifiedCount('dataGeneration') }} modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['dataGeneration']"></svg>
       </div>
     </div>
 
@@ -404,25 +497,39 @@
       </div>
 
       <div class="config-row">
-        <div class="config-field" [class.config-field--modified]="isFieldModified('dataGeneration', 'queries_per_tool')">
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('dataGeneration', 'queries_per_tool')">
           <cds-label>
             Queries Per Tool
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['queries_per_tool'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="dataGenConfig.queries_per_tool" (ngModelChange)="onConfigChange()" min="1" max="100" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['queries_per_tool'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="dataGenConfig.queries_per_tool" (ngModelChange)="onConfigChange()"
+              min="1" max="100" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('dataGeneration', 'batch_size')">
           <cds-label>
             Batch Size
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['batch_size_datagen'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="dataGenConfig.batch_size" (ngModelChange)="onConfigChange()" min="1" max="50" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['batch_size_datagen'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="dataGenConfig.batch_size" (ngModelChange)="onConfigChange()"
+              min="1" max="50" />
           </cds-label>
         </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('dataGeneration', 'num_hard_negatives')">
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('dataGeneration', 'num_hard_negatives')">
           <cds-label>
             Hard Negatives Count
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['num_hard_negatives'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="dataGenConfig.num_hard_negatives" (ngModelChange)="onConfigChange()" min="0" max="10" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['num_hard_negatives'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="dataGenConfig.num_hard_negatives"
+              (ngModelChange)="onConfigChange()" min="0" max="10" />
           </cds-label>
         </div>
       </div>
@@ -437,29 +544,40 @@
         <div class="config-field">
           <cds-label>
             Direct Query Ratio
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['direct_query_ratio'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="dataGenConfig.direct_query_ratio" (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['direct_query_ratio'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="dataGenConfig.direct_query_ratio"
+              (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             Implicit Query Ratio
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['implicit_query_ratio'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="dataGenConfig.implicit_query_ratio" (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['implicit_query_ratio'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="dataGenConfig.implicit_query_ratio"
+              (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             Multi-tool Query Ratio
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['multi_tool_query_ratio'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="dataGenConfig.multi_tool_query_ratio" (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['multi_tool_query_ratio'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="dataGenConfig.multi_tool_query_ratio"
+              (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
           </cds-label>
         </div>
       </div>
 
-      <div class="ratio-indicator"
-           [class.ratio-indicator--valid]="isRatioValid()"
-           [class.ratio-indicator--invalid]="!isRatioValid()">
+      <div class="ratio-indicator" [class.ratio-indicator--valid]="isRatioValid()"
+        [class.ratio-indicator--invalid]="!isRatioValid()">
         <svg cdsIcon="information--filled" size="16"></svg>
         <span>Current sum: {{ getRatioSum() }} {{ isRatioValid() ? '✓' : '— must equal 1.0' }}</span>
       </div>
@@ -470,7 +588,10 @@
         <div class="config-field config-field--full">
           <cds-label>
             Output Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['output_path'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['output_path'] }}</p>
+            </cds-toggletip>
             <input cdsText type="text" [(ngModel)]="dataGenConfig.output_path" (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>

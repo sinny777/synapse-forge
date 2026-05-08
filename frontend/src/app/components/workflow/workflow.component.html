@@ -25,7 +25,7 @@
   <div class="workflow-toolbar">
     <!-- Profile Selector — Carbon Dropdown -->
     <div class="toolbar-group toolbar-group--profile">
-      <cds-dropdown label="Configuration Profile" placeholder="Select a profile" [appendInline]="true" size="sm"
+      <cds-dropdown label="Configuration Profile" placeholder="Select a profile" [appendInline]="true" size="md"
         (selected)="onProfileChange($event)">
         <cds-dropdown-list [items]="profileItems"></cds-dropdown-list>
       </cds-dropdown>
@@ -70,10 +70,55 @@
   <!-- Tabs & Content Area                                             -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <cds-tabs>
-    <cds-tab heading="Phase 1: Generate" (selected)="activeTab = 0" [active]="activeTab === 0"></cds-tab>
-    <cds-tab heading="Phase 2: Train" (selected)="activeTab = 1" [active]="activeTab === 1"></cds-tab>
-    <cds-tab heading="Phase 3: Run" (selected)="activeTab = 2" [active]="activeTab === 2"></cds-tab>
+    <cds-tab [heading]="phase1Heading" (selected)="activeTab = 0" [active]="activeTab === 0"></cds-tab>
+    <cds-tab [heading]="phase2Heading" (selected)="activeTab = 1" [active]="activeTab === 1"></cds-tab>
+    <cds-tab [heading]="phase3Heading" (selected)="activeTab = 2" [active]="activeTab === 2"></cds-tab>
   </cds-tabs>
+
+  <ng-template #phase1Heading>
+    <span style="display: flex; align-items: center;">
+      Phase 1: Generate
+      <div class="custom-tooltip-container">
+        <span class="custom-tooltip-trigger">
+          <svg cdsIcon="information--filled" size="16"></svg>
+        </span>
+        <div class="custom-tooltip-content">
+          <strong class="cds--type-productive-heading-01">Phase 1: Synthetic Data Gen</strong>
+          <p class="cds--type-body-compact-01" style="margin-top: 0.5rem;">A production-ready pipeline for domain-specific accuracy. Connects dynamically to existing MCP servers, fetches available tool schemas/metadata, and uses a Teacher LLM to generate diverse, realistic queries to solve the "Zero-Shot Problem".</p>
+        </div>
+      </div>
+    </span>
+  </ng-template>
+
+  <ng-template #phase2Heading>
+    <span style="display: flex; align-items: center;">
+      Phase 2: Train
+      <div class="custom-tooltip-container">
+        <span class="custom-tooltip-trigger">
+          <svg cdsIcon="information--filled" size="16"></svg>
+        </span>
+        <div class="custom-tooltip-content">
+          <strong class="cds--type-productive-heading-01">Phase 2: Model Fine-Tuning</strong>
+          <p class="cds--type-body-compact-01" style="margin-top: 0.5rem;">Bridging the semantic gap with custom training. Applies contrastive learning on synthetic data to train a lightweight model (e.g., all-MiniLM-L6-v2) and builds the FAISS/Chroma index. Ensures abstract human requests map perfectly to strict programming terminology.</p>
+        </div>
+      </div>
+    </span>
+  </ng-template>
+
+  <ng-template #phase3Heading>
+    <span style="display: flex; align-items: center;">
+      Phase 3: Run
+      <div class="custom-tooltip-container">
+        <span class="custom-tooltip-trigger">
+          <svg cdsIcon="information--filled" size="16"></svg>
+        </span>
+        <div class="custom-tooltip-content">
+          <strong class="cds--type-productive-heading-01">Phase 3: Agentic Runtime</strong>
+          <p class="cds--type-body-compact-01" style="margin-top: 0.5rem;">Executing the NeuralToolRouter for dynamic tool calling. Live execution operating as the central routing layer. Utilizes Hybrid Retrieval (Semantic Vector + BM25) for precision routing. Achieves O(1) scalability by returning only the essential Top-K JSON schemas back to agent frameworks.</p>
+        </div>
+      </div>
+    </span>
+  </ng-template>
 
   <div class="workflow-content">
     <app-generate *ngIf="activeTab === 0"></app-generate>

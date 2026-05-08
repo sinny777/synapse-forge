@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { TabsModule, ButtonModule, SelectModule, NotificationModule, DropdownModule, TagModule, BreadcrumbModule } from 'carbon-components-angular';
 import { TagType } from 'carbon-components-angular/tag';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
+import { TooltipModule } from 'carbon-components-angular/tooltip';
 import { GenerateComponent } from '../generate/generate.component';
 import { TrainComponent } from '../train/train.component';
 import { RunComponent } from '../run/run.component';
@@ -36,6 +37,7 @@ import Edit16 from '@carbon/icons/es/edit/16';
     TrainComponent,
     RunComponent,
     BreadcrumbModule,
+    TooltipModule,
   ],
   templateUrl: './workflow.component.html',
   styleUrls: ['./workflow.component.scss'],

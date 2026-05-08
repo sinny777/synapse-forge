@@ -18,6 +18,13 @@
   margin-bottom: 1.5rem;
   border-bottom: 1px solid var(--cds-border-subtle, #393939);
 
+  h2 {
+    color: var(--cds-text-primary, #f4f4f4);
+    margin: 0;
+    line-height: 2.5;
+    font-size: 1.2rem;
+  }
+
   &__info {
     flex: 1;
     min-width: 0;
@@ -129,8 +136,15 @@
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 // ─── Config Row ───────────────────────────────────────────────────
@@ -149,8 +163,13 @@
 .config-field {
   min-width: 0;
 
-  &--wide { grid-column: span 2; }
-  &--full { grid-column: span 3; }
+  &--wide {
+    grid-column: span 2;
+  }
+
+  &--full {
+    grid-column: span 3;
+  }
 
   // Recommendation #5: Modified field indicator
   &--modified {
@@ -159,7 +178,8 @@
     transition: border-color 0.15s ease;
   }
 
-  cds-label, .cds--label {
+  cds-label,
+  .cds--label {
     display: block;
     margin-bottom: 0;
     color: var(--cds-text-secondary, #c6c6c6);
@@ -169,13 +189,17 @@
     margin-bottom: 0.5rem;
   }
 
-  input[cdsText], select[cdsSelect], textarea[cdsTextArea] {
+  input[cdsText],
+  select[cdsSelect],
+  textarea[cdsTextArea] {
     width: 100%;
     background-color: var(--cds-field, #262626);
     color: var(--cds-text-primary, #f4f4f4);
   }
 
-  select[cdsSelect] { appearance: auto; }
+  select[cdsSelect] {
+    appearance: auto;
+  }
 }
 
 // ─── Recommendation #3: Inline Tooltip Badge ─────────────────────
@@ -285,7 +309,8 @@
     border-bottom: 1px solid var(--cds-border-subtle, #393939);
     vertical-align: middle;
 
-    input[cdsText], select[cdsSelect] {
+    input[cdsText],
+    select[cdsSelect] {
       width: 100%;
       background-color: transparent;
       border: none;
@@ -321,7 +346,8 @@
   align-items: center;
   flex-wrap: wrap;
 
-  input[cdsText], select[cdsSelect] {
+  input[cdsText],
+  select[cdsSelect] {
     background-color: var(--cds-field, #262626);
     color: var(--cds-text-primary, #f4f4f4);
     font-size: 0.8125rem;
@@ -353,20 +379,28 @@
   border-radius: 0;
   margin-top: 0.25rem;
 
-  svg { flex-shrink: 0; }
+  svg {
+    flex-shrink: 0;
+  }
 
   &--valid {
     color: var(--cds-support-success, #42be65);
     background-color: rgba(66, 190, 101, 0.1);
     border-left: 3px solid var(--cds-support-success, #42be65);
-    svg { fill: var(--cds-support-success, #42be65); }
+
+    svg {
+      fill: var(--cds-support-success, #42be65);
+    }
   }
 
   &--invalid {
     color: var(--cds-support-error, #fa4d56);
     background-color: rgba(250, 77, 86, 0.1);
     border-left: 3px solid var(--cds-support-error, #fa4d56);
-    svg { fill: var(--cds-support-error, #fa4d56); }
+
+    svg {
+      fill: var(--cds-support-error, #fa4d56);
+    }
   }
 }
 
@@ -380,15 +414,36 @@
   .page-header {
     flex-direction: column;
     gap: 1rem;
-    &__actions { margin-left: 0; }
+
+    &__actions {
+      margin-left: 0;
+    }
   }
-  .config-row { grid-template-columns: 1fr; }
-  .config-field--wide, .config-field--full { grid-column: span 1; }
-  .mcp-add-row { flex-direction: column; }
+
+  .config-row {
+    grid-template-columns: 1fr;
+  }
+
+  .config-field--wide,
+  .config-field--full {
+    grid-column: span 1;
+  }
+
+  .mcp-add-row {
+    flex-direction: column;
+  }
 }
 
 @media (min-width: 673px) and (max-width: 1056px) {
-  .config-row { grid-template-columns: repeat(2, 1fr); }
-  .config-field--wide { grid-column: span 2; }
-  .config-field--full { grid-column: span 2; }
+  .config-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .config-field--wide {
+    grid-column: span 2;
+  }
+
+  .config-field--full {
+    grid-column: span 2;
+  }
 }

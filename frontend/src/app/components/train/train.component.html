@@ -5,10 +5,7 @@
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <header class="page-header">
     <div class="page-header__info">
-      <h1 class="cds--type-productive-heading-05">Phase 2: Train</h1>
-      <p class="cds--type-body-compact-01 page-header__subtitle">
-        Fine-tune the embedding model using synthetic training data with configurable hyperparameters.
-      </p>
+      <h2>Phase 2: Model Fine-Tuning</h2>
     </div>
     <div class="page-header__actions">
       <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" title="Toggle all sections">
@@ -48,8 +45,10 @@
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="!getSectionValidation('training').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="getModifiedCount('training') > 0" type="blue" size="sm">{{ getModifiedCount('training') }} modified</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['training']"></svg>
+        <cds-tag *ngIf="getModifiedCount('training') > 0" type="blue" size="sm">{{ getModifiedCount('training') }}
+          modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['training']"></svg>
       </div>
     </div>
 
@@ -62,22 +61,34 @@
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'num_epochs')">
           <cds-label>
             Epochs
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['num_epochs'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="trainingConfig.num_epochs" (ngModelChange)="onConfigChange()" min="1" max="100" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['num_epochs'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.num_epochs" (ngModelChange)="onConfigChange()"
+              min="1" max="100" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'batch_size')">
           <cds-label>
             Batch Size
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['batch_size'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="trainingConfig.batch_size" (ngModelChange)="onConfigChange()" min="1" max="512" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['batch_size'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.batch_size" (ngModelChange)="onConfigChange()"
+              min="1" max="512" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'learning_rate')">
           <cds-label>
             Learning Rate
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['learning_rate'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="trainingConfig.learning_rate" (ngModelChange)="onConfigChange()" placeholder="2e-5" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['learning_rate'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="trainingConfig.learning_rate" (ngModelChange)="onConfigChange()"
+              placeholder="2e-5" />
           </cds-label>
         </div>
       </div>
@@ -86,14 +97,22 @@
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'warmup_steps')">
           <cds-label>
             Warmup Steps
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['warmup_steps'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="trainingConfig.warmup_steps" (ngModelChange)="onConfigChange()" min="0" max="10000" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['warmup_steps'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.warmup_steps" (ngModelChange)="onConfigChange()"
+              min="0" max="10000" />
           </cds-label>
         </div>
-        <div class="config-field config-field--wide" [class.config-field--modified]="isFieldModified('training', 'loss_function')">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('training', 'loss_function')">
           <cds-label>
             Loss Function
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['loss_function'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['loss_function'] }}</p>
+            </cds-toggletip>
             <select cdsSelect [(ngModel)]="trainingConfig.loss_function" (ngModelChange)="onConfigChange()">
               <option *ngFor="let opt of lossFunctionOptions" [value]="opt.value">{{ opt.content }}</option>
             </select>
@@ -108,15 +127,23 @@
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'eval_steps')">
           <cds-label>
             Evaluation Steps
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['eval_steps'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="trainingConfig.eval_steps" (ngModelChange)="onConfigChange()" min="10" max="5000" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['eval_steps'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.eval_steps" (ngModelChange)="onConfigChange()"
+              min="10" max="5000" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'save_steps')">
           <cds-label>
             Save Steps
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['save_steps'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="trainingConfig.save_steps" (ngModelChange)="onConfigChange()" min="50" max="10000" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['save_steps'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.save_steps" (ngModelChange)="onConfigChange()"
+              min="50" max="10000" />
           </cds-label>
         </div>
         <div class="config-field"></div>
@@ -126,17 +153,25 @@
       <p class="cds--type-label-01 config-subsection-label">Data & Logging Paths</p>
 
       <div class="config-row">
-        <div class="config-field config-field--wide" [class.config-field--modified]="isFieldModified('training', 'training_data_path')">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('training', 'training_data_path')">
           <cds-label>
             Training Data Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['training_data_path'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="trainingConfig.training_data_path" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['training_data_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="trainingConfig.training_data_path"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'logging_dir')">
           <cds-label>
             Logging Directory
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['logging_dir'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['logging_dir'] }}</p>
+            </cds-toggletip>
             <input cdsText type="text" [(ngModel)]="trainingConfig.logging_dir" (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
@@ -158,24 +193,34 @@
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="!getSectionValidation('embedding').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="getModifiedCount('embedding') > 0" type="blue" size="sm">{{ getModifiedCount('embedding') }} modified</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['embedding']"></svg>
+        <cds-tag *ngIf="getModifiedCount('embedding') > 0" type="blue" size="sm">{{ getModifiedCount('embedding') }}
+          modified</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['embedding']"></svg>
       </div>
     </div>
 
     <div class="config-section__body" *ngIf="sections['embedding']">
       <div class="config-row">
-        <div class="config-field config-field--wide" [class.config-field--modified]="isFieldModified('embedding', 'base_model_name')">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('embedding', 'base_model_name')">
           <cds-label>
             Base Model Name
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['base_model_name'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="embeddingConfig.base_model_name" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['base_model_name'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="embeddingConfig.base_model_name"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('embedding', 'device')">
           <cds-label>
             Device
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['device'] }}</p></cds-toggletip>
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['device'] }}</p>
+            </cds-toggletip>
             <select cdsSelect [(ngModel)]="embeddingConfig.device" (ngModelChange)="onConfigChange()">
               <option *ngFor="let opt of deviceOptions" [value]="opt.value">{{ opt.content }}</option>
             </select>
@@ -183,18 +228,27 @@
         </div>
       </div>
       <div class="config-row">
-        <div class="config-field config-field--wide" [class.config-field--modified]="isFieldModified('embedding', 'fine_tuned_model_dir')">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('embedding', 'fine_tuned_model_dir')">
           <cds-label>
             Fine-tuned Model Directory
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['fine_tuned_model_dir'] }}</p></cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="embeddingConfig.fine_tuned_model_dir" (ngModelChange)="onConfigChange()" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['fine_tuned_model_dir'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="embeddingConfig.fine_tuned_model_dir"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
         <div class="config-field">
           <cds-label>
             Embedding Dimensions
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg cdsIcon="information--filled" size="16"></svg></button><p cdsToggletipContent>{{ tooltips['embedding_dim'] }}</p></cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="embeddingConfig.embedding_dim" (ngModelChange)="onConfigChange()" placeholder="Auto-detected" />
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['embedding_dim'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="embeddingConfig.embedding_dim" (ngModelChange)="onConfigChange()"
+              placeholder="Auto-detected" />
           </cds-label>
         </div>
       </div>
@@ -215,7 +269,8 @@
       </div>
       <div class="config-section__header-right">
         <cds-tag *ngIf="trainingProgress > 0" type="green" size="sm">{{ trainingProgress }}% complete</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron" [class.config-section__chevron--open]="sections['monitoring']"></svg>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['monitoring']"></svg>
       </div>
     </div>
 
@@ -230,9 +285,8 @@
         </div>
 
         <div class="monitoring-progress__bar">
-          <div class="monitoring-progress__bar-fill"
-               [style.width]="trainingProgress + '%'"
-               [class.monitoring-progress__bar-fill--active]="isLoading"></div>
+          <div class="monitoring-progress__bar-fill" [style.width]="trainingProgress + '%'"
+            [class.monitoring-progress__bar-fill--active]="isLoading"></div>
         </div>
 
         <div class="monitoring-metrics">
@@ -258,21 +312,25 @@
           <span class="cds--type-heading-02">Training Loss over Epochs</span>
           <div class="monitoring-chart__legend">
             <span class="monitoring-chart__legend-item">
-              <div class="monitoring-chart__legend-dot" style="background-color: var(--cds-interactive, #0f62fe);"></div>
+              <div class="monitoring-chart__legend-dot" style="background-color: var(--cds-interactive, #0f62fe);">
+              </div>
               Train
             </span>
             <span class="monitoring-chart__legend-item">
-              <div class="monitoring-chart__legend-dot" style="background-color: var(--cds-support-error, #fa4d56);"></div>
+              <div class="monitoring-chart__legend-dot" style="background-color: var(--cds-support-error, #fa4d56);">
+              </div>
               Eval
             </span>
           </div>
         </div>
         <div class="monitoring-chart__area">
-          <span class="cds--type-body-01" style="color: var(--cds-text-secondary)" *ngIf="!notification || notification.type !== 'success'">
+          <span class="cds--type-body-01" style="color: var(--cds-text-secondary)"
+            *ngIf="!notification || notification.type !== 'success'">
             No chart data available yet. Start training to visualize loss curves.
           </span>
           <div *ngIf="notification?.type === 'success'" class="monitoring-chart__placeholder-bars">
-            <div class="monitoring-chart__bar" *ngFor="let h of [85, 62, 45, 35, 28, 22, 18, 15]" [style.height.%]="h" style="background: var(--cds-interactive, #0f62fe);"></div>
+            <div class="monitoring-chart__bar" *ngFor="let h of [85, 62, 45, 35, 28, 22, 18, 15]" [style.height.%]="h"
+              style="background: var(--cds-interactive, #0f62fe);"></div>
           </div>
           <div class="monitoring-chart__axis-x"></div>
           <div class="monitoring-chart__axis-y"></div>
