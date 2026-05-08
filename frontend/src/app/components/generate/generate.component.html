@@ -411,6 +411,17 @@
         <span class="config-subsection-hint">(add/remove servers interactively)</span>
       </p>
 
+      <div class="config-row" style="margin-bottom: 1rem;">
+        <div class="config-field config-field--wide">
+          <cds-label>
+            Add Pre-defined MCP Server Example
+            <select cdsSelect [(ngModel)]="selectedPredefinedMcp" (ngModelChange)="onPredefinedMcpSelect()">
+              <option *ngFor="let opt of predefinedMcpOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
       <!-- MCP Servers Table -->
       <div class="mcp-table-wrapper">
         <table class="mcp-table">
@@ -600,4 +611,70 @@
   </section>
 
   <div class="page-bottom-spacer"></div>
+
+  <!-- Progress Bar (Visible during generation) -->
+  <div class="progress-container" *ngIf="isLoading && progressStatus">
+    <div class="progress-bar-wrapper">
+      <div class="progress-header">
+        <span class="progress-label">{{ progressStatus.message }}</span>
+        <span class="progress-pct">{{ (progressStatus.progress * 100) | number:'1.0-0' }}%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill" [style.width.%]="progressStatus.progress * 100"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Synthetic Data Viewer/Editor -->
+  <section class="config-section" *ngIf="!isLoading && syntheticData.length > 0">
+    <div class="config-section__header" (click)="toggleSection('syntheticData')">
+      <div class="config-section__header-left">
+        <svg cdsIcon="data--base" size="20" class="config-section__icon"></svg>
+        <div>
+          <h2 class="cds--type-productive-heading-03">Generated Synthetic Data</h2>
+          <p class="cds--type-helper-text-01">Review and manually adjust the generated queries before training.</p>
+        </div>
+      </div>
+      <div class="config-section__header-right">
+        <cds-tag type="blue" size="sm">{{ syntheticData.length }} Queries</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['syntheticData']"></svg>
+      </div>
+    </div>
+
+    <div class="config-section__body" *ngIf="sections['syntheticData'] !== false">
+      <div class="table-actions">
+        <button cdsButton="primary" size="sm" (click)="saveData()" [disabled]="isDataSaving">
+          <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
+          {{ isDataSaving ? 'Saving...' : 'Save Changes' }}
+        </button>
+      </div>
+      <div class="mcp-table-wrapper" style="max-height: 500px; overflow-y: auto;">
+        <table class="mcp-table">
+          <thead>
+            <tr>
+              <th style="width: 15%">Target Tool</th>
+              <th style="width: 10%">Type</th>
+              <th style="width: 70%">Query Text (Editable)</th>
+              <th style="width: 5%"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let item of syntheticData; let i = index">
+              <td><cds-tag type="purple" size="sm">{{ item.positive_tool_id }}</cds-tag></td>
+              <td><cds-tag type="gray" size="sm">{{ item.query_type }}</cds-tag></td>
+              <td>
+                <input cdsText type="text" [(ngModel)]="item.query" style="width: 100%; border: 1px solid #393939; background: #262626; color: #f4f4f4; padding: 0.5rem;" />
+              </td>
+              <td>
+                <button cdsButton="danger--ghost" size="sm" (click)="syntheticData.splice(i, 1)" title="Remove query">
+                  <svg cdsIcon="trash-can" size="16"></svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 </div>

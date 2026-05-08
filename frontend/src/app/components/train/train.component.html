@@ -281,7 +281,7 @@
             <svg cdsIcon="renew" size="20" style="fill: var(--cds-interactive)" [class.spin]="isLoading"></svg>
             <span class="cds--type-heading-02">Training Progress</span>
           </div>
-          <cds-tag type="blue" size="sm">Epoch {{ currentEpoch }}/{{ trainingConfig.num_epochs }}</cds-tag>
+          <cds-tag type="blue" size="sm" *ngIf="progressStatus">{{ progressStatus.message }}</cds-tag>
         </div>
 
         <div class="monitoring-progress__bar">
@@ -308,32 +308,12 @@
       <div class="config-section__divider"></div>
 
       <div class="monitoring-chart">
-        <div class="monitoring-chart__header">
-          <span class="cds--type-heading-02">Training Loss over Epochs</span>
-          <div class="monitoring-chart__legend">
-            <span class="monitoring-chart__legend-item">
-              <div class="monitoring-chart__legend-dot" style="background-color: var(--cds-interactive, #0f62fe);">
-              </div>
-              Train
-            </span>
-            <span class="monitoring-chart__legend-item">
-              <div class="monitoring-chart__legend-dot" style="background-color: var(--cds-support-error, #fa4d56);">
-              </div>
-              Eval
-            </span>
-          </div>
-        </div>
         <div class="monitoring-chart__area">
           <span class="cds--type-body-01" style="color: var(--cds-text-secondary)"
-            *ngIf="!notification || notification.type !== 'success'">
+            *ngIf="chartData.length === 0">
             No chart data available yet. Start training to visualize loss curves.
           </span>
-          <div *ngIf="notification?.type === 'success'" class="monitoring-chart__placeholder-bars">
-            <div class="monitoring-chart__bar" *ngFor="let h of [85, 62, 45, 35, 28, 22, 18, 15]" [style.height.%]="h"
-              style="background: var(--cds-interactive, #0f62fe);"></div>
-          </div>
-          <div class="monitoring-chart__axis-x"></div>
-          <div class="monitoring-chart__axis-y"></div>
+          <ibm-line-chart *ngIf="chartData.length > 0" [data]="chartData" [options]="chartOptions"></ibm-line-chart>
         </div>
       </div>
     </div>

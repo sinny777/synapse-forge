@@ -203,8 +203,23 @@ export class GenerateComponent implements OnInit {
     { content: 'IndexIVFFlat', value: 'IndexIVFFlat' },
   ];
 
+  predefinedMcpOptions = [
+    { content: 'Select an MCP Server...', value: '' },
+    { content: 'UHNW Private Banking Example', value: 'uhnwc_banking' },
+    { content: 'Mediclaim Processing Example', value: 'mediclaim' },
+    { content: 'Filesystem (Local)', value: 'filesystem' },
+  ];
+  selectedPredefinedMcp = '';
+
   isLoading = false;
   notification: any = null;
+  
+  progressStatus: any = null;
+  statusInterval: any;
+
+  syntheticData: any[] = [];
+  isDataLoading = false;
+  isDataSaving = false;
 
   constructor(
     private service: NeuralToolService,
@@ -223,6 +238,11 @@ export class GenerateComponent implements OnInit {
   ngOnInit(): void {
     this.syncMCPtoTable();
     this.runValidation();
+    this.loadSyntheticData();
+  }
+
+  ngOnDestroy(): void {
+    if (this.statusInterval) clearInterval(this.statusInterval);
   }
 
   toggleSection(section: string): void {
@@ -319,7 +339,35 @@ export class GenerateComponent implements OnInit {
     if (!this.newServer.name.trim()) return;
     this.mcpServers.push({ ...this.newServer });
     this.newServer = { name: '', command: '', args: '', transport: 'stdio' };
+    this.selectedPredefinedMcp = '';
     this.syncTableToMCP();
+  }
+
+  onPredefinedMcpSelect(): void {
+    if (this.selectedPredefinedMcp === 'uhnwc_banking') {
+      this.newServer = {
+        name: 'uhnwc_banking',
+        command: 'python',
+        args: '../examples/langgraph_UHNW_banking/mock_fastmcp_server.py',
+        transport: 'stdio'
+      };
+    } else if (this.selectedPredefinedMcp === 'mediclaim') {
+      this.newServer = {
+        name: 'mediclaim',
+        command: 'python',
+        args: '../examples/beeai_mediclaim_processing/mock_fastmcp_server.py',
+        transport: 'stdio'
+      };
+    } else if (this.selectedPredefinedMcp === 'filesystem') {
+      this.newServer = {
+        name: 'filesystem',
+        command: 'npx',
+        args: '-y @modelcontextprotocol/server-filesystem /tmp',
+        transport: 'stdio'
+      };
+    } else {
+      this.newServer = { name: '', command: '', args: '', transport: 'stdio' };
+    }
   }
 
   removeServer(index: number): void {
@@ -386,17 +434,68 @@ export class GenerateComponent implements OnInit {
     this.notification = null;
     const payload = this.buildPayload();
 
+    this.startPolling();
+
     this.service.generate(payload).subscribe({
       next: (res) => {
+        this.stopPolling();
         this.isLoading = false;
         this.configService.markSynced();
         this.notification = { type: 'success', title: 'Success', message: res.message || 'Synthetic data generation completed.' };
+        this.loadSyntheticData();
       },
       error: (err) => {
+        this.stopPolling();
         this.isLoading = false;
         this.configService.markError();
-        this.notification = { type: 'error', title: 'Error', message: err.error?.message || err.message || 'Generation failed.' };
+        this.notification = { type: 'error', title: 'Error', message: err.error?.detail || err.message || 'Generation failed.' };
       },
+    });
+  }
+
+  startPolling() {
+    this.progressStatus = { message: 'Starting generation...', progress: 0 };
+    this.statusInterval = setInterval(() => {
+      this.service.getStatus().subscribe(status => {
+        if (status && status.phase === 'generate') {
+          this.progressStatus = status;
+        }
+      });
+    }, 1000);
+  }
+
+  stopPolling() {
+    if (this.statusInterval) {
+      clearInterval(this.statusInterval);
+      this.statusInterval = null;
+    }
+  }
+
+  loadSyntheticData() {
+    this.isDataLoading = true;
+    this.service.getSyntheticData().subscribe({
+      next: (res) => {
+        this.syntheticData = res.data || [];
+        this.isDataLoading = false;
+      },
+      error: (err) => {
+        console.error("Failed to load synthetic data", err);
+        this.isDataLoading = false;
+      }
+    });
+  }
+
+  saveData() {
+    this.isDataSaving = true;
+    this.service.saveSyntheticData(this.syntheticData).subscribe({
+      next: (res) => {
+        this.isDataSaving = false;
+        this.notification = { type: 'success', title: 'Data Saved', message: 'Synthetic data updated successfully.' };
+      },
+      error: (err) => {
+        this.isDataSaving = false;
+        this.notification = { type: 'error', title: 'Save Failed', message: 'Failed to save synthetic data updates.' };
+      }
     });
   }
 }

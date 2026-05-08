@@ -21,6 +21,7 @@ from sentence_transformers.evaluation import InformationRetrievalEvaluator
 
 from tool_router.config import config, TrainingConfig, EmbeddingConfig, VectorStoreConfig
 from tool_router.mcp_client import ToolSchema
+from tool_router.status_tracker import update_status
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -129,6 +130,7 @@ class ToolEmbeddingTrainer:
             dataset: Training dataset
         """
         logger.info("Starting model fine-tuning...")
+        update_status(progress=0.3, message="Starting fine-tuning with MultipleNegativesRankingLoss...")
         
         # Create DataLoader
         train_dataloader = DataLoader(
@@ -459,10 +461,12 @@ def main():
     
     # Load dataset
     logger.info("\n2. Loading training dataset...")
+    update_status(progress=0.1, message="Loading training dataset...")
     dataset = ToolRetrievalDataset(config.training.training_data_path, tools_dict)
     
     # Initialize trainer
     logger.info("\n3. Initializing trainer...")
+    update_status(progress=0.2, message="Initializing model trainer...")
     trainer = ToolEmbeddingTrainer(config.embedding, config.training)
     trainer.load_base_model()
     
@@ -476,6 +480,7 @@ def main():
     
     # Build vector index
     logger.info("\n6. Building dense vector index...")
+    update_status(progress=0.8, message="Building FAISS/ChromaDB vector index...")
     index_builder = VectorIndexBuilder(trainer.model, config.vector_store)
     
     if config.vector_store.store_type == "faiss":
@@ -489,6 +494,7 @@ def main():
     
     # Build BM25 sparse index for hybrid retrieval
     logger.info("\n7. Building BM25 sparse index...")
+    update_status(progress=0.9, message="Building BM25 sparse index...")
     index_builder.build_bm25_index(tools)
     index_builder.save_bm25_index()
     

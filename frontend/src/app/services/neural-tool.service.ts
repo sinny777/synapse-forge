@@ -21,4 +21,16 @@ export class NeuralToolService {
   run(config: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/run`, config);
   }
+
+  getStatus(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/status`);
+  }
+
+  getSyntheticData(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/data/synthetic`);
+  }
+
+  saveSyntheticData(data: any[]): Observable<any> {
+    return this.http.post(`${this.apiUrl}/data/synthetic`, { data });
+  }
 }

@@ -22,6 +22,7 @@ from tqdm import tqdm
 
 from tool_router.config import config, DataGenerationConfig, LLMConfig
 from tool_router.mcp_client import MCPClient, ToolSchema
+from tool_router.status_tracker import update_status
 
 # Configure logging
 logging.basicConfig(
@@ -403,6 +404,7 @@ Example format:
         all_queries = []
         
         logger.info(f"Generating queries for {len(self.all_tools)} tools...")
+        update_status(progress=0.1, message=f"Generating queries for {len(self.all_tools)} tools...")
         
         # Using semaphore to limit concurrency based on config batch_size
         semaphore = asyncio.Semaphore(max(1, getattr(self.data_config, 'batch_size', 5)))
@@ -419,12 +421,19 @@ Example format:
         
         tasks = [process_tool(tool) for tool in self.all_tools]
         
+        completed_tools = 0
+        total_tools = len(tasks)
+        
         # Gather all tasks with progress tracking
-        for f in tqdm(asyncio.as_completed(tasks), total=len(tasks), desc="Generating queries"):
+        for f in asyncio.as_completed(tasks):
             result = await f
             all_queries.extend(result)
+            completed_tools += 1
+            progress_val = 0.1 + (0.8 * (completed_tools / max(total_tools, 1)))
+            update_status(progress=progress_val, message=f"Generated queries for {completed_tools}/{total_tools} tools...")
             
         logger.info(f"Generated {len(all_queries)} total queries")
+        update_status(progress=0.9, message=f"Generated {len(all_queries)} total queries")
         return all_queries
     
     def save_dataset(self, queries: List[SyntheticQuery], output_path: Path):
@@ -457,6 +466,7 @@ async def main():
     
     # Initialize MCP client
     logger.info("\n1. Loading tool schemas...")
+    update_status(progress=0.05, message="Loading tool schemas from MCP servers...")
     mcp_client = MCPClient(config.mcp)
     
     # Try to load predefined tools first (for testing without MCP)
@@ -477,8 +487,9 @@ async def main():
         logger.info(f"Connected to {connected}/{len(connection_results)} servers")
         
         if connected == 0:
-            logger.error("No MCP servers connected and no predefined tools found. Cannot proceed.")
-            return
+            error_msg = "No MCP servers connected and no predefined tools found. Cannot proceed."
+            logger.error(error_msg)
+            raise RuntimeError(error_msg)
             
         logger.info("Listing tools from connected servers...")
         await mcp_client.list_tools()
@@ -498,6 +509,7 @@ async def main():
     
     # Save dataset
     logger.info("\n4. Saving dataset...")
+    update_status(progress=0.95, message="Saving generated dataset...")
     generator.save_dataset(queries, config.data_generation.output_path)
     
     # Save tool cache for later phases

@@ -1,0 +1,488 @@
+{
+  "tools": [
+    {
+      "id": "uhnwc_banking.get_portfolio_summary",
+      "name": "get_portfolio_summary",
+      "description": "Retrieve portfolio summary including holdings, asset allocation, and YTD performance.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "The client identifier (e.g., \"UHNW-123\")"
+          }
+        },
+        "required": [
+          "client_id"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "get_portfolio_summary",
+        "description": "Retrieve portfolio summary including holdings, asset allocation, and YTD performance.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "The client identifier (e.g., \"UHNW-123\")"
+            }
+          },
+          "required": [
+            "client_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.get_unrealized_gains_losses",
+      "name": "get_unrealized_gains_losses",
+      "description": "Retrieve open positions and their profit/loss status.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "The client identifier (e.g., \"UHNW-123\")"
+          }
+        },
+        "required": [
+          "client_id"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "get_unrealized_gains_losses",
+        "description": "Retrieve open positions and their profit/loss status.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "The client identifier (e.g., \"UHNW-123\")"
+            }
+          },
+          "required": [
+            "client_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.get_live_market_data",
+      "name": "get_live_market_data",
+      "description": "Fetch real-time price, P/E ratio, and recent analyst ratings.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "description": "The stock ticker (e.g., \"NVDA\")"
+          }
+        },
+        "required": [
+          "ticker"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "get_live_market_data",
+        "description": "Fetch real-time price, P/E ratio, and recent analyst ratings.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "ticker": {
+              "type": "string",
+              "description": "The stock ticker (e.g., \"NVDA\")"
+            }
+          },
+          "required": [
+            "ticker"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.get_market_news",
+      "name": "get_market_news",
+      "description": "Fetch breaking news sentiment for a sector or ticker.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "sector_or_ticker": {
+            "type": "string",
+            "description": "Sector name (e.g., \"EU AI Regulation\") or ticker"
+          }
+        },
+        "required": [
+          "sector_or_ticker"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "get_market_news",
+        "description": "Fetch breaking news sentiment for a sector or ticker.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "sector_or_ticker": {
+              "type": "string",
+              "description": "Sector name (e.g., \"EU AI Regulation\") or ticker"
+            }
+          },
+          "required": [
+            "sector_or_ticker"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.execute_trade",
+      "name": "execute_trade",
+      "description": "Place a buy or sell order for a stock.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          },
+          "ticker": {
+            "type": "string",
+            "description": "Stock ticker"
+          },
+          "quantity": {
+            "type": "string",
+            "description": "Number of shares or \"ALL\""
+          },
+          "action": {
+            "type": "string",
+            "description": "\"BUY\" or \"SELL\""
+          }
+        },
+        "required": [
+          "client_id",
+          "ticker",
+          "quantity",
+          "action"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "execute_trade",
+        "description": "Place a buy or sell order for a stock.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "Client identifier"
+            },
+            "ticker": {
+              "type": "string",
+              "description": "Stock ticker"
+            },
+            "quantity": {
+              "type": "string",
+              "description": "Number of shares or \"ALL\""
+            },
+            "action": {
+              "type": "string",
+              "description": "\"BUY\" or \"SELL\""
+            }
+          },
+          "required": [
+            "client_id",
+            "ticker",
+            "quantity",
+            "action"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.simulate_capital_gains_tax",
+      "name": "simulate_capital_gains_tax",
+      "description": "Calculate the estimated tax bill for a proposed sale.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          },
+          "ticker": {
+            "type": "string",
+            "description": "Stock ticker"
+          },
+          "quantity_to_sell": {
+            "type": "integer",
+            "description": "Number of shares to sell"
+          }
+        },
+        "required": [
+          "client_id",
+          "ticker",
+          "quantity_to_sell"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "simulate_capital_gains_tax",
+        "description": "Calculate the estimated tax bill for a proposed sale.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "Client identifier"
+            },
+            "ticker": {
+              "type": "string",
+              "description": "Stock ticker"
+            },
+            "quantity_to_sell": {
+              "type": "integer",
+              "description": "Number of shares to sell"
+            }
+          },
+          "required": [
+            "client_id",
+            "ticker",
+            "quantity_to_sell"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.get_tax_loss_harvesting_options",
+      "name": "get_tax_loss_harvesting_options",
+      "description": "Recommend losing positions to sell to offset gains.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          }
+        },
+        "required": [
+          "client_id"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "get_tax_loss_harvesting_options",
+        "description": "Recommend losing positions to sell to offset gains.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "Client identifier"
+            }
+          },
+          "required": [
+            "client_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.run_aml_transaction_check",
+      "name": "run_aml_transaction_check",
+      "description": "Run an Anti-Money Laundering check for large outbound wires.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Wire amount"
+          },
+          "destination": {
+            "type": "string",
+            "description": "Recipient name/organization"
+          }
+        },
+        "required": [
+          "client_id",
+          "amount",
+          "destination"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "run_aml_transaction_check",
+        "description": "Run an Anti-Money Laundering check for large outbound wires.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "Client identifier"
+            },
+            "amount": {
+              "type": "number",
+              "description": "Wire amount"
+            },
+            "destination": {
+              "type": "string",
+              "description": "Recipient name/organization"
+            }
+          },
+          "required": [
+            "client_id",
+            "amount",
+            "destination"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.update_card_limit",
+      "name": "update_card_limit",
+      "description": "Temporarily raises credit/spending limits.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          },
+          "card_last_4": {
+            "type": "string",
+            "description": "Last 4 digits of the card"
+          },
+          "new_limit": {
+            "type": "number",
+            "description": "Requested new limit amount"
+          }
+        },
+        "required": [
+          "client_id",
+          "card_last_4",
+          "new_limit"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "update_card_limit",
+        "description": "Temporarily raises credit/spending limits.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "Client identifier"
+            },
+            "card_last_4": {
+              "type": "string",
+              "description": "Last 4 digits of the card"
+            },
+            "new_limit": {
+              "type": "number",
+              "description": "Requested new limit amount"
+            }
+          },
+          "required": [
+            "client_id",
+            "card_last_4",
+            "new_limit"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "uhnwc_banking.initiate_wire_transfer",
+      "name": "initiate_wire_transfer",
+      "description": "Wires money to external accounts.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Client identifier"
+          },
+          "amount": {
+            "type": "number",
+            "description": "Wire amount"
+          },
+          "recipient": {
+            "type": "string",
+            "description": "Recipient name/organization"
+          }
+        },
+        "required": [
+          "client_id",
+          "amount",
+          "recipient"
+        ],
+        "type": "object"
+      },
+      "server_name": "uhnwc_banking",
+      "raw_schema": {
+        "name": "initiate_wire_transfer",
+        "description": "Wires money to external accounts.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "client_id": {
+              "type": "string",
+              "description": "Client identifier"
+            },
+            "amount": {
+              "type": "number",
+              "description": "Wire amount"
+            },
+            "recipient": {
+              "type": "string",
+              "description": "Recipient name/organization"
+            }
+          },
+          "required": [
+            "client_id",
+            "amount",
+            "recipient"
+          ],
+          "type": "object"
+        }
+      }
+    }
+  ],
+  "server_tools": {
+    "uhnwc_banking": [
+      "uhnwc_banking.get_portfolio_summary",
+      "uhnwc_banking.get_unrealized_gains_losses",
+      "uhnwc_banking.get_live_market_data",
+      "uhnwc_banking.get_market_news",
+      "uhnwc_banking.execute_trade",
+      "uhnwc_banking.simulate_capital_gains_tax",
+      "uhnwc_banking.get_tax_loss_harvesting_options",
+      "uhnwc_banking.run_aml_transaction_check",
+      "uhnwc_banking.update_card_limit",
+      "uhnwc_banking.initiate_wire_transfer"
+    ]
+  }
+}
