@@ -4,6 +4,7 @@
 @use '@carbon/styles/scss/themes';
 @use '@carbon/styles/scss/theme';
 @use '@carbon/styles';
+@import '@carbon/charts/styles.css';
 
 [data-carbon-theme='white'] {
   @include theme.theme(themes.$white);

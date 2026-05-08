@@ -84,63 +84,67 @@
         </div>
       </div>
 
+      <div class="section-divider"></div>
+
       <!-- Section 1: The Agentic Scaling Wall -->
       <section class="dashboard-section split-section">
         <div class="section-text">
           <h2 class="section-title">The Agentic Scaling Wall</h2>
-          <p class="section-description">Traditional LLM orchestration fails at scale. Passing thousands of tool schemas directly into the prompt creates catastrophic bottlenecks.</p>
+          <p class="section-description">As enterprises integrate hundreds of specialized APIs, monolithic prompts collapse under their own weight. NeuralToolRouter mitigates the 'Context Window Dilemma' by preventing prompt explosion entirely.</p>
         </div>
         <div class="cards-grid">
           <div class="dashboard-card warning-card glass-card">
             <div class="card-icon"><svg cdsIcon="warning--alt" size="24"></svg></div>
-            <h3 class="card-title">Context Bloat</h3>
-            <p class="card-text">Input Overflow limits the context window when passing thousands of tool schemas.</p>
+            <h3 class="card-title">Token Exhaustion</h3>
+            <p class="card-text">Stuffing 500+ JSON schemas into system prompts leads to immediate context length failures, capping your agent's potential functionality.</p>
           </div>
           <div class="dashboard-card warning-card glass-card">
             <div class="card-icon"><svg cdsIcon="time" size="24"></svg></div>
-            <h3 class="card-title">High Latency</h3>
-            <p class="card-text">TTFT (Time To First Token) spikes dramatically as payload size increases.</p>
+            <h3 class="card-title">Crippling Latency</h3>
+            <p class="card-text">Every additional tool parsed by the LLM drastically slows down response times, destroying the interactive user experience.</p>
           </div>
           <div class="dashboard-card warning-card glass-card">
             <div class="card-icon"><svg cdsIcon="chart--line" size="24"></svg></div>
-            <h3 class="card-title">Exorbitant Costs</h3>
-            <p class="card-text">API Expenditure Escalation from sending massive tool schemas every request.</p>
+            <h3 class="card-title">Exploding Budgets</h3>
+            <p class="card-text">Paying for 10,000 idle tokens per inference query makes scaling autonomous agents financially impossible for high-volume enterprise tasks.</p>
           </div>
           <div class="dashboard-card warning-card glass-card">
             <div class="card-icon"><svg cdsIcon="misuse" size="24"></svg></div>
-            <h3 class="card-title">Degraded Accuracy</h3>
-            <p class="card-text">System Integrity Failure due to LLM distraction from irrelevant tools.</p>
+            <h3 class="card-title">Attention Dilution</h3>
+            <p class="card-text">When overwhelmed by choice, LLMs suffer from 'Lost in the Middle' syndrome—hallucinating incorrect tool calls and parameters.</p>
           </div>
         </div>
       </section>
+
+      <div class="section-divider"></div>
 
       <!-- Section 2: Decoupling Retrieval -->
       <section class="dashboard-section alternate-bg">
         <div class="section-header-center">
           <h2 class="section-title">Decoupling Retrieval <span class="highlight-text">The Solution</span></h2>
-          <p class="section-description">Transitioning from a monolithic prompt to a RAG-for-Tools methodology.</p>
+          <p class="section-description">By adopting a just-in-time "RAG-for-Tools" architecture, agents query a vector database for the top-k most relevant tools *before* engaging the LLM. This shift unlocks limitless scaling capabilities without sacrificing latency.</p>
         </div>
         <div class="cards-grid compare-grid">
           <div class="dashboard-card legacy-card">
             <div class="card-header">
-              <svg cdsIcon="close-outline" size="24" class="legacy-icon"></svg>
-              <h3 class="card-title">The Legacy Approach</h3>
+              <svg cdsIcon="close--outline" size="24" class="legacy-icon"></svg>
+              <h3 class="card-title">Monolithic Passing (Legacy)</h3>
             </div>
             <ul class="feature-list">
-              <li><svg cdsIcon="close" size="16"></svg> Passes all tools directly into the prompt.</li>
-              <li><svg cdsIcon="close" size="16"></svg> <b>10,000+ Tokens</b> consumed per query.</li>
-              <li><svg cdsIcon="close" size="16"></svg> Breaks at ~50 tools due to context limits.</li>
+              <li><svg cdsIcon="close" size="16"></svg> <span>Forces the LLM to read every tool's documentation on every turn.</span></li>
+              <li><svg cdsIcon="close" size="16"></svg> <span>Linear O(N) cost scaling. More tools = exponentially higher latency.</span></li>
+              <li><svg cdsIcon="close" size="16"></svg> <span>Hard cap hit around 50-100 tools before cognitive breakdown.</span></li>
             </ul>
           </div>
           <div class="dashboard-card solution-card premium-glow">
             <div class="card-header">
-              <svg cdsIcon="checkmark-outline" size="24" class="solution-icon"></svg>
-              <h3 class="card-title">NeuralToolRouter</h3>
+              <svg cdsIcon="checkmark--outline" size="24" class="solution-icon"></svg>
+              <h3 class="card-title">Dynamic Tool Routing</h3>
             </div>
             <ul class="feature-list">
-              <li><svg cdsIcon="checkmark" size="16"></svg> Dynamically retrieves only necessary tools.</li>
-              <li><svg cdsIcon="checkmark" size="16"></svg> <b>500-1,000 Tokens</b> consumed per query.</li>
-              <li><svg cdsIcon="checkmark" size="16"></svg> <b>O(1) constant-time scaling</b> to 1,000+ tools.</li>
+              <li><svg cdsIcon="checkmark" size="16"></svg> <span>Only 3-5 hyper-relevant tool schemas injected at runtime.</span></li>
+              <li><svg cdsIcon="checkmark" size="16"></svg> <span>Flat, predictable costs. The LLM only reads what it needs.</span></li>
+              <li><svg cdsIcon="checkmark" size="16"></svg> <span>Supports infinite tool libraries across entire enterprise ecosystems.</span></li>
             </ul>
             <div class="card-image-wrapper">
                <img src="assets/images/Slide2.png" alt="RAG for tools architecture" class="card-inline-image" />
@@ -149,32 +153,40 @@
         </div>
       </section>
 
+      <div class="section-divider"></div>
+
       <!-- Section 3: Massive Performance Dividends -->
       <section class="dashboard-section metrics-section">
         <h2 class="section-title">Massive Performance Dividends</h2>
         <div class="cards-grid metrics-grid">
           <div class="dashboard-card metric-card glass-card">
-            <div class="metric-icon"><svg cdsIcon="compress" size="32"></svg></div>
-            <h3 class="metric-value">90%+</h3>
+            <div class="metric-chart">
+              <ibm-meter-chart [data]="meterData" [options]="meterOptions"></ibm-meter-chart>
+            </div>
             <p class="metric-label">Context Reduction</p>
           </div>
           <div class="dashboard-card metric-card glass-card">
-            <div class="metric-icon"><svg cdsIcon="rocket" size="32"></svg></div>
-            <h3 class="metric-value">1.5s - 4.5s</h3>
+            <div class="metric-chart">
+              <ibm-simple-bar-chart [data]="ttftData" [options]="ttftOptions"></ibm-simple-bar-chart>
+            </div>
             <p class="metric-label">Faster TTFT</p>
           </div>
           <div class="dashboard-card metric-card glass-card">
-            <div class="metric-icon"><svg cdsIcon="finance" size="32"></svg></div>
-            <h3 class="metric-value">~90%</h3>
+            <div class="metric-chart">
+              <ibm-area-chart [data]="costData" [options]="costOptions"></ibm-area-chart>
+            </div>
             <p class="metric-label">Cost Savings</p>
           </div>
           <div class="dashboard-card metric-card glass-card">
-            <div class="metric-icon"><svg cdsIcon="chart--bar" size="32"></svg></div>
-            <h3 class="metric-value">O(1)</h3>
+            <div class="metric-chart">
+              <ibm-line-chart [data]="latencyData" [options]="latencyOptions"></ibm-line-chart>
+            </div>
             <p class="metric-label">Search Latency</p>
           </div>
         </div>
       </section>
+
+      <div class="section-divider"></div>
 
       <!-- Section 4: Anatomy of Execution Flow -->
       <section class="dashboard-section">
@@ -223,6 +235,8 @@
         </div>
       </section>
 
+      <div class="section-divider"></div>
+
       <!-- Section 5: Bridging the Semantic Gap -->
       <section class="dashboard-section split-section reversed">
         <div class="section-text">
@@ -230,22 +244,24 @@
           <div class="semantic-box problem">
             <div class="semantic-header">
               <svg cdsIcon="warning" size="20"></svg>
-              <h4>The Zero-Shot Problem</h4>
+              <h4>The Unpredictability of Human Intent</h4>
             </div>
-            <p>Standard embedding models struggle to map vague human language to strict programmatic tool schemas.</p>
+            <p>Users ask vague questions like "Can I get my money back?". Base embedding models fail because they don't map colloquial language to technical API parameters (like `issue_refund` with `order_id`).</p>
           </div>
           <div class="semantic-box solution">
             <div class="semantic-header">
               <svg cdsIcon="model--builder" size="20"></svg>
-              <h4>The Fine-Tuned Solution</h4>
+              <h4>Domain-Specific Fine-Tuning</h4>
             </div>
-            <p>Contrastive learning for enterprise accuracy. We fine-tune lightweight models (like MiniLM) using generated synthetic data to perfectly align queries and tools.</p>
+            <p>Instead of relying on zero-shot similarity, NeuralToolRouter applies contrastive learning using hard-negatives. We synthesize domain-specific query-to-tool mappings, ensuring maximum retrieval precision even for ambiguous requests.</p>
           </div>
         </div>
         <div class="section-visual glass-panel">
           <img src="assets/images/Slide6.png" alt="Semantic Gap Solution" class="visual-image" />
         </div>
       </section>
+
+      <div class="section-divider"></div>
 
       <!-- Section 6: Open Standards & Architecture Dials -->
       <section class="dashboard-section alternate-bg">
@@ -255,25 +271,28 @@
         <div class="cards-grid stack-grid">
           <div class="dashboard-card glass-card">
             <div class="card-icon-header"><svg cdsIcon="layers" size="32"></svg></div>
-            <h3 class="card-title">Stack / Layers</h3>
+            <h3 class="card-title">Interoperable Components</h3>
             <ul class="feature-list">
-              <li><svg cdsIcon="api" size="16"></svg> <b>MCP:</b> Model Context Protocol for tool discovery.</li>
-              <li><svg cdsIcon="data--base" size="16"></svg> <b>FAISS/ChromaDB:</b> High-speed vector indexing.</li>
-              <li><svg cdsIcon="machine-learning-model" size="16"></svg> <b>PyTorch:</b> Contrastive learning foundation.</li>
-              <li><svg cdsIcon="network--4" size="16"></svg> <b>LiteLLM:</b> Universal LLM gateway.</li>
+              <li><svg cdsIcon="api" size="16"></svg> <span><b>Model Context Protocol:</b> Standardized ingestion of internal/external tools without vendor lock-in.</span></li>
+              <li><svg cdsIcon="data--base" size="16"></svg> <span><b>High-Speed Vector Stores:</b> Drop-in support for ChromaDB, FAISS, or Milvus for sub-millisecond retrieval.</span></li>
+              <li><svg cdsIcon="machine-learning-model" size="16"></svg> <span><b>PyTorch Customization:</b> Fully transparent model weights and training loops for auditing.</span></li>
+              <li><svg cdsIcon="network--4" size="16"></svg> <span><b>LiteLLM Gateway:</b> Route generation to 100+ LLMs (Anthropic, OpenAI, Local Ollama) seamlessly.</span></li>
             </ul>
           </div>
           <div class="dashboard-card glass-card">
-            <div class="card-icon-header"><svg cdsIcon="settings-adjust" size="32"></svg></div>
-            <h3 class="card-title">Dials</h3>
+            <div class="card-icon-header"><svg cdsIcon="settings--adjust" size="32"></svg></div>
+            <h3 class="card-title">Engineered For Production</h3>
             <ul class="feature-list">
-              <li><svg cdsIcon="meter" size="16"></svg> <b>Speed:</b> Adjustable retrieval latency.</li>
-              <li><svg cdsIcon="target" size="16"></svg> <b>Accuracy:</b> Hybrid retrieval (Semantic + BM25).</li>
-              <li><svg cdsIcon="currency" size="16"></svg> <b>Cost:</b> Granular model selection.</li>
+              <li><svg cdsIcon="meter" size="16"></svg> <span><b>Adjustable Thresholds:</b> Tune the vector similarity threshold to trade-off between strict safety and broad capability.</span></li>
+              <li><svg cdsIcon="task--complete" size="16"></svg> <span><b>Hybrid Retrieval:</b> Combine Dense Embeddings with BM25 keyword search to capture exact API parameter names.</span></li>
+              <li><svg cdsIcon="currency--dollar" size="16"></svg> <span><b>Model Tiering:</b> Use lightweight models for routing, saving expensive top-tier LLM calls solely for complex reasoning.</span></li>
+              <li><svg cdsIcon="flow--data" size="16"></svg> <span><b>Observability:</b> Native Langfuse integration for full tracing of agent steps and tool execution latency.</span></li>
             </ul>
           </div>
         </div>
       </section>
+
+      <div class="section-divider"></div>
 
       <!-- Call to Action -->
       <section class="dashboard-section cta-section premium-glow">
