@@ -649,25 +649,31 @@
           {{ isDataSaving ? 'Saving...' : 'Save Changes' }}
         </button>
       </div>
-      <div class="mcp-table-wrapper" style="max-height: 500px; overflow-y: auto;">
+      <div class="mcp-table-wrapper" style="max-height: 550px; overflow-y: auto;">
         <table class="mcp-table">
           <thead>
             <tr>
-              <th style="width: 15%">Target Tool</th>
-              <th style="width: 10%">Type</th>
-              <th style="width: 70%">Query Text (Editable)</th>
+              <th style="width: 60%">Query Text (Editable)</th>
+              <th style="width: 15%">Type</th>
+              <th style="width: 20%">Target Tool</th>
               <th style="width: 5%"></th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let item of syntheticData; let i = index">
-              <td><cds-tag type="purple" size="sm">{{ item.positive_tool_id }}</cds-tag></td>
-              <td><cds-tag type="gray" size="sm">{{ item.query_type }}</cds-tag></td>
+            <tr *ngFor="let item of paginatedData; let i = index">
               <td>
                 <input cdsText type="text" [(ngModel)]="item.query" style="width: 100%; border: 1px solid #393939; background: #262626; color: #f4f4f4; padding: 0.5rem;" />
               </td>
+              <td><cds-tag type="gray" size="sm">{{ item.query_type }}</cds-tag></td>
               <td>
-                <button cdsButton="danger--ghost" size="sm" (click)="syntheticData.splice(i, 1)" title="Remove query">
+                <select cdsSelect [(ngModel)]="item.positive_tool_id" style="width: 100%; border: 1px solid #393939; background: #262626; color: #f4f4f4; padding: 0.5rem;">
+                  <option *ngFor="let t of cachedTools" [value]="t.id">{{ t.name || t.id }}</option>
+                  <!-- Fallback if current tool is not in cachedTools (e.g. if cache was cleared) -->
+                  <option *ngIf="!cachedTools.length" [value]="item.positive_tool_id">{{ item.positive_tool_id }}</option>
+                </select>
+              </td>
+              <td>
+                <button cdsButton="danger--ghost" size="sm" (click)="syntheticData.splice((paginationModel.currentPage-1)*(paginationModel.pageLength || 20) + i, 1); paginationModel.totalDataLength = syntheticData.length" title="Remove query">
                   <svg cdsIcon="trash-can" size="16"></svg>
                 </button>
               </td>
@@ -675,6 +681,12 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination Controls -->
+      <cds-pagination
+        [model]="paginationModel"
+        (selectPage)="onSelectPage($event)">
+      </cds-pagination>
     </div>
   </section>
 </div>

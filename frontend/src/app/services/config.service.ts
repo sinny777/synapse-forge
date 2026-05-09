@@ -153,11 +153,34 @@ export class ConfigService {
   private readonly PROFILE_STORAGE_KEY = 'ntr_saved_profiles';
   private readonly CONFIG_STORAGE_KEY = 'ntr_config_snapshot';
 
-  constructor(private http: HttpClient) {}
+  private _customProfiles: ConfigProfile[] = [];
+
+  constructor(private http: HttpClient) {
+    this.loadCustomProfiles();
+  }
 
   // ─── Profile Management ─────────────────────────────────────────
+  private loadCustomProfiles(): void {
+    try {
+      const stored = localStorage.getItem(this.PROFILE_STORAGE_KEY);
+      if (stored) {
+        this._customProfiles = JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Failed to load custom profiles', e);
+    }
+  }
+
+  private saveCustomProfiles(): void {
+    try {
+      localStorage.setItem(this.PROFILE_STORAGE_KEY, JSON.stringify(this._customProfiles));
+    } catch (e) {
+      console.warn('Failed to save custom profiles', e);
+    }
+  }
+
   getProfiles(): ConfigProfile[] {
-    return CONFIG_PROFILES;
+    return [...CONFIG_PROFILES, ...this._customProfiles];
   }
 
   getActiveProfileId(): string {
@@ -169,7 +192,28 @@ export class ConfigService {
   }
 
   getProfileById(id: string): ConfigProfile | undefined {
-    return CONFIG_PROFILES.find((p) => p.id === id);
+    return this.getProfiles().find((p) => p.id === id);
+  }
+
+  saveAsNewProfile(name: string, description: string, overrides: Record<string, any>): ConfigProfile {
+    const newProfile: ConfigProfile = {
+      id: `custom_${Date.now()}`,
+      name,
+      description,
+      icon: '💾',
+      overrides,
+    };
+    this._customProfiles.push(newProfile);
+    this.saveCustomProfiles();
+    return newProfile;
+  }
+
+  deleteProfile(id: string): void {
+    this._customProfiles = this._customProfiles.filter(p => p.id !== id);
+    this.saveCustomProfiles();
+    if (this._activeProfile.value === id) {
+      this.setActiveProfile('default');
+    }
   }
 
   // ─── Export / Import ────────────────────────────────────────────

@@ -164,6 +164,26 @@ async def get_synthetic_data():
         logger.error(f"Error reading synthetic data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/data/tools")
+async def get_cached_tools():
+    from tool_router.config import config
+    import json
+    import os
+    
+    path = config.mcp.tool_cache_path
+    if not os.path.exists(path):
+        return {"tools": []}
+        
+    try:
+        with open(path, 'r') as f:
+            data = json.load(f)
+            # data["tools"] is a list of ToolSchema dicts, we just need their 'id's and maybe names
+            tools = [{"id": t["id"], "name": t.get("name", t["id"])} for t in data.get("tools", [])]
+            return {"tools": tools}
+    except Exception as e:
+        logger.error(f"Error reading tool cache: {e}")
+        return {"tools": []}
+
 @app.post("/api/data/synthetic")
 async def save_synthetic_data(update: SyntheticDataUpdate):
     from tool_router.config import config

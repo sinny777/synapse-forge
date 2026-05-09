@@ -95,48 +95,60 @@ class SyntheticDataGenerator:
         self.all_tools = self.mcp_client.get_all_tools()
         logger.info(f"Found {len(self.all_tools)} tools")
     
-    async def _acall_teacher_llm_json(self, prompt: str) -> List[str]:
+    async def _acall_teacher_llm_json(self, prompt: str, expected_count: int = None, retries: int = 3) -> List[str]:
         """
         Call the Teacher LLM with a prompt asynchronously and parse a JSON array of strings.
+        Retries on failure or empty results.
         """
-        try:
-            response = await acompletion(
-                model=self.llm_config.teacher_model,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=max(self.llm_config.teacher_temperature, 0.8), # Boost temperature for diversity
-                max_tokens=self.llm_config.teacher_max_tokens,
-                response_format={"type": "json_object"}
-            )
-            content = response.choices[0].message.content.strip()
-            
-            # Extract JSON block if surrounded by markdown
-            if "```json" in content:
-                content = content.split("```json")[1].split("```")[0].strip()
-            elif "```" in content:
-                content = content.split("```")[1].split("```")[0].strip()
-                
+        for attempt in range(retries):
             try:
-                parsed = json.loads(content)
-                if isinstance(parsed, dict):
-                    # Search for the list inside the dict
-                    for key in parsed:
-                        if isinstance(parsed[key], list):
-                            return parsed[key]
-                    return []
-                elif isinstance(parsed, list):
-                    return parsed
-            except json.JSONDecodeError:
-                # Fallback extraction
-                match = re.search(r'\[.*\]', content, re.DOTALL)
-                if match:
-                    try:
-                        return json.loads(match.group(0))
-                    except:
-                        pass
-            return []
-        except Exception as e:
-            logger.error(f"LLM call failed: {e}")
-            return []
+                response = await acompletion(
+                    model=self.llm_config.teacher_model,
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=max(self.llm_config.teacher_temperature, 0.8), # Boost temperature for diversity
+                    max_tokens=self.llm_config.teacher_max_tokens,
+                    response_format={"type": "json_object"}
+                )
+                content = response.choices[0].message.content.strip()
+                
+                # Extract JSON block if surrounded by markdown
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0].strip()
+                    
+                parsed_list = []
+                try:
+                    parsed = json.loads(content)
+                    if isinstance(parsed, dict):
+                        for key in parsed:
+                            if isinstance(parsed[key], list):
+                                parsed_list = parsed[key]
+                                break
+                    elif isinstance(parsed, list):
+                        parsed_list = parsed
+                except json.JSONDecodeError:
+                    # Robust fallback extraction: find everything between [ and ]
+                    match = re.search(r'\[(.*)\]', content, re.DOTALL)
+                    if match:
+                        try:
+                            parsed_list = json.loads("[" + match.group(1) + "]")
+                        except:
+                            # Super fallback: just split by commas and quotes if it's a simple list
+                            items = re.findall(r'"([^"]*)"', match.group(1))
+                            if items: parsed_list = items
+                
+                if parsed_list and len(parsed_list) > 0:
+                    if expected_count and len(parsed_list) < expected_count and attempt < retries - 1:
+                        logger.warning(f"Got {len(parsed_list)} queries but expected {expected_count}. Retrying...")
+                        continue
+                    return parsed_list
+                    
+                logger.warning(f"Attempt {attempt+1} failed to extract any queries from: {content[:100]}...")
+            except Exception as e:
+                logger.error(f"LLM call failed on attempt {attempt+1}: {e}")
+                
+        return []
             
     async def _generate_direct_queries(self, tool: ToolSchema, count: int) -> List[str]:
         if count <= 0: return []
@@ -148,7 +160,7 @@ Generate exactly {count} direct, straightforward user queries that would require
 
 Tool Name: {tool.name}
 Description: {tool.description}
-Parameters: {json.dumps(tool.parameters.get('properties', {{}}), indent=2)}
+Parameters: {json.dumps(tool.parameters.get('properties', dict()), indent=2)}
 
 CRITICAL REQUIREMENTS:
 1. Ensure MAXIMUM diversity in vocabulary, sentence length, and structure.
@@ -166,7 +178,7 @@ Example format:
   ]
 }}
 """
-        return await self._acall_teacher_llm_json(prompt)
+        return await self._acall_teacher_llm_json(prompt, expected_count=count)
     
     async def _generate_implicit_queries(self, tool: ToolSchema, count: int) -> List[str]:
         if count <= 0: return []
@@ -178,7 +190,7 @@ Generate exactly {count} implicit, natural language queries that would require u
 
 Tool Name: {tool.name}
 Description: {tool.description}
-Parameters: {json.dumps(tool.parameters.get('properties', {{}}), indent=2)}
+Parameters: {json.dumps(tool.parameters.get('properties', dict()), indent=2)}
 
 CRITICAL REQUIREMENTS:
 1. Ensure MAXIMUM diversity in vocabulary, sentence length, and structure.
@@ -196,7 +208,7 @@ Example format:
   ]
 }}
 """
-        return await self._acall_teacher_llm_json(prompt)
+        return await self._acall_teacher_llm_json(prompt, expected_count=count)
     
     async def _generate_multi_tool_queries(self, primary_tool: ToolSchema, related_tools: List[ToolSchema], count: int) -> List[str]:
         if count <= 0: return []
@@ -230,7 +242,7 @@ Example format:
   ]
 }}
 """
-        return await self._acall_teacher_llm_json(prompt)
+        return await self._acall_teacher_llm_json(prompt, expected_count=count)
     
     async def _select_hard_negatives_llm(
         self,

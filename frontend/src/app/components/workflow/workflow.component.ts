@@ -19,6 +19,8 @@ import Download16 from '@carbon/icons/es/download/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
 import Warning16 from '@carbon/icons/es/warning/16';
 import Edit16 from '@carbon/icons/es/edit/16';
+import Save16 from '@carbon/icons/es/save/16';
+import TrashCan16 from '@carbon/icons/es/trash-can/16';
 
 @Component({
   selector: 'app-workflow',
@@ -62,6 +64,7 @@ export class WorkflowComponent implements OnInit, OnDestroy {
     this.iconService.registerAll([
       MagicWand16, ModelBuilder16, Rocket16,
       Upload16, Download16, Checkmark16, Warning16, Edit16,
+      Save16, TrashCan16,
     ]);
   }
 
@@ -80,13 +83,52 @@ export class WorkflowComponent implements OnInit, OnDestroy {
     const profileId = event?.item?.id || event?.id || event;
     this.configService.setActiveProfile(profileId);
     this.selectedProfileId = profileId;
-    // Update the selected state in profileItems
-    this.profileItems = this.profileItems.map(p => ({ ...p, selected: p.id === profileId }));
+    this.updateProfileItems();
     this.notification = {
       type: 'info',
       title: 'Profile Applied',
-      message: `Switched to "${this.profiles.find(p => p.id === profileId)?.name}" profile. Open config sections to see updated values.`,
+      message: `Switched to "${this.profiles.find(p => p.id === profileId)?.name}" profile.`,
     };
+  }
+
+  updateProfileItems(): void {
+    this.profiles = this.configService.getProfiles();
+    this.profileItems = this.profiles.map(p => ({ 
+      content: p.name, 
+      id: p.id, 
+      selected: p.id === this.selectedProfileId 
+    }));
+  }
+
+  isCustomProfileSelected(): boolean {
+    return this.selectedProfileId.startsWith('custom_');
+  }
+
+  saveCurrentAsProfile(): void {
+    const snapshot = this.configService.loadConfigSnapshot();
+    if (!snapshot) {
+      this.notification = { type: 'warning', title: 'No Config', message: 'No configuration found to save. Please make changes first.' };
+      return;
+    }
+    
+    const profileName = prompt('Enter a name for the new profile:', `Profile ${new Date().toLocaleTimeString()}`);
+    if (!profileName) return;
+    
+    const newProfile = this.configService.saveAsNewProfile(profileName, 'User saved profile', snapshot);
+    this.updateProfileItems();
+    this.onProfileChange(newProfile.id);
+    this.notification = { type: 'success', title: 'Profile Saved', message: `Saved configuration as "${profileName}".` };
+  }
+
+  deleteCurrentProfile(): void {
+    if (!this.isCustomProfileSelected()) return;
+    const confirmDelete = confirm('Are you sure you want to delete this custom profile?');
+    if (!confirmDelete) return;
+
+    this.configService.deleteProfile(this.selectedProfileId);
+    this.updateProfileItems();
+    this.onProfileChange('default');
+    this.notification = { type: 'success', title: 'Profile Deleted', message: 'Custom profile deleted successfully.' };
   }
 
   onExport(): void {

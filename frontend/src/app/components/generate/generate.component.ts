@@ -13,6 +13,8 @@ import {
   TabsModule,
   DropdownModule,
   TagModule,
+  PaginationModule,
+  PaginationModel,
 } from 'carbon-components-angular';
 import { ToggletipModule } from 'carbon-components-angular/toggletip';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
@@ -23,7 +25,6 @@ import PlayFilled16 from '@carbon/icons/es/play--filled/16';
 import Save16 from '@carbon/icons/es/save/16';
 import Reset16 from '@carbon/icons/es/reset/16';
 import ChevronDown16 from '@carbon/icons/es/chevron--down/16';
-import DataBase16 from '@carbon/icons/es/data--base/16';
 import Settings16 from '@carbon/icons/es/settings/16';
 import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 import Add16 from '@carbon/icons/es/add/16';
@@ -38,6 +39,7 @@ import MachineLearningModel20 from '@carbon/icons/es/machine-learning-model/20';
 import DataCategorical20 from '@carbon/icons/es/data--categorical/20';
 import Connect20 from '@carbon/icons/es/connect/20';
 import DocumentExport20 from '@carbon/icons/es/document--export/20';
+import DataBase20 from '@carbon/icons/es/data--base/20';
 
 /** Interfaces matching the backend config.py dataclasses */
 interface LLMConfig {
@@ -111,6 +113,7 @@ interface MCPServerEntry {
     DropdownModule,
     TagModule,
     ToggletipModule,
+    PaginationModule,
   ],
   templateUrl: './generate.component.html',
   styleUrls: ['./generate.component.scss'],
@@ -123,6 +126,7 @@ export class GenerateComponent implements OnInit {
     vectorStore: false,
     mcp: false,
     dataGeneration: false,
+    syntheticData: true,
   };
 
   /** Default config snapshots for diff detection */
@@ -218,6 +222,21 @@ export class GenerateComponent implements OnInit {
   statusInterval: any;
 
   syntheticData: any[] = [];
+  cachedTools: any[] = [];
+  
+  // Pagination
+  paginationModel = new PaginationModel();
+
+  get paginatedData() {
+    const pLen = this.paginationModel.pageLength || 20;
+    const startIndex = (this.paginationModel.currentPage - 1) * pLen;
+    return this.syntheticData.slice(startIndex, startIndex + pLen);
+  }
+  
+  onSelectPage(event: any) {
+    this.paginationModel.currentPage = event;
+  }
+
   isDataLoading = false;
   isDataSaving = false;
 
@@ -227,15 +246,17 @@ export class GenerateComponent implements OnInit {
     public configService: ConfigService
   ) {
     this.iconService.registerAll([
-      PlayFilled16, Save16, Reset16, ChevronDown16, DataBase16,
+      PlayFilled16, Save16, Reset16, ChevronDown16,
       Settings16, InformationFilled16, Add16, TrashCan16,
       Checkmark16, Warning16, ViewAll16,
       Settings20, MachineLearningModel20, DataCategorical20,
-      Connect20, DocumentExport20,
+      Connect20, DocumentExport20, DataBase20,
     ]);
   }
 
   ngOnInit(): void {
+    this.paginationModel.pageLength = 20;
+    this.paginationModel.currentPage = 1;
     this.syncMCPtoTable();
     this.runValidation();
     this.loadSyntheticData();
@@ -473,17 +494,34 @@ export class GenerateComponent implements OnInit {
 
   loadSyntheticData() {
     this.isDataLoading = true;
-    this.service.getSyntheticData().subscribe({
-      next: (res) => {
-        this.syntheticData = res.data || [];
-        this.isDataLoading = false;
+    
+    // Fetch tools first for the dropdown
+    this.service.getCachedTools().subscribe({
+      next: (toolsRes) => {
+        this.cachedTools = toolsRes.tools || [];
+        
+        // Then fetch synthetic data
+        this.service.getSyntheticData().subscribe({
+          next: (res) => {
+            this.syntheticData = res.data || [];
+            this.isDataLoading = false;
+            this.paginationModel.totalDataLength = this.syntheticData.length;
+            this.paginationModel.currentPage = 1; // Reset to first page
+          },
+          error: (err) => {
+            console.error("Failed to load synthetic data", err);
+            this.isDataLoading = false;
+          }
+        });
       },
       error: (err) => {
-        console.error("Failed to load synthetic data", err);
+        console.error("Failed to load tools cache", err);
         this.isDataLoading = false;
       }
     });
   }
+
+
 
   saveData() {
     this.isDataSaving = true;

@@ -46,6 +46,18 @@
         Export
       </button>
 
+      <!-- Save As -->
+      <button cdsButton="ghost" size="sm" (click)="saveCurrentAsProfile()" title="Save Current Config as New Profile">
+        <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
+        Save As
+      </button>
+
+      <!-- Delete -->
+      <button cdsButton="danger--ghost" size="sm" (click)="deleteCurrentProfile()" *ngIf="isCustomProfileSelected()" title="Delete Custom Profile">
+        <svg cdsIcon="trash-can" size="16" class="cds--btn__icon"></svg>
+        Delete
+      </button>
+
       <!-- Sync Status — Carbon Tag -->
       <cds-tag [type]="getSyncTagType()" size="sm">
         {{ getSyncLabel() }}
@@ -121,9 +133,9 @@
   </ng-template>
 
   <div class="workflow-content">
-    <app-generate *ngIf="activeTab === 0"></app-generate>
-    <app-train *ngIf="activeTab === 1"></app-train>
-    <app-run *ngIf="activeTab === 2"></app-run>
+    <div [hidden]="activeTab !== 0"><app-generate></app-generate></div>
+    <div [hidden]="activeTab !== 1"><app-train></app-train></div>
+    <div [hidden]="activeTab !== 2"><app-run></app-run></div>
   </div>
 
 </div>
