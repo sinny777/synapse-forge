@@ -10,6 +10,11 @@
   padding: 0 1rem 3rem;
 }
 
+.cds--css-grid {
+  padding-inline: 0;
+  padding-left: 0 !important;
+}
+
 // ─── Page Header ──────────────────────────────────────────────────
 .page-header {
   display: flex;

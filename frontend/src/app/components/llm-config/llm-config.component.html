@@ -1,0 +1,273 @@
+<div class="llm-config-container">
+  <!-- Header -->
+  <div class="config-header">
+    <div class="header-content">
+      <h2 class="config-title">LLM Model Configuration</h2>
+      <p class="config-subtitle">Configure Teacher, Expansion, and Heavy models with provider-specific credentials</p>
+    </div>
+    <div class="header-actions">
+      <button class="cds--btn cds--btn--tertiary cds--btn--sm" (click)="exportConfigurations()">
+        <svg cdsIcon="download" size="16" class="cds--btn__icon"></svg>
+        Export
+      </button>
+      <label class="cds--btn cds--btn--tertiary cds--btn--sm import-btn">
+        <svg cdsIcon="upload" size="16" class="cds--btn__icon"></svg>
+        Import
+        <input type="file" accept=".json" (change)="importConfigurations($event)" style="display: none;">
+      </label>
+      <button class="cds--btn cds--btn--primary cds--btn--sm" (click)="openAddModal()">
+        <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
+        Add Configuration
+      </button>
+    </div>
+  </div>
+
+  <!-- Role Filter -->
+  <div class="filter-section">
+    <div class="cds--form-item">
+      <label class="cds--label">Filter by Role:</label>
+      <select class="cds--select-input" [(ngModel)]="selectedRoleFilter" (change)="onRoleFilterChange()">
+        <option value="all">All Roles</option>
+        <option *ngFor="let role of roles" [value]="role">
+          {{ getRoleIcon(role) }} {{ getRoleLabel(role) }}
+        </option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Role Summary Cards -->
+  <div class="role-summary-cards">
+    <div class="summary-card" *ngFor="let role of roles">
+      <div class="card-icon">{{ getRoleIcon(role) }}</div>
+      <div class="card-content">
+        <h4 class="card-title">{{ getRoleLabel(role) }}</h4>
+        <p class="card-description">{{ roleInfo[role].description }}</p>
+        <p class="card-count">{{ getRoleSummary(role) }}</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configurations List -->
+  <div class="configurations-list">
+    <div *ngIf="filteredConfigurations.length === 0" class="empty-state">
+      <svg cdsIcon="information--filled" size="32"></svg>
+      <h3>No configurations found</h3>
+      <p>Add a new configuration to get started</p>
+      <button class="cds--btn cds--btn--primary" (click)="openAddModal()">
+        <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
+        Add Configuration
+      </button>
+    </div>
+
+    <div *ngIf="filteredConfigurations.length > 0" class="config-cards">
+      <div class="config-card" *ngFor="let config of filteredConfigurations">
+        <div class="card-header">
+          <div class="card-title-section">
+            <span class="role-badge">{{ getRoleIcon(config.role) }} {{ getRoleLabel(config.role) }}</span>
+            <span class="provider-badge">{{ getProviderIcon(config.provider) }} {{ getProviderLabel(config.provider) }}</span>
+          </div>
+          <div class="card-actions">
+            <button class="cds--btn cds--btn--ghost cds--btn--sm" (click)="openEditModal(config)" title="Edit">
+              <svg cdsIcon="edit" size="16"></svg>
+            </button>
+            <button class="cds--btn cds--btn--ghost cds--btn--sm cds--btn--danger" (click)="deleteConfiguration(config)" title="Delete">
+              <svg cdsIcon="trash-can" size="16"></svg>
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="config-detail">
+            <span class="detail-label">Model Name:</span>
+            <span class="detail-value">{{ config.modelName }}</span>
+          </div>
+          <div class="config-detail">
+            <span class="detail-label">Temperature:</span>
+            <span class="detail-value">{{ config.temperature?.toFixed(2) || 'N/A' }}</span>
+          </div>
+          <div class="config-detail">
+            <span class="detail-label">Max Tokens:</span>
+            <span class="detail-value">{{ config.maxTokens || 'N/A' }}</span>
+          </div>
+          <div class="config-detail">
+            <span class="detail-label">Updated:</span>
+            <span class="detail-value">{{ config.updatedAt | date:'short' }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Configuration Modal -->
+  <cds-modal
+    [open]="showModal"
+    [size]="'lg'"
+    (overlaySelected)="closeModal()">
+    <cds-modal-header (closeSelect)="closeModal()">
+      <h3 class="cds--modal-header__heading">
+        {{ modalMode === 'add' ? 'Add' : 'Edit' }} LLM Configuration
+      </h3>
+    </cds-modal-header>
+
+    <div class="cds--modal-content">
+      <div class="modal-form">
+        <!-- Role Selection -->
+        <div class="cds--form-item">
+          <label class="cds--label" for="role-select">
+            Model Role <span class="required">*</span>
+            <span class="cds--tooltip__trigger" [title]="roleInfo[selectedRole].description">
+              <svg cdsIcon="information--filled" size="16"></svg>
+            </span>
+          </label>
+          <select 
+            id="role-select"
+            class="cds--select-input" 
+            [(ngModel)]="selectedRole">
+            <option *ngFor="let role of roles" [value]="role">
+              {{ getRoleIcon(role) }} {{ getRoleLabel(role) }}
+            </option>
+          </select>
+          <div class="cds--form__helper-text">{{ roleInfo[selectedRole].description }}</div>
+        </div>
+
+        <!-- Provider Selection -->
+        <div class="cds--form-item">
+          <label class="cds--label" for="provider-select">
+            Provider <span class="required">*</span>
+          </label>
+          <select 
+            id="provider-select"
+            class="cds--select-input" 
+            [(ngModel)]="selectedProvider"
+            (change)="onProviderChange()">
+            <option *ngFor="let provider of providers" [value]="provider.id">
+              {{ provider.icon }} {{ provider.name }}
+            </option>
+          </select>
+          <div class="cds--form__helper-text">
+            {{ currentProviderInfo?.description }}
+            <a [href]="currentProviderInfo?.docsUrl" target="_blank" class="docs-link">View Documentation</a>
+          </div>
+        </div>
+
+        <!-- Model Name -->
+        <div class="cds--form-item">
+          <label class="cds--label" for="model-name">
+            Model Name <span class="required">*</span>
+          </label>
+          <input 
+            id="model-name"
+            type="text" 
+            class="cds--text-input" 
+            [(ngModel)]="modelName"
+            placeholder="e.g., {{ currentProviderInfo?.modelExamples?.[0] || '' }}">
+          <div class="cds--form__helper-text">
+            Examples: {{ currentProviderInfo?.modelExamples?.join(', ') || 'N/A' }}
+          </div>
+        </div>
+
+        <!-- Temperature -->
+        <div class="cds--form-item">
+          <label class="cds--label" for="temperature">
+            Temperature (0-2)
+          </label>
+          <input 
+            id="temperature"
+            type="number" 
+            class="cds--text-input" 
+            [(ngModel)]="temperature"
+            min="0"
+            max="2"
+            step="0.1">
+          <div class="cds--form__helper-text">Controls randomness. Lower = more deterministic, Higher = more creative</div>
+        </div>
+
+        <!-- Max Tokens -->
+        <div class="cds--form-item">
+          <label class="cds--label" for="max-tokens">
+            Max Tokens
+          </label>
+          <input 
+            id="max-tokens"
+            type="number" 
+            class="cds--text-input" 
+            [(ngModel)]="maxTokens"
+            min="1"
+            step="1">
+          <div class="cds--form__helper-text">Maximum number of tokens to generate</div>
+        </div>
+
+        <!-- Credentials Section -->
+        <div class="credentials-section">
+          <h4 class="section-title">Provider Credentials</h4>
+          <div class="credentials-form">
+            <div class="cds--form-item" *ngFor="let field of currentProviderInfo?.credentialFields">
+              <label class="cds--label" [for]="'cred-' + field.key">
+                {{ field.label }}
+                <span class="required" *ngIf="field.required">*</span>
+                <span class="cds--tooltip__trigger" *ngIf="field.helpText" [title]="field.helpText">
+                  <svg cdsIcon="information--filled" size="16"></svg>
+                </span>
+              </label>
+
+              <!-- Select field -->
+              <select 
+                *ngIf="field.type === 'select'"
+                [id]="'cred-' + field.key"
+                class="cds--select-input" 
+                [(ngModel)]="credentials[field.key]">
+                <option value="">Select {{ field.label }}</option>
+                <option *ngFor="let option of field.options" [value]="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+
+              <!-- Text/Password/URL field -->
+              <div *ngIf="field.type !== 'select'" class="input-with-toggle">
+                <input 
+                  [id]="'cred-' + field.key"
+                  [type]="getCredentialInputType(field, field.key)"
+                  class="cds--text-input" 
+                  [(ngModel)]="credentials[field.key]"
+                  [placeholder]="field.placeholder || ''">
+                <button 
+                  *ngIf="field.type === 'password'"
+                  type="button"
+                  class="cds--btn cds--btn--ghost cds--btn--sm toggle-visibility"
+                  (click)="toggleCredentialVisibility(field.key)"
+                  [title]="showCredentials[field.key] ? 'Hide' : 'Show'">
+                  <svg [cdsIcon]="showCredentials[field.key] ? 'view--off' : 'view'" size="16"></svg>
+                </button>
+              </div>
+
+              <div class="cds--form__helper-text" *ngIf="field.helpText">{{ field.helpText }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <cds-modal-footer>
+      <button class="cds--btn cds--btn--secondary" (click)="closeModal()">
+        Cancel
+      </button>
+      <button class="cds--btn cds--btn--primary" (click)="saveConfiguration()">
+        <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
+        {{ modalMode === 'add' ? 'Add' : 'Update' }} Configuration
+      </button>
+    </cds-modal-footer>
+  </cds-modal>
+
+  <!-- Notification -->
+  <cds-inline-notification
+    *ngIf="notification"
+    [notificationObj]="{
+      type: notification.type,
+      title: notification.title,
+      subtitle: notification.message,
+      caption: '',
+      showClose: true,
+      lowContrast: false
+    }"
+    (close)="closeNotification()">
+  </cds-inline-notification>
+</div>

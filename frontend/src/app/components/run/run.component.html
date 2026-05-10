@@ -229,8 +229,16 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['expansion_model'] }}</p>
             </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model"
-              (ngModelChange)="onConfigChange()" />
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <select cdsSelect [(ngModel)]="selectedExpansionConfigId" (ngModelChange)="onExpansionModelSelect()" style="flex: 1;">
+                <option value="">Manual Entry</option>
+                <option *ngFor="let config of expansionConfigs" [value]="config.id">
+                  {{ config.provider }} - {{ config.modelName }}
+                </option>
+              </select>
+              <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model"
+                (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedExpansionConfigId" />
+            </div>
           </cds-label>
         </div>
         <div class="config-field"
@@ -269,7 +277,15 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['heavy_model'] }}</p>
             </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" />
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <select cdsSelect [(ngModel)]="selectedHeavyConfigId" (ngModelChange)="onHeavyModelSelect()" style="flex: 1;">
+                <option value="">Manual Entry</option>
+                <option *ngFor="let config of heavyConfigs" [value]="config.id">
+                  {{ config.provider }} - {{ config.modelName }}
+                </option>
+              </select>
+              <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedHeavyConfigId" />
+            </div>
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_temperature')">
@@ -437,8 +453,16 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['expansion_model'] }}</p>
             </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model"
-              (ngModelChange)="onConfigChange()" />
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <select cdsSelect [(ngModel)]="selectedExpansionConfigId" (ngModelChange)="onExpansionModelSelect()" style="flex: 1;">
+                <option value="">Manual Entry</option>
+                <option *ngFor="let config of expansionConfigs" [value]="config.id">
+                  {{ config.provider }} - {{ config.modelName }}
+                </option>
+              </select>
+              <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model"
+                (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedExpansionConfigId" />
+            </div>
           </cds-label>
         </div>
         <div class="config-field"
@@ -477,7 +501,15 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['heavy_model'] }}</p>
             </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" />
+            <div style="display: flex; gap: 0.5rem; align-items: center;">
+              <select cdsSelect [(ngModel)]="selectedHeavyConfigId" (ngModelChange)="onHeavyModelSelect()" style="flex: 1;">
+                <option value="">Manual Entry</option>
+                <option *ngFor="let config of heavyConfigs" [value]="config.id">
+                  {{ config.provider }} - {{ config.modelName }}
+                </option>
+              </select>
+              <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedHeavyConfigId" />
+            </div>
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_temperature')">

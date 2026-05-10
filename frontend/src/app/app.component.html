@@ -59,6 +59,7 @@
 <div class="cds--content" style="height: 100vh; overflow-y: auto;">
   <ng-container [ngSwitch]="activePhase">
     <app-workflow *ngSwitchCase="'workflow'"></app-workflow>
+    <app-llm-config *ngSwitchCase="'settings'"></app-llm-config>
     <div *ngSwitchDefault class="dashboard-content">
       <!-- Header/Hero -->
       <div class="hero-section">

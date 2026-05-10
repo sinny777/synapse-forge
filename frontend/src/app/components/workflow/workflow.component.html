@@ -33,6 +33,12 @@
 
     <!-- Actions -->
     <div class="toolbar-group toolbar-group--actions">
+      <!-- LLM Configuration -->
+      <button cdsButton="tertiary" size="sm" (click)="openLLMConfig()" title="Configure LLM Models">
+        <svg cdsIcon="settings--adjust" size="16"></svg>
+        LLM Config
+      </button>
+
       <!-- Import -->
       <input type="file" #fileInput accept=".json" style="display: none" (change)="onFileSelected($event)" />
       <button cdsButton="ghost" size="sm" (click)="triggerImport()" title="Import Configuration from JSON">
@@ -77,18 +83,24 @@
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- Tabs & Content Area                                             -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <cds-tabs>
-    <cds-tab [heading]="phase1Heading" (selected)="onTabSelected(0)" [active]="activeTab === 0"></cds-tab>
-    <cds-tab [heading]="phase2Heading" (selected)="onTabSelected(1)" [active]="activeTab === 1"></cds-tab>
-    <cds-tab [heading]="phase3Heading" (selected)="onTabSelected(2)" [active]="activeTab === 2"></cds-tab>
-  </cds-tabs>
+  <cds-tab-header-group [followFocus]="true">
+    <button cdsTabHeader [active]="activeTab === 0" (click)="onTabSelected(0)">
+      <ng-template [ngTemplateOutlet]="phase1Heading"></ng-template>
+    </button>
+    <button cdsTabHeader [active]="activeTab === 1" (click)="onTabSelected(1)">
+      <ng-template [ngTemplateOutlet]="phase2Heading"></ng-template>
+    </button>
+    <button cdsTabHeader [active]="activeTab === 2" (click)="onTabSelected(2)">
+      <ng-template [ngTemplateOutlet]="phase3Heading"></ng-template>
+    </button>
+  </cds-tab-header-group>
 
   <ng-template #phase1Heading>
     <span style="display: flex; align-items: center;">
       Phase 1: Generate
       <div class="custom-tooltip-container">
         <span class="custom-tooltip-trigger">
-          <svg cdsIcon="information--filled" size="16"></svg>
+          <svg cdsIcon="information--filled" size="20"></svg>
         </span>
         <div class="custom-tooltip-content">
           <strong class="cds--type-productive-heading-01">Phase 1: Synthetic Data Gen</strong>
@@ -103,7 +115,7 @@
       Phase 2: Train
       <div class="custom-tooltip-container">
         <span class="custom-tooltip-trigger">
-          <svg cdsIcon="information--filled" size="16"></svg>
+          <svg cdsIcon="information--filled" size="20"></svg>
         </span>
         <div class="custom-tooltip-content">
           <strong class="cds--type-productive-heading-01">Phase 2: Model Fine-Tuning</strong>
@@ -118,7 +130,7 @@
       Phase 3: Run
       <div class="custom-tooltip-container">
         <span class="custom-tooltip-trigger">
-          <svg cdsIcon="information--filled" size="16"></svg>
+          <svg cdsIcon="information--filled" size="20"></svg>
         </span>
         <div class="custom-tooltip-content">
           <strong class="cds--type-productive-heading-01">Phase 3: Agentic Runtime</strong>

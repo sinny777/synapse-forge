@@ -1,6 +1,7 @@
 import { Component, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { WorkflowComponent } from './components/workflow/workflow.component';
+import { LLMConfigComponent } from './components/llm-config/llm-config.component';
 import {
   UIShellModule,
   PlaceholderModule
@@ -40,6 +41,7 @@ import Copy16 from '@carbon/icons/es/copy/16';
   imports: [
     CommonModule,
     WorkflowComponent,
+    LLMConfigComponent,
     UIShellModule,
     PlaceholderModule,
     IconModule,
@@ -155,6 +157,11 @@ export class AppComponent implements OnInit {
     const savedTheme = localStorage.getItem('theme');
     this.isDark = savedTheme !== 'light';
     this.applyTheme();
+    
+    // Listen for navigation events from child components
+    window.addEventListener('navigate-to-settings', () => {
+      this.setActivePhase('settings');
+    });
   }
 
   toggleSidenav(): void {

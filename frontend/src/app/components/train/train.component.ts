@@ -26,7 +26,7 @@ import Reset16 from '@carbon/icons/es/reset/16';
 import ChevronDown16 from '@carbon/icons/es/chevron--down/16';
 import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
-import Warning16 from '@carbon/icons/es/warning/16';
+import WarningAltFilled16 from '@carbon/icons/es/warning--filled/16';
 import ViewAll16 from '@carbon/icons/es/view/16';
 import List16 from '@carbon/icons/es/list/16';
 import ListDropdown16 from '@carbon/icons/es/list--dropdown/16';
@@ -213,7 +213,7 @@ export class TrainComponent implements OnInit {
   ) {
     this.iconService.registerAll([
       PlayFilled16, Reset16, ChevronDown16, InformationFilled16,
-      Checkmark16, Warning16, ViewAll16, List16, ListDropdown16,
+      Checkmark16, WarningAltFilled16, ViewAll16, List16, ListDropdown16,
       ModelBuilder20, MachineLearningModel20, DataBase20,
       ChartLine20, Renew20,
       ModelBuilder16, MachineLearningModel16, DataBase16,

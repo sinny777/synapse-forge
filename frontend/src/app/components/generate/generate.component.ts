@@ -21,6 +21,8 @@ import { ToggletipModule } from 'carbon-components-angular/toggletip';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
 import { NeuralToolService } from '../../services/neural-tool.service';
 import { ConfigService, FIELD_TOOLTIPS, ValidationResult } from '../../services/config.service';
+import { LLMConfigService } from '../../services/llm-config.service';
+import { LLMModelConfig } from '../../models/llm-config.model';
 
 import PlayFilled16 from '@carbon/icons/es/play--filled/16';
 import Save16 from '@carbon/icons/es/save/16';
@@ -31,7 +33,7 @@ import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 import Add16 from '@carbon/icons/es/add/16';
 import TrashCan16 from '@carbon/icons/es/trash-can/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
-import Warning16 from '@carbon/icons/es/warning/16';
+import WarningAltFilled16 from '@carbon/icons/es/warning--filled/16';
 import ViewAll16 from '@carbon/icons/es/view/16';
 import List16 from '@carbon/icons/es/list/16';
 import ListDropdown16 from '@carbon/icons/es/list--dropdown/16';
@@ -235,6 +237,10 @@ export class GenerateComponent implements OnInit {
   progressStatus: any = null;
   statusInterval: any;
 
+  
+  // Teacher model selection
+  teacherConfigs: LLMModelConfig[] = [];
+  selectedTeacherConfigId = '';
   syntheticData: any[] = [];
   cachedTools: any[] = [];
   
@@ -263,14 +269,14 @@ export class GenerateComponent implements OnInit {
   constructor(
     private service: NeuralToolService,
     private iconService: IconService,
-    public configService: ConfigService
+    public configService: ConfigService,
+    private llmConfigService: LLMConfigService
   ) {
     this.iconService.registerAll([
       PlayFilled16, Save16, Reset16, ChevronDown16,
       Settings16, InformationFilled16, Add16, TrashCan16,
-      Checkmark16, Warning16, ViewAll16,
-      List16,
-      ListDropdown16,
+      Checkmark16, WarningAltFilled16, ViewAll16,
+      List16, ListDropdown16,
       Settings20, MachineLearningModel20, DataCategorical20,
       Connect20, DocumentExport20, DataBase20,
       MachineLearningModel16, DataCategorical16, Connect16,
@@ -286,6 +292,53 @@ export class GenerateComponent implements OnInit {
     this.syncMCPtoTable();
     this.runValidation();
     this.loadSyntheticData();
+    this.loadTeacherConfigs();
+  }
+
+  loadTeacherConfigs(): void {
+    this.llmConfigService.configurations$.subscribe(configs => {
+      this.teacherConfigs = configs.filter(c => c.role === 'teacher');
+    });
+  }
+
+  onTeacherModelSelect(): void {
+    if (this.selectedTeacherConfigId) {
+      const config = this.llmConfigService.getConfigurationById(this.selectedTeacherConfigId);
+      if (config) {
+        let modelName = config.modelName;
+        if (config.provider === 'ollama' && !modelName.startsWith('ollama/')) {
+          modelName = `ollama/${modelName}`;
+        }
+        
+        this.llmConfig.teacher_model = modelName;
+        
+        if (config.credentials) {
+          if (config.credentials['api_key']) {
+            if (config.provider === 'openai') {
+              this.llmConfig.openai_api_key = config.credentials['api_key'] as string;
+            } else if (config.provider === 'anthropic') {
+              this.llmConfig.anthropic_api_key = config.credentials['api_key'] as string;
+            } else if (config.provider === 'google') {
+              this.llmConfig.google_api_key = config.credentials['api_key'] as string;
+            } else if (config.provider === 'groq') {
+              this.llmConfig.groq_api_key = config.credentials['api_key'] as string;
+            }
+          }
+          if (config.credentials['api_base'] && config.provider === 'ollama') {
+            this.llmConfig.ollama_api_base = config.credentials['api_base'] as string;
+          }
+        }
+        
+        if (config.temperature !== undefined) {
+          this.llmConfig.teacher_temperature = config.temperature;
+        }
+        if (config.maxTokens !== undefined) {
+          this.llmConfig.teacher_max_tokens = config.maxTokens;
+        }
+        
+        this.onConfigChange();
+      }
+    }
   }
 
   ngOnDestroy(): void {

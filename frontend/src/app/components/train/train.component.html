@@ -44,7 +44,7 @@
   
 <ng-template #trainingTabHeading>
   <div class="tab-header-content">
-    <svg cdsIcon="model-builder" size="16"></svg>
+    <svg cdsIcon="model-builder" size="20"></svg>
     <span>Training Hyperparameters</span>
   </div>
 </ng-template>
@@ -484,7 +484,7 @@
           </div>
 
           <div *ngIf="evaluationError" style="color: var(--ibm-support-error);">
-            <svg cdsIcon="warning" size="16"></svg> {{ evaluationError }}
+            <svg cdsIcon="warning--filled" size="16"></svg> {{ evaluationError }}
           </div>
 
           <div *ngIf="evaluationResult && !isEvaluating">
@@ -820,7 +820,7 @@
           </div>
 
           <div *ngIf="evaluationError" style="color: var(--ibm-support-error);">
-            <svg cdsIcon="warning" size="16"></svg> {{ evaluationError }}
+            <svg cdsIcon="warning--filled" size="16"></svg> {{ evaluationError }}
           </div>
 
           <div *ngIf="evaluationResult && !isEvaluating">

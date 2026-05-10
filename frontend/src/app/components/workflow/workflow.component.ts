@@ -17,10 +17,12 @@ import Rocket16 from '@carbon/icons/es/rocket/16';
 import Upload16 from '@carbon/icons/es/upload/16';
 import Download16 from '@carbon/icons/es/download/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
-import Warning16 from '@carbon/icons/es/warning/16';
+import WarningAltFilled16 from '@carbon/icons/es/warning--filled/16';
 import Edit16 from '@carbon/icons/es/edit/16';
 import Save16 from '@carbon/icons/es/save/16';
 import TrashCan16 from '@carbon/icons/es/trash-can/16';
+import InformationFilled16 from '@carbon/icons/es/information--filled/16';
+import SettingsAdjust16 from '@carbon/icons/es/settings--adjust/16';
 
 @Component({
   selector: 'app-workflow',
@@ -66,8 +68,8 @@ export class WorkflowComponent implements OnInit, OnDestroy {
   ) {
     this.iconService.registerAll([
       MagicWand16, ModelBuilder16, Rocket16,
-      Upload16, Download16, Checkmark16, Warning16, Edit16,
-      Save16, TrashCan16,
+      Upload16, Download16, Checkmark16, WarningAltFilled16, Edit16,
+      Save16, TrashCan16, InformationFilled16, SettingsAdjust16,
     ]);
   }
 
@@ -78,9 +80,9 @@ export class WorkflowComponent implements OnInit, OnDestroy {
     );
   }
 
-  onTabSelected(index: number) {
+  onTabSelected(event: number | { index?: number }): void {
+    const index = typeof event === 'number' ? event : event?.index ?? 0;
     this.activeTab = index;
-    // Trigger refresh of data from backend when switching tabs to ensure latest state
     if (index === 0 && this.generateComp) {
       this.generateComp.loadSyntheticData();
     } else if (index === 1 && this.trainComp) {
@@ -146,6 +148,11 @@ export class WorkflowComponent implements OnInit, OnDestroy {
     this.updateProfileItems();
     this.onProfileChange('default');
     this.notification = { type: 'success', title: 'Profile Deleted', message: 'Custom profile deleted successfully.' };
+  }
+
+  openLLMConfig(): void {
+    // Emit event to parent component to switch to settings view
+    window.dispatchEvent(new CustomEvent('navigate-to-settings'));
   }
 
   onExport(): void {

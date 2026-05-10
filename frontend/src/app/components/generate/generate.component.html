@@ -39,15 +39,8 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 1: LLM Configuration                                    -->
+  <!-- SECTION 1: Embedding Configuration                              -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  
-<ng-template #llmTabHeading>
-  <div class="tab-header-content">
-    <svg cdsIcon="settings" size="16"></svg>
-    <span>LLM Configuration</span>
-  </div>
-</ng-template>
 
 <ng-template #embeddingTabHeading>
   <div class="tab-header-content">
@@ -79,141 +72,8 @@
 
   <!-- ═══ ACCORDION VIEW ═══ -->
   <div *ngIf="viewMode === 'accordion'">
-<section class="config-section">
-    <div class="config-section__header" (click)="toggleSection('llm')">
-      <div class="config-section__header-left">
-        <svg cdsIcon="settings" size="20" class="config-section__icon"></svg>
-        <div>
-          <h2 class="ibm--type-productive-heading-03">LLM Configuration</h2>
-          <p class="ibm--type-helper-text-01">Teacher model settings for synthetic data generation.</p>
-        </div>
-      </div>
-      <div class="config-section__header-right">
-        <cds-tag *ngIf="!getSectionValidation('llm').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="getModifiedCount('llm') > 0" type="blue" size="sm">{{ getModifiedCount('llm') }}
-          modified</cds-tag>
-        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
-          [class.config-section__chevron--open]="sections['llm']"></svg>
-      </div>
-    </div>
-
-    <div class="config-section__body" *ngIf="sections['llm']">
-      <div class="validation-errors" *ngIf="!getSectionValidation('llm').valid">
-        <p *ngFor="let err of getSectionValidation('llm').errors" class="validation-error">⚠ {{ err }}</p>
-      </div>
-
-      <div class="config-row">
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_model')">
-          <cds-label>
-            Teacher Model
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['teacher_model'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="llmConfig.teacher_model" (ngModelChange)="onConfigChange()"
-              placeholder="e.g., ollama/granite4.1:8b" />
-          </cds-label>
-        </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_temperature')">
-          <cds-label>
-            Temperature
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['teacher_temperature'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_temperature" (ngModelChange)="onConfigChange()"
-              step="0.1" min="0" max="2" />
-          </cds-label>
-        </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_max_tokens')">
-          <cds-label>
-            Max Tokens
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['teacher_max_tokens'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_max_tokens" (ngModelChange)="onConfigChange()"
-              min="100" max="16000" />
-          </cds-label>
-        </div>
-      </div>
-
-      <div class="config-row">
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'ollama_api_base')">
-          <cds-label>
-            Ollama API Base URL
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['ollama_api_base'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="llmConfig.ollama_api_base" (ngModelChange)="onConfigChange()"
-              placeholder="http://localhost:11434" />
-          </cds-label>
-        </div>
-        <div class="config-field"></div>
-        <div class="config-field"></div>
-      </div>
-
-      <div class="config-section__divider"></div>
-      <p class="ibm--type-label-01 config-subsection-label">API Keys <span class="config-subsection-hint">(optional —
-          read from environment if blank)</span></p>
-
-      <div class="config-row">
-        <div class="config-field">
-          <cds-label>
-            OpenAI API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['openai_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.openai_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="sk-..." />
-          </cds-label>
-        </div>
-        <div class="config-field">
-          <cds-label>
-            Anthropic API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['anthropic_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.anthropic_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="sk-ant-..." />
-          </cds-label>
-        </div>
-        <div class="config-field">
-          <cds-label>
-            Google API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['google_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.google_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="AIza..." />
-          </cds-label>
-        </div>
-      </div>
-
-      <div class="config-row">
-        <div class="config-field">
-          <cds-label>
-            Groq API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['groq_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.groq_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="gsk_..." />
-          </cds-label>
-        </div>
-        <div class="config-field"></div>
-        <div class="config-field"></div>
-      </div>
-    </div>
-  </section>
-
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- SECTION 2: Embedding Configuration                              -->
+  <!-- SECTION 1: Embedding Configuration                              -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <section class="config-section">
     <div class="config-section__header" (click)="toggleSection('embedding')">
@@ -658,123 +518,8 @@
 
   <!-- ═══ VERTICAL TABS VIEW ═══ -->
   <div *ngIf="viewMode === 'tabs'" class="vertical-tabs-container" data-carbon-theme="g100">
-    <cds-tabs-vertical [cacheActive]="true">
-    <cds-tab [heading]="llmTabHeading" [cacheActive]="true">
-      <div class="config-section__body config-section__body--tabs">
-        <div class="validation-errors" *ngIf="!getSectionValidation('llm').valid">
-        <p *ngFor="let err of getSectionValidation('llm').errors" class="validation-error">⚠ {{ err }}</p>
-      </div>
-
-      <div class="config-row">
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_model')">
-          <cds-label>
-            Teacher Model
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['teacher_model'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="llmConfig.teacher_model" (ngModelChange)="onConfigChange()"
-              placeholder="e.g., ollama/granite4.1:8b" />
-          </cds-label>
-        </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_temperature')">
-          <cds-label>
-            Temperature
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['teacher_temperature'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_temperature" (ngModelChange)="onConfigChange()"
-              step="0.1" min="0" max="2" />
-          </cds-label>
-        </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'teacher_max_tokens')">
-          <cds-label>
-            Max Tokens
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['teacher_max_tokens'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="llmConfig.teacher_max_tokens" (ngModelChange)="onConfigChange()"
-              min="100" max="16000" />
-          </cds-label>
-        </div>
-      </div>
-
-      <div class="config-row">
-        <div class="config-field" [class.config-field--modified]="isFieldModified('llm', 'ollama_api_base')">
-          <cds-label>
-            Ollama API Base URL
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['ollama_api_base'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="llmConfig.ollama_api_base" (ngModelChange)="onConfigChange()"
-              placeholder="http://localhost:11434" />
-          </cds-label>
-        </div>
-        <div class="config-field"></div>
-        <div class="config-field"></div>
-      </div>
-
-      <div class="config-section__divider"></div>
-      <p class="ibm--type-label-01 config-subsection-label">API Keys <span class="config-subsection-hint">(optional —
-          read from environment if blank)</span></p>
-
-      <div class="config-row">
-        <div class="config-field">
-          <cds-label>
-            OpenAI API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['openai_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.openai_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="sk-..." />
-          </cds-label>
-        </div>
-        <div class="config-field">
-          <cds-label>
-            Anthropic API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['anthropic_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.anthropic_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="sk-ant-..." />
-          </cds-label>
-        </div>
-        <div class="config-field">
-          <cds-label>
-            Google API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['google_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.google_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="AIza..." />
-          </cds-label>
-        </div>
-      </div>
-
-      <div class="config-row">
-        <div class="config-field">
-          <cds-label>
-            Groq API Key
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['groq_api_key'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="password" [(ngModel)]="llmConfig.groq_api_key" (ngModelChange)="onConfigChange()"
-              placeholder="gsk_..." />
-          </cds-label>
-        </div>
-        <div class="config-field"></div>
-        <div class="config-field"></div>
-      </div>
-      </div>
-    </cds-tab>
-    <cds-tab [heading]="embeddingTabHeading" [cacheActive]="true">
+    <cds-tabs-vertical>
+    <cds-tab [heading]="embeddingTabHeading">
       <div class="config-section__body config-section__body--tabs">
         <div class="config-row">
         <div class="config-field config-field--wide"
@@ -828,7 +573,7 @@
       </div>
       </div>
     </cds-tab>
-    <cds-tab [heading]="vectorStoreTabHeading" [cacheActive]="true">
+    <cds-tab [heading]="vectorStoreTabHeading">
       <div class="config-section__body config-section__body--tabs">
         <div class="config-row">
         <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'store_type')">
@@ -924,7 +669,7 @@
       </div>
       </div>
     </cds-tab>
-    <cds-tab [heading]="mcpTabHeading" [cacheActive]="true">
+    <cds-tab [heading]="mcpTabHeading">
       <div class="config-section__body config-section__body--tabs">
         <div class="config-row">
         <div class="config-field">
@@ -1024,7 +769,7 @@
       </div>
       </div>
     </cds-tab>
-    <cds-tab [heading]="dataGenerationTabHeading" [cacheActive]="true">
+    <cds-tab [heading]="dataGenerationTabHeading">
       <div class="config-section__body config-section__body--tabs">
         <div class="validation-errors" *ngIf="!getSectionValidation('dataGeneration').valid">
         <p *ngFor="let err of getSectionValidation('dataGeneration').errors" class="validation-error">⚠ {{ err }}</p>

@@ -18,6 +18,8 @@ import { ToggletipModule } from 'carbon-components-angular/toggletip';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
 import { NeuralToolService } from '../../services/neural-tool.service';
 import { ConfigService, FIELD_TOOLTIPS, ValidationResult } from '../../services/config.service';
+import { LLMConfigService } from '../../services/llm-config.service';
+import { LLMModelConfig } from '../../models/llm-config.model';
 
 import PlayFilled16 from '@carbon/icons/es/play--filled/16';
 import Reset16 from '@carbon/icons/es/reset/16';
@@ -26,7 +28,7 @@ import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 import TrashCan16 from '@carbon/icons/es/trash-can/16';
 import Download16 from '@carbon/icons/es/download/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
-import Warning16 from '@carbon/icons/es/warning/16';
+import WarningAltFilled16 from '@carbon/icons/es/warning--filled/16';
 import ViewAll16 from '@carbon/icons/es/view/16';
 import List16 from '@carbon/icons/es/list/16';
 import ListDropdown16 from '@carbon/icons/es/list--dropdown/16';
@@ -161,15 +163,22 @@ export class RunComponent implements OnInit {
   availableModels: any[] = [];
   selectedModel: string = '';
 
+  /** LLM Config Integration */
+  expansionConfigs: LLMModelConfig[] = [];
+  heavyConfigs: LLMModelConfig[] = [];
+  selectedExpansionConfigId = '';
+  selectedHeavyConfigId = '';
+
   constructor(
     private service: NeuralToolService,
     private iconService: IconService,
     public configService: ConfigService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private llmConfigService: LLMConfigService
   ) {
     this.iconService.registerAll([
       PlayFilled16, Reset16, ChevronDown16, InformationFilled16,
-      TrashCan16, Download16, Checkmark16, Warning16, ViewAll16,
+      TrashCan16, Download16, Checkmark16, WarningAltFilled16, ViewAll16,
       List16, ListDropdown16,
       Rocket20, Settings20, ChartLine20, Keyboard20,
       Rocket16, Settings16, ChartLine16, Keyboard16,
@@ -181,6 +190,34 @@ export class RunComponent implements OnInit {
     if (savedMode) this.viewMode = savedMode;
     this.runValidation();
     this.loadModels();
+    this.loadLLMConfigs();
+  }
+
+  loadLLMConfigs(): void {
+    this.llmConfigService.configurations$.subscribe(configs => {
+      this.expansionConfigs = configs.filter(c => c.role === 'expansion');
+      this.heavyConfigs = configs.filter(c => c.role === 'heavy');
+    });
+  }
+
+  onExpansionModelSelect(): void {
+    if (this.selectedExpansionConfigId) {
+      const config = this.expansionConfigs.find(c => c.id === this.selectedExpansionConfigId);
+      if (config) {
+        this.runtimeLLMConfig.expansion_model = config.modelName;
+        this.runValidation();
+      }
+    }
+  }
+
+  onHeavyModelSelect(): void {
+    if (this.selectedHeavyConfigId) {
+      const config = this.heavyConfigs.find(c => c.id === this.selectedHeavyConfigId);
+      if (config) {
+        this.runtimeLLMConfig.heavy_model = config.modelName;
+        this.runValidation();
+      }
+    }
   }
 
   loadModels(): void {

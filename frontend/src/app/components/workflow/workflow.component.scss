@@ -10,6 +10,11 @@
 
 .cds--css-grid {
   padding-inline: 0;
+  padding-left: 0 !important;
+}
+
+.no-left-padding {
+  padding-left: 0 !important;
 }
 
 // ─── Title & Breadcrumbs ──────────────────────────────────────────
@@ -81,11 +86,11 @@
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
-    
+
     button {
       min-width: 2.5rem;
       padding: 0.5rem;
-      
+
       svg {
         margin: 0 !important;
       }
@@ -105,7 +110,7 @@
     margin-bottom: 0;
     overflow: visible !important;
   }
-  
+
   .cds--tabs__nav,
   .cds--tab--list,
   .cds--tabs__nav-item {
@@ -143,6 +148,7 @@
       padding-right: 0;
     }
   }
+
 }
 
 // ─── Responsive ───────────────────────────────────────────────────
@@ -198,7 +204,7 @@
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.15s, visibility 0.15s, transform 0.15s;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
     text-align: left;
     pointer-events: none;
     font-weight: normal;
