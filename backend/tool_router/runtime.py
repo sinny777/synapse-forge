@@ -44,7 +44,7 @@ class QueryExpander:
         self.llm_config = llm_config
         self.runtime_config = runtime_config
     
-    def expand_query(self, user_query: str) -> str:
+    async def expand_query(self, user_query: str) -> str:
         """
         Expand user query into logical steps.
         
@@ -58,9 +58,10 @@ class QueryExpander:
             return user_query
         
         try:
+            from litellm import acompletion
             prompt = self.runtime_config.expansion_prompt_template.format(query=user_query)
             
-            response = completion(
+            response = await acompletion(
                 model=self.llm_config.expansion_model,
                 messages=[{"role": "user", "content": prompt}],
                 temperature=self.llm_config.expansion_temperature,
@@ -76,6 +77,37 @@ class QueryExpander:
         except Exception as e:
             logger.error(f"Query expansion failed: {e}")
             return user_query
+
+    async def expand_query_stream(self, user_query: str):
+        """
+        Expand user query into logical steps, yielding chunks.
+        """
+        if not self.runtime_config.enable_query_expansion:
+            yield user_query
+            return
+            
+        try:
+            from litellm import acompletion
+            prompt = self.runtime_config.expansion_prompt_template.format(query=user_query)
+            
+            response = await acompletion(
+                model=self.llm_config.expansion_model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=self.llm_config.expansion_temperature,
+                max_tokens=self.llm_config.expansion_max_tokens,
+                stream=True
+            )
+            
+            yield f"{user_query}\n\nLogical steps:\n"
+            
+            async for chunk in response:
+                delta = chunk.choices[0].delta.content or ""
+                yield delta
+                
+        except Exception as e:
+            logger.error(f"Query expansion stream failed: {e}")
+            yield user_query
+
 
 
 class SemanticRouter:
@@ -318,13 +350,15 @@ class SemanticRouter:
         # Return top-k
         return fused_results[:top_k]
     
-    def retrieve_tools(self, query: str, top_k: Optional[int] = None, use_hybrid: bool = True) -> List[Tuple[str, float]]:
+    def retrieve_tools(self, query: str, top_k: Optional[int] = None, use_hybrid: bool = True, apply_threshold: bool = True) -> List[Tuple[str, float]]:
         """
         Retrieve top-k relevant tools for a query.
         
         Args:
             query: Query text
             top_k: Number of tools to retrieve (default from config)
+            use_hybrid: Whether to use hybrid search
+            apply_threshold: Whether to filter by similarity threshold
         
         Returns:
             List of (tool_id, similarity_score) tuples
@@ -334,20 +368,30 @@ class SemanticRouter:
         
         logger.info(f"Retrieving top-{top_k} tools for query: {query[:100]}...")
         
-        if self.vector_config.store_type == "faiss":
+        is_hybrid = False
+        if use_hybrid and self.bm25_index is not None:
+            results = self.retrieve_tools_hybrid(query, top_k)
+            is_hybrid = True
+        elif self.vector_config.store_type == "faiss":
             results = self.retrieve_tools_faiss(query, top_k)
         elif self.vector_config.store_type == "chromadb":
             results = self.retrieve_tools_chromadb(query, top_k)
         else:
             raise ValueError(f"Unsupported vector store: {self.vector_config.store_type}")
         
-        # Filter by similarity threshold
-        filtered_results = [
-            (tool_id, score) for tool_id, score in results
-            if score >= self.vector_config.similarity_threshold
-        ]
-        
-        logger.info(f"Retrieved {len(filtered_results)} tools above threshold {self.vector_config.similarity_threshold}")
+        # Don't apply threshold to hybrid results because RRF scores are rank-based (~0.01 to 0.03)
+        # and do not match the cosine similarity threshold (e.g., 0.3).
+        if apply_threshold and not is_hybrid:
+            # Filter by similarity threshold
+            filtered_results = [
+                (tool_id, score) for tool_id, score in results
+                if score >= self.vector_config.similarity_threshold
+            ]
+            logger.info(f"Retrieved {len(filtered_results)} tools above threshold {self.vector_config.similarity_threshold}")
+        else:
+            filtered_results = results
+            logger.info(f"Retrieved {len(filtered_results)} tools (threshold not applied)")
+            
         for tool_id, score in filtered_results:
             logger.debug(f"  {tool_id}: {score:.3f}")
         
@@ -495,7 +539,7 @@ class ToolRouter:
         
         return schemas
     
-    def _call_heavy_llm(self, user_query: str, tool_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
+    async def _call_heavy_llm(self, user_query: str, tool_schemas: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Call the heavy LLM to generate tool calls.
         
@@ -531,7 +575,8 @@ Available Tools:
 What tool(s) should be called to fulfill this request?"""
         
         try:
-            response = completion(
+            from litellm import acompletion
+            response = await acompletion(
                 model=config.llm.heavy_model,
                 messages=[
                     {"role": "system", "content": system_prompt},
@@ -565,6 +610,51 @@ What tool(s) should be called to fulfill this request?"""
                 "tool_calls": [],
                 "reasoning": f"Error: {str(e)}"
             }
+            
+    async def _call_heavy_llm_stream(self, user_query: str, tool_schemas: List[Dict[str, Any]]):
+        """Call heavy LLM and yield chunks."""
+        system_prompt = """You are a helpful AI assistant with access to tools. 
+Analyze the user's request and determine which tool(s) to use.
+If the available tools don't match the user's needs, use the search_available_tools function to find better options.
+
+Respond with tool calls in JSON format:
+{
+  "tool_calls": [
+    {
+      "tool_name": "tool_name",
+      "arguments": {...}
+    }
+  ],
+  "reasoning": "Brief explanation of your choice"
+}
+"""
+        tools_text = json.dumps(tool_schemas, indent=2)
+        user_message = f"""User Query: {user_query}
+
+Available Tools:
+{tools_text}
+
+What tool(s) should be called to fulfill this request?"""
+        
+        try:
+            from litellm import acompletion
+            response = await acompletion(
+                model=config.llm.heavy_model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message}
+                ],
+                temperature=config.llm.heavy_temperature,
+                max_tokens=config.llm.heavy_max_tokens,
+                stream=True
+            )
+            
+            async for chunk in response:
+                delta = chunk.choices[0].delta.content or ""
+                yield delta
+        except Exception as e:
+            logger.error(f"Heavy LLM stream failed: {e}")
+            yield f'{{"reasoning": "Error: {str(e)}", "tool_calls": []}}'
     
     async def process_query(self, user_query: str) -> Dict[str, Any]:
         """
@@ -580,24 +670,35 @@ What tool(s) should be called to fulfill this request?"""
         logger.info(f"Processing query: {user_query}")
         logger.info("=" * 60)
         
+        import time
+        start_time = time.time()
+        
         # Step 1: Query Expansion
         logger.info("\n[1/5] Query Expansion")
-        expanded_query = self.query_expander.expand_query(user_query)
+        t0 = time.time()
+        expanded_query = await self.query_expander.expand_query(user_query)
+        expansion_time = time.time() - t0
         
         # Step 2: Semantic Routing
         logger.info("\n[2/5] Semantic Routing")
+        t0 = time.time()
         retrieved_tools = self.semantic_router.retrieve_tools(expanded_query)
         tool_ids = [tool_id for tool_id, _ in retrieved_tools]
+        routing_time = time.time() - t0
         
         # Step 3: Context Assembly
         logger.info("\n[3/5] Context Assembly")
+        t0 = time.time()
         tool_schemas = self._assemble_context(tool_ids)
         logger.info(f"Assembled context with {len(tool_schemas)} tools")
+        context_assembly_time = time.time() - t0
         
         # Step 4: Heavy LLM Execution
         logger.info("\n[4/5] Heavy LLM Execution")
-        llm_response = self._call_heavy_llm(user_query, tool_schemas)
+        t0 = time.time()
+        llm_response = await self._call_heavy_llm(user_query, tool_schemas)
         logger.info(f"LLM Reasoning: {llm_response.get('reasoning', 'N/A')}")
+        llm_time = time.time() - t0
         
         # Step 5: Tool Execution
         logger.info("\n[5/5] Tool Execution")
@@ -627,10 +728,13 @@ What tool(s) should be called to fulfill this request?"""
                         break
                 
                 if tool_id:
+                    t0_tool = time.time()
                     result = await self.tool_executor.execute_tool(tool_id, arguments)
+                    tool_exec_time = time.time() - t0_tool
                     results.append({
                         "tool_name": tool_name,
                         "tool_id": tool_id,
+                        "time_taken": tool_exec_time,
                         **result
                     })
                 else:
@@ -638,11 +742,13 @@ What tool(s) should be called to fulfill this request?"""
                     results.append({
                         "tool_name": tool_name,
                         "success": False,
+                        "time_taken": 0,
                         "error": "Tool not found in retrieved set"
                     })
         
+        total_time = time.time() - start_time
         logger.info("\n" + "=" * 60)
-        logger.info("Query processing complete")
+        logger.info(f"Query processing complete in {total_time:.2f}s")
         logger.info("=" * 60)
         
         return {
@@ -650,8 +756,152 @@ What tool(s) should be called to fulfill this request?"""
             "expanded_query": expanded_query,
             "retrieved_tools": [{"id": tid, "score": score} for tid, score in retrieved_tools],
             "llm_reasoning": llm_response.get("reasoning"),
-            "tool_results": results
+            "tool_results": results,
+            "timings": {
+                "total_time": total_time,
+                "expansion_time": expansion_time,
+                "routing_time": routing_time,
+                "context_assembly_time": context_assembly_time,
+                "llm_time": llm_time
+            }
         }
+        
+    async def process_query_stream(self, user_query: str):
+        """
+        Process a user query end-to-end and yield events for streaming.
+        
+        Args:
+            user_query: User's input query
+        """
+        import time
+        start_time = time.time()
+        
+        # We'll build the final result as we go to yield it at the end if needed,
+        # but the primary output is the stream of events.
+        timings = {}
+        
+        # Start event
+        yield json.dumps({"event": "start", "data": {"query": user_query}}) + "\n"
+        
+        # Step 1: Query Expansion
+        t0 = time.time()
+        expanded_query = ""
+        async for chunk in self.query_expander.expand_query_stream(user_query):
+            expanded_query += chunk
+            yield json.dumps({"event": "expansion_stream", "data": {"chunk": chunk}}) + "\n"
+            
+        expansion_time = time.time() - t0
+        timings["expansion_time"] = expansion_time
+        
+        yield json.dumps({"event": "expansion", "data": {
+            "expanded_query": expanded_query, 
+            "time": expansion_time
+        }}) + "\n"
+        
+        # Step 2: Semantic Routing
+        t0 = time.time()
+        retrieved_tools = self.semantic_router.retrieve_tools(expanded_query)
+        tool_ids = [tool_id for tool_id, _ in retrieved_tools]
+        routing_time = time.time() - t0
+        timings["routing_time"] = routing_time
+        
+        yield json.dumps({"event": "routing", "data": {
+            "retrieved_tools": [{"id": tid, "score": score} for tid, score in retrieved_tools],
+            "time": routing_time
+        }}) + "\n"
+        
+        # Step 3: Context Assembly
+        t0 = time.time()
+        tool_schemas = self._assemble_context(tool_ids)
+        context_assembly_time = time.time() - t0
+        timings["context_assembly_time"] = context_assembly_time
+        
+        # Step 4: Heavy LLM Execution
+        t0 = time.time()
+        llm_content = ""
+        async for chunk in self._call_heavy_llm_stream(user_query, tool_schemas):
+            llm_content += chunk
+            yield json.dumps({"event": "reasoning_stream", "data": {"chunk": chunk}}) + "\n"
+            
+        try:
+            content = llm_content.strip()
+            if "```json" in content:
+                content = content.split("```json")[1].split("```")[0].strip()
+            elif "```" in content:
+                content = content.split("```")[1].split("```")[0].strip()
+            llm_response = json.loads(content)
+        except json.JSONDecodeError:
+            llm_response = {
+                "tool_calls": [],
+                "reasoning": llm_content
+            }
+            
+        llm_time = time.time() - t0
+        timings["llm_time"] = llm_time
+        
+        yield json.dumps({"event": "reasoning", "data": {
+            "llm_reasoning": llm_response.get("reasoning"),
+            "tool_calls": llm_response.get("tool_calls", []),
+            "time": llm_time
+        }}) + "\n"
+        
+        # Step 5: Tool Execution
+        results = []
+        tool_calls = llm_response.get("tool_calls", [])
+        
+        for i, tool_call in enumerate(tool_calls[:config.runtime.max_tool_calls]):
+            tool_name = tool_call.get("tool_name")
+            arguments = tool_call.get("arguments", {})
+            
+            # Handle fallback tool
+            if tool_name == "search_available_tools":
+                search_query = arguments.get("query", "")
+                matches = await self.mcp_client.search_tools(search_query)
+                tool_res = {
+                    "tool_name": tool_name,
+                    "success": True,
+                    "time_taken": 0,
+                    "result": [{"id": t.id, "name": t.name, "description": t.description} for t in matches]
+                }
+                results.append(tool_res)
+                yield json.dumps({"event": "tool_execution", "data": tool_res}) + "\n"
+            else:
+                # Find full tool ID
+                tool_id = None
+                for tid in tool_ids:
+                    if tid.endswith(f".{tool_name}") or tid == tool_name:
+                        tool_id = tid
+                        break
+                
+                if tool_id:
+                    t0_tool = time.time()
+                    result = await self.tool_executor.execute_tool(tool_id, arguments)
+                    tool_exec_time = time.time() - t0_tool
+                    tool_res = {
+                        "tool_name": tool_name,
+                        "tool_id": tool_id,
+                        "time_taken": tool_exec_time,
+                        **result
+                    }
+                    results.append(tool_res)
+                    yield json.dumps({"event": "tool_execution", "data": tool_res}) + "\n"
+                else:
+                    tool_res = {
+                        "tool_name": tool_name,
+                        "success": False,
+                        "time_taken": 0,
+                        "error": "Tool not found in retrieved set"
+                    }
+                    results.append(tool_res)
+                    yield json.dumps({"event": "tool_execution", "data": tool_res}) + "\n"
+        
+        total_time = time.time() - start_time
+        timings["total_time"] = total_time
+        
+        yield json.dumps({"event": "complete", "data": {
+            "timings": timings,
+            "total_time": total_time
+        }}) + "\n"
     
     async def close(self):
         """Clean up resources."""

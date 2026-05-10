@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -129,11 +129,24 @@ export class RunComponent implements OnInit {
   isLoading = false;
   resultData: any = null;
   notification: any = null;
+  
+  /** Trace Expand States */
+  traceExpanded: Record<string, boolean> = {
+    expansion: false,
+    routing: false,
+    reasoning: false,
+    tools: false
+  };
+
+  /** Models */
+  availableModels: any[] = [];
+  selectedModel: string = '';
 
   constructor(
     private service: NeuralToolService,
     private iconService: IconService,
-    public configService: ConfigService
+    public configService: ConfigService,
+    private ngZone: NgZone
   ) {
     this.iconService.registerAll([
       PlayFilled16, Reset16, ChevronDown16, InformationFilled16,
@@ -144,6 +157,20 @@ export class RunComponent implements OnInit {
 
   ngOnInit(): void {
     this.runValidation();
+    this.loadModels();
+  }
+
+  loadModels(): void {
+    this.service.getModels().subscribe({
+      next: (res) => {
+        if (res.status === 'success') {
+          this.availableModels = res.models;
+        }
+      },
+      error: (err) => {
+        console.error('Error loading models', err);
+      }
+    });
   }
 
   toggleSection(section: string): void {
@@ -197,17 +224,32 @@ export class RunComponent implements OnInit {
   clearQuery(): void {
     this.queryInput = '';
     this.resultData = null;
+    this.resetTraceExpanded();
+  }
+
+  resetTraceExpanded(): void {
+    this.traceExpanded = {
+      expansion: false,
+      routing: false,
+      reasoning: false,
+      tools: false
+    };
+  }
+
+  toggleTrace(phase: string): void {
+    this.traceExpanded[phase] = !this.traceExpanded[phase];
   }
 
   private buildPayload(): any {
     return {
       query: this.queryInput,
+      model_path: this.selectedModel || null,
       runtime: { ...this.runtimeConfig },
       llm: { ...this.runtimeLLMConfig },
     };
   }
 
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     if (!this.queryInput.trim()) return;
 
     this.runValidation();
@@ -221,20 +263,52 @@ export class RunComponent implements OnInit {
     this.isLoading = true;
     this.notification = null;
     this.resultData = null;
+    this.resetTraceExpanded();
     const payload = this.buildPayload();
 
-    this.service.run(payload).subscribe({
-      next: (res) => {
+    try {
+      this.resultData = { timings: {}, tool_results: [] };
+      await this.service.runStream(payload, (chunk) => {
+        this.ngZone.run(() => {
+          if (chunk.event === 'start') {
+            this.resultData.query = chunk.data.query;
+            this.resultData.isExpanding = true;
+          } else if (chunk.event === 'expansion_stream') {
+            this.resultData.expanded_query = (this.resultData.expanded_query || '') + chunk.data.chunk;
+          } else if (chunk.event === 'expansion') {
+            this.resultData.expanded_query = chunk.data.expanded_query;
+            this.resultData.timings.expansion_time = chunk.data.time;
+            this.resultData.isExpanding = false;
+          } else if (chunk.event === 'routing') {
+            this.resultData.retrieved_tools = chunk.data.retrieved_tools;
+            this.resultData.timings.routing_time = chunk.data.time;
+            this.resultData.isReasoning = true;
+          } else if (chunk.event === 'reasoning_stream') {
+            this.resultData.raw_content = (this.resultData.raw_content || '') + chunk.data.chunk;
+          } else if (chunk.event === 'reasoning') {
+            this.resultData.llm_reasoning = chunk.data.llm_reasoning;
+            this.resultData.raw_content = chunk.data.raw_content;
+            this.resultData.timings.llm_time = chunk.data.time;
+            this.resultData.isReasoning = false;
+          } else if (chunk.event === 'tool_execution') {
+            this.resultData.tool_results.push(chunk.data);
+          } else if (chunk.event === 'complete') {
+            this.resultData.timings = chunk.data.timings;
+          }
+        });
+      });
+      
+      this.ngZone.run(() => {
         this.isLoading = false;
-        this.resultData = res.data || res;
         this.configService.markSynced();
-        this.notification = { type: 'success', title: 'Query Processed', message: res.message || 'Tool routing completed successfully.' };
-      },
-      error: (err) => {
+        this.notification = { type: 'success', title: 'Query Processed', message: 'Tool routing completed successfully.' };
+      });
+    } catch (err: any) {
+      this.ngZone.run(() => {
         this.isLoading = false;
         this.configService.markError();
-        this.notification = { type: 'error', title: 'Execution Failed', message: err.error?.message || err.message || 'Query execution failed.' };
-      },
-    });
+        this.notification = { type: 'error', title: 'Execution Failed', message: err.message || 'Query execution failed.' };
+      });
+    }
   }
 }

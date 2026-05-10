@@ -287,10 +287,18 @@
           </div>
         </div>
         <div class="console-input__body">
+          <div style="margin-bottom: 1rem;" class="config-field">
+            <cds-label>Routing Model
+              <select cdsSelect [(ngModel)]="selectedModel">
+                <option value="" disabled selected>Select an archived/trained model...</option>
+                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
+              </select>
+            </cds-label>
+          </div>
           <textarea cdsTextArea [(ngModel)]="queryInput" placeholder="Enter natural language query to route to tools..."
-            rows="6" class="console-input__textarea"></textarea>
+            rows="5" class="console-input__textarea"></textarea>
           <div class="console-input__actions">
-            <button cdsButton="primary" (click)="onSubmit()" [disabled]="isLoading || !queryInput.trim()"
+            <button cdsButton="primary" (click)="onSubmit()" [disabled]="isLoading || !queryInput.trim() || !selectedModel"
               style="flex-grow: 1;">
               <svg cdsIcon="play--filled" size="16" class="cds--btn__icon"></svg>
               {{ isLoading ? 'Processing...' : 'Process Query' }}
@@ -309,8 +317,8 @@
             <svg cdsIcon="chart--line" size="20" style="fill: var(--cds-interactive)"></svg>
             <h3 class="cds--type-heading-02">Execution Trace</h3>
           </div>
-          <cds-tag [type]="resultData ? 'green' : 'blue'" size="sm">
-            {{ resultData ? 'Completed' : (isLoading ? 'Processing' : 'Ready') }}
+          <cds-tag [type]="(resultData && !isLoading) ? 'green' : 'blue'" size="sm">
+            {{ (resultData && !isLoading) ? 'Completed' : (isLoading ? 'Processing' : 'Ready') }}
           </cds-tag>
         </div>
 
@@ -318,57 +326,116 @@
           <div *ngIf="!resultData && !isLoading" class="console-trace__empty">
             <p class="cds--type-body-01">Submit a query to see the execution trace...</p>
           </div>
-          <div *ngIf="isLoading" class="console-trace__empty">
+          <div *ngIf="isLoading && !resultData?.expanded_query" class="console-trace__empty">
             <div class="console-trace__spinner"></div>
             <p class="cds--type-body-01">Processing query through the tool router...</p>
           </div>
-          <div *ngIf="resultData && !isLoading" class="console-trace__results">
+          <div *ngIf="resultData && (resultData.expanded_query || !isLoading)" class="console-trace__results">
+            
+            <!-- Overall Info -->
+            <div style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--cds-ui-03);" *ngIf="resultData.timings?.total_time">
+              <span class="cds--type-body-01">Total Execution Time: <strong>{{ resultData.timings?.total_time | number:'1.2-2' }}s</strong></span>
+            </div>
+
+            <!-- Phase 1: Expansion -->
             <div class="trace-step" *ngIf="resultData.expanded_query">
               <div class="trace-step__phase cds--type-label-01">Phase 1</div>
               <div class="trace-step__line">
                 <div class="trace-step__dot" style="background-color: #0f62fe;"></div>
               </div>
               <div class="trace-step__content">
-                <div class="trace-step__header">
-                  <cds-tag type="blue" size="sm">EXPANSION</cds-tag>
-                  <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Expanded User Query</span>
+                <div class="trace-step__header" (click)="toggleTrace('expansion')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                  <div>
+                    <cds-tag type="blue" size="sm">EXPANSION</cds-tag>
+                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Query Expansion ({{ runtimeLLMConfig.expansion_model }})</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="cds--type-helper-text-01" *ngIf="resultData.timings?.expansion_time">{{ resultData.timings?.expansion_time | number:'1.2-2' }}s</span>
+                    <span class="cds--type-helper-text-01" *ngIf="!resultData.timings?.expansion_time && resultData.isExpanding">Thinking...</span>
+                    <svg cdsIcon="chevron--down" size="16" [class.rotated]="traceExpanded['expansion']"></svg>
+                  </div>
                 </div>
-                <div class="trace-step__output cds--type-code-01">{{ resultData.expanded_query }}</div>
+                <div class="trace-step__output cds--type-code-01" *ngIf="traceExpanded['expansion']">
+                  <pre style="margin: 0; white-space: pre-wrap; word-break: break-all; font-family: inherit;">{{ resultData.expanded_query }}</pre>
+                </div>
               </div>
             </div>
-            <div class="trace-step" *ngIf="resultData.llm_reasoning">
+
+            <!-- Phase 2: Routing (Added) -->
+            <div class="trace-step" *ngIf="resultData.retrieved_tools">
               <div class="trace-step__phase cds--type-label-01">Phase 2</div>
+              <div class="trace-step__line">
+                <div class="trace-step__dot" style="background-color: #007d79;"></div>
+              </div>
+              <div class="trace-step__content">
+                <div class="trace-step__header" (click)="toggleTrace('routing')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                  <div>
+                    <cds-tag type="teal" size="sm">ROUTING</cds-tag>
+                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Semantic Routing</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="cds--type-helper-text-01">{{ resultData.timings?.routing_time | number:'1.2-2' }}s</span>
+                    <svg cdsIcon="chevron--down" size="16" [class.rotated]="traceExpanded['routing']"></svg>
+                  </div>
+                </div>
+                <div class="trace-step__output cds--type-code-01" *ngIf="traceExpanded['routing']">
+                  <div *ngFor="let tool of resultData.retrieved_tools; let i = index">
+                    {{ i + 1 }}. {{ tool.id }} (Score: {{ tool.score | number:'1.3-3' }})
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Phase 3: Reasoning -->
+            <div class="trace-step" *ngIf="resultData.llm_reasoning || resultData.raw_content">
+              <div class="trace-step__phase cds--type-label-01">Phase 3</div>
               <div class="trace-step__line">
                 <div class="trace-step__dot" style="background-color: #8a3ffc;"></div>
               </div>
               <div class="trace-step__content">
-                <div class="trace-step__header">
-                  <cds-tag type="purple" size="sm">REASONING</cds-tag>
-                  <span class="cds--type-body-01" style="color: var(--cds-text-primary)">LLM Agent Routing Logic</span>
+                <div class="trace-step__header" (click)="toggleTrace('reasoning')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                  <div>
+                    <cds-tag type="purple" size="sm">REASONING</cds-tag>
+                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Agent Logic ({{ runtimeLLMConfig.heavy_model }})</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="cds--type-helper-text-01" *ngIf="resultData.timings?.llm_time">{{ resultData.timings?.llm_time | number:'1.2-2' }}s</span>
+                    <span class="cds--type-helper-text-01" *ngIf="!resultData.timings?.llm_time && resultData.isReasoning">Thinking...</span>
+                    <svg cdsIcon="chevron--down" size="16" [class.rotated]="traceExpanded['reasoning']"></svg>
+                  </div>
                 </div>
-                <div class="trace-step__output cds--type-code-01">{{ resultData.llm_reasoning }}</div>
+                <div class="trace-step__output cds--type-code-01" *ngIf="traceExpanded['reasoning']">
+                  <pre style="margin: 0; white-space: pre-wrap; word-break: break-all; font-family: inherit;">{{ resultData.raw_content || resultData.llm_reasoning }}</pre>
+                </div>
               </div>
             </div>
+
+            <!-- Phase 4: Tools Execution -->
             <div class="trace-step" *ngFor="let res of resultData.tool_results; let i = index">
               <div class="trace-step__phase cds--type-label-01">Tool {{ i + 1 }}</div>
               <div class="trace-step__line">
                 <div class="trace-step__dot" [style.background-color]="res.success ? '#24a148' : '#fa4d56'"></div>
               </div>
               <div class="trace-step__content">
-                <div class="trace-step__header">
-                  <cds-tag [type]="res.success ? 'green' : 'red'" size="sm">{{ res.success ? 'SUCCESS' : 'ERROR'
-                    }}</cds-tag>
-                  <span class="cds--type-body-01" style="color: var(--cds-text-primary)">{{ res.tool_name }}</span>
+                <div class="trace-step__header" (click)="res.expanded = !res.expanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
+                  <div>
+                    <cds-tag [type]="res.success ? 'green' : 'red'" size="sm">{{ res.success ? 'SUCCESS' : 'ERROR' }}</cds-tag>
+                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">{{ res.tool_name }}</span>
+                  </div>
+                  <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <span class="cds--type-helper-text-01">{{ res.time_taken | number:'1.2-2' }}s</span>
+                    <svg cdsIcon="chevron--down" size="16" [class.rotated]="res.expanded"></svg>
+                  </div>
                 </div>
-                <div class="trace-step__output cds--type-code-01">
-                  <pre style="margin: 0;">{{ res.result || res.error | json }}</pre>
+                <div class="trace-step__output cds--type-code-01" *ngIf="res.expanded">
+                  <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">{{ res.content || res.result || res.error | json }}</pre>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="console-trace__footer" *ngIf="resultData">
+        <div class="console-trace__footer" *ngIf="resultData && !isLoading">
           <button cdsButton="ghost" size="sm">
             <svg cdsIcon="download" size="16" class="cds--btn__icon"></svg> Export Logs
           </button>

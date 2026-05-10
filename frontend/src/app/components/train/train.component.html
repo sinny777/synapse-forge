@@ -319,5 +319,146 @@
     </div>
   </section>
 
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: Model Management                                     -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="config-section">
+    <div class="config-section__header" (click)="toggleSection('modelManagement')">
+      <div class="config-section__header-left">
+        <svg cdsIcon="data--base" size="20" class="config-section__icon"></svg>
+        <div>
+          <h2 class="cds--type-productive-heading-03">Model Management</h2>
+          <p class="cds--type-helper-text-01">Manage trained models, archive current model, and select models for evaluation.</p>
+        </div>
+      </div>
+      <div class="config-section__header-right">
+        <cds-tag type="blue" size="sm">{{ availableModels.length }} Models</cds-tag>
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['modelManagement']"></svg>
+      </div>
+    </div>
+
+    <div class="config-section__body" *ngIf="sections['modelManagement']">
+      <div style="margin-bottom: 2rem;" *ngIf="isTrainingComplete">
+        <h3 class="cds--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
+        <div style="display: flex; gap: 1rem; align-items: flex-end;">
+          <div style="flex: 1;" class="config-field">
+            <cds-label>Model Name
+              <input cdsText [(ngModel)]="archiveName" placeholder="e.g. banking_domain" />
+            </cds-label>
+          </div>
+          <div style="width: 150px;" class="config-field">
+            <cds-label>Version
+              <input cdsText [(ngModel)]="archiveVersion" placeholder="1.0" />
+            </cds-label>
+          </div>
+          <button cdsButton="primary" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)" [disabled]="!archiveName || !archiveVersion || isArchiving">
+            {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
+          </button>
+        </div>
+      </div>
+
+      <h3 class="cds--type-heading-01" style="margin-bottom: 1rem;">Available Models</h3>
+      <div *ngIf="availableModels.length === 0" style="color: var(--cds-text-secondary); padding: 1rem; background: var(--cds-ui-01); border-radius: 4px;">
+        No trained models found. Train a new model first.
+      </div>
+      <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--cds-ui-03); border-radius: 4px; overflow: hidden;">
+        <div *ngFor="let model of availableModels; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--cds-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--cds-ui-01);">
+          <div>
+            <strong class="cds--type-body-02">{{ model.name }}</strong>
+            <div class="cds--type-helper-text-01" style="margin-top: 0.25rem;">Path: {{ model.path }}</div>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button cdsButton="ghost" size="sm" (click)="selectedEvaluationModel = model.path; sections['evaluation'] = true;" title="Evaluate this model">
+              Evaluate
+            </button>
+            <button cdsButton="ghost" size="sm" (click)="embeddingConfig.fine_tuned_model_dir = model.path; onConfigChange()" title="Set as base for retraining">
+              Retrain
+            </button>
+            <button cdsButton="danger--ghost" size="sm" (click)="deleteModel(model.name)" title="Delete Model">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 5: Evaluate Trained Model                               -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="config-section">
+    <div class="config-section__header" (click)="toggleSection('evaluation')">
+      <div class="config-section__header-left">
+        <svg cdsIcon="machine-learning-model" size="20" class="config-section__icon"></svg>
+        <div>
+          <h2 class="cds--type-productive-heading-03">Evaluate Trained Model</h2>
+          <p class="cds--type-helper-text-01">Test the fine-tuned embedding model by routing a query to the top-k tools.</p>
+        </div>
+      </div>
+      <div class="config-section__header-right">
+        <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
+          [class.config-section__chevron--open]="sections['evaluation']"></svg>
+      </div>
+    </div>
+
+    <div class="config-section__body" *ngIf="sections['evaluation']">
+      <div class="console-layout">
+        <!-- Left: Query Input -->
+        <div class="console-input" style="flex: 1; padding: 1rem; border: 1px solid var(--cds-ui-03); border-radius: 4px; background: var(--cds-ui-01);">
+          <div style="margin-bottom: 1rem;" class="config-field">
+            <cds-label>Target Model
+              <select cdsSelect [(ngModel)]="selectedEvaluationModel">
+                <option value="" disabled selected>Select a model...</option>
+                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
+              </select>
+            </cds-label>
+          </div>
+          <h3 class="cds--type-heading-01" style="margin-bottom: 0.5rem;">Test Query</h3>
+          <textarea cdsTextArea [(ngModel)]="evaluationQuery" placeholder="Enter a natural language query to test tool retrieval..." rows="3" class="console-input__textarea" style="width: 100%; margin-bottom: 1rem;"></textarea>
+          <div style="display: flex; gap: 0.5rem;">
+            <button cdsButton="primary" (click)="onEvaluate()" [disabled]="isEvaluating || !evaluationQuery.trim() || !selectedEvaluationModel">
+              <svg cdsIcon="play--filled" size="16" class="cds--btn__icon"></svg>
+              {{ isEvaluating ? 'Evaluating...' : 'Test Model' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Results -->
+        <div class="console-trace" style="flex: 2; padding: 1rem; border: 1px solid var(--cds-ui-03); border-radius: 4px; background: var(--cds-ui-01); margin-left: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 class="cds--type-heading-01">Retrieval Results</h3>
+            <cds-tag *ngIf="evaluationResult?.time_taken" type="blue" size="sm">Time: {{ evaluationResult.time_taken | number:'1.2-2' }}s</cds-tag>
+          </div>
+          
+          <div *ngIf="isEvaluating" style="padding: 2rem; text-align: center;">
+            <div class="monitoring-progress__bar" style="margin-bottom: 1rem;">
+              <div class="monitoring-progress__bar-fill monitoring-progress__bar-fill--active" style="width: 100%;"></div>
+            </div>
+            <p class="cds--type-body-01">Querying vector index with fine-tuned model...</p>
+          </div>
+
+          <div *ngIf="evaluationError" style="color: var(--cds-support-error);">
+            <svg cdsIcon="warning" size="16"></svg> {{ evaluationError }}
+          </div>
+
+          <div *ngIf="evaluationResult && !isEvaluating">
+            <div *ngFor="let tool of evaluationResult.retrieved_tools; let i = index" style="margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--cds-ui-03); background: var(--cds-background);">
+              <div style="display: flex; justify-content: space-between;">
+                <strong class="cds--type-body-01">{{ i + 1 }}. {{ tool.id }}</strong>
+                <cds-tag [type]="tool.score > 0.5 ? 'green' : 'gray'" size="sm">Score: {{ tool.score | number:'1.3-3' }}</cds-tag>
+              </div>
+            </div>
+            <p *ngIf="evaluationResult.retrieved_tools?.length === 0" class="cds--type-body-01">No tools retrieved.</p>
+          </div>
+          
+          <div *ngIf="!evaluationResult && !isEvaluating && !evaluationError" style="color: var(--cds-text-secondary); text-align: center; padding: 2rem;">
+            Submit a query to evaluate the model's retrieval accuracy.
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
   <div class="page-bottom-spacer"></div>
 </div>

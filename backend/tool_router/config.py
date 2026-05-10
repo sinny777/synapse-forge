@@ -43,7 +43,9 @@ class EmbeddingConfig:
     """Configuration for embedding model."""
     
     # Base model to fine-tune
-    base_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    base_model_name: str = "sentence-transformers/all-MiniLM-L6-v2" 
+    # base_model_name: str = "BAAI/bge-small-en-v1.5"
+    # base_model_name: str = "BAAI/bge-base-en-v1.5"
     
     # Fine-tuned model paths
     fine_tuned_model_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "models" / "fine_tuned_tool_router")

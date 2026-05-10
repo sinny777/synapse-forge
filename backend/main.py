@@ -40,6 +40,12 @@ class RunConfig(BaseModel):
     query: str
     enable_query_expansion: bool = True
     max_tool_calls: int = 10
+    model_path: Optional[str] = None
+
+class EvaluateConfig(BaseModel):
+    query: str
+    top_k: int = 5
+    model_path: Optional[str] = None
 
 def _apply_dict_to_obj(config_dict, obj):
     from pathlib import Path
@@ -120,24 +126,82 @@ def train_phase(config_data: TrainConfig):
 async def run_phase(config_data: RunConfig):
     try:
         _update_global_config(config_data, "run")
+        if config_data.model_path:
+            from tool_router.config import config
+            from pathlib import Path
+            config.embedding.fine_tuned_model_dir = Path(config_data.model_path)
+            
         from tool_router.runtime import ToolRouter
+        from fastapi.responses import StreamingResponse
         
-        # Initialize and process single query rather than running interactive loop
-        router = ToolRouter()
-        await router.initialize()
-        
-        try:
-            result = await router.process_query(config_data.query)
-            return {
-                "status": "success", 
-                "message": "Run phase completed.", 
-                "data": result
-            }
-        finally:
-            await router.close()
+        async def event_generator():
+            router = ToolRouter()
+            try:
+                await router.initialize()
+                async for event in router.process_query_stream(config_data.query):
+                    yield event
+            except Exception as e:
+                logger.error(f"Error in stream: {e}")
+                yield json.dumps({"event": "error", "data": {"message": str(e)}}) + "\n"
+            finally:
+                await router.close()
+                
+        return StreamingResponse(event_generator(), media_type="application/x-ndjson")
             
     except Exception as e:
         logger.error(f"Run phase failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/evaluate")
+async def evaluate_phase(config_data: EvaluateConfig):
+    import time
+    from tool_router.runtime import SemanticRouter
+    from tool_router.config import config
+    from sentence_transformers import SentenceTransformer
+    
+    try:
+        t0 = time.time()
+        
+        # Load embedding model
+        model_dir = config_data.model_path if config_data.model_path else str(config.embedding.fine_tuned_model_dir)
+        model = SentenceTransformer(
+            model_dir,
+            device=config.embedding.device
+        )
+        
+        # Initialize semantic router
+        semantic_router = SemanticRouter(model, config.vector_store)
+        
+        if config.vector_store.store_type == "faiss":
+            semantic_router.load_faiss_index()
+        elif config.vector_store.store_type == "chromadb":
+            semantic_router.load_chromadb_collection()
+            
+        try:
+            semantic_router.load_bm25_index()
+        except FileNotFoundError:
+            pass
+            
+        retrieved_tools = semantic_router.retrieve_tools(
+            config_data.query, 
+            top_k=config_data.top_k, 
+            use_hybrid=False, 
+            apply_threshold=False
+        )
+        
+        total_time = time.time() - t0
+        
+        return {
+            "status": "success",
+            "message": "Evaluation completed.",
+            "data": {
+                "query": config_data.query,
+                "retrieved_tools": [{"id": tid, "score": score} for tid, score in retrieved_tools],
+                "time_taken": total_time
+            }
+        }
+    except Exception as e:
+        logger.error(f"Evaluate phase failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 class SyntheticDataUpdate(BaseModel):
@@ -198,6 +262,66 @@ async def save_synthetic_data(update: SyntheticDataUpdate):
         return {"status": "success", "message": "Synthetic data saved."}
     except Exception as e:
         logger.error(f"Error saving synthetic data: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+class ArchiveModelRequest(BaseModel):
+    name: str
+    version: str
+    source_dir: str
+
+@app.get("/api/models")
+async def list_models():
+    from tool_router.config import config
+    models_dir = config.models_dir
+    models = []
+    if models_dir.exists():
+        for item in models_dir.iterdir():
+            if item.is_dir():
+                models.append({"name": item.name, "path": str(item)})
+    return {"status": "success", "models": models}
+
+@app.post("/api/models/archive")
+async def archive_model(req: ArchiveModelRequest):
+    from tool_router.config import config
+    import shutil
+    from pathlib import Path
+    
+    models_dir = config.models_dir
+    source_path = Path(req.source_dir)
+    if not source_path.is_absolute():
+        source_path = config.project_root / req.source_dir
+    
+    if not source_path.exists():
+        raise HTTPException(status_code=404, detail="Source model directory not found")
+        
+    target_name = f"{req.name}_v{req.version}"
+    target_path = models_dir / target_name
+    
+    try:
+        if target_path.exists():
+            shutil.rmtree(target_path)
+        shutil.copytree(source_path, target_path)
+        return {"status": "success", "message": f"Model archived as {target_name}", "model_name": target_name}
+    except Exception as e:
+        logger.error(f"Error archiving model: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/models/{model_name}")
+async def delete_model(model_name: str):
+    from tool_router.config import config
+    import shutil
+    
+    models_dir = config.models_dir
+    target_path = models_dir / model_name
+    
+    if not target_path.exists():
+        raise HTTPException(status_code=404, detail="Model not found")
+        
+    try:
+        shutil.rmtree(target_path)
+        return {"status": "success", "message": f"Model {model_name} deleted"}
+    except Exception as e:
+        logger.error(f"Error deleting model: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

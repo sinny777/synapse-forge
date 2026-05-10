@@ -469,3 +469,11 @@
     grid-template-columns: 1fr;
   }
 }
+
+svg.rotated {
+  transform: rotate(180deg);
+  transition: transform 0.2s ease;
+}
+svg:not(.rotated) {
+  transition: transform 0.2s ease;
+}
