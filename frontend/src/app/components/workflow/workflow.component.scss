@@ -8,6 +8,10 @@
   padding: 0 1rem;
 }
 
+.cds--css-grid {
+  padding-inline: 0;
+}
+
 // ─── Title & Breadcrumbs ──────────────────────────────────────────
 .workflow-title-wrapper {
   padding: 1.5rem 0 1rem;
@@ -77,6 +81,15 @@
     align-items: center;
     gap: 0.5rem;
     flex-shrink: 0;
+    
+    button {
+      min-width: 2.5rem;
+      padding: 0.5rem;
+      
+      svg {
+        margin: 0 !important;
+      }
+    }
   }
 }
 

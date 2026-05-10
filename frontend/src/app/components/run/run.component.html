@@ -18,13 +18,11 @@
         </button>
       </cds-content-switcher>
 
-      <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" [hidden]="viewMode === 'tabs'" title="Toggle all sections">
-        <svg cdsIcon="view" size="16" class="cds--btn__icon"></svg>
-        {{ allExpanded() ? 'Collapse All' : 'Expand All' }}
+      <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" [hidden]="viewMode === 'tabs'" [title]="allExpanded() ? 'Collapse All' : 'Expand All'">
+        <svg cdsIcon="view" size="16"></svg>
       </button>
       <button cdsButton="ghost" (click)="resetDefaults()" title="Reset to Defaults">
-        <svg cdsIcon="reset" size="16" class="cds--btn__icon"></svg>
-        Reset Defaults
+        <svg cdsIcon="reset" size="16"></svg>
       </button>
     </div>
   </header>

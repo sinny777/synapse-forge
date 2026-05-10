@@ -36,26 +36,22 @@
       <!-- Import -->
       <input type="file" #fileInput accept=".json" style="display: none" (change)="onFileSelected($event)" />
       <button cdsButton="ghost" size="sm" (click)="triggerImport()" title="Import Configuration from JSON">
-        <svg cdsIcon="upload" size="16" class="cds--btn__icon"></svg>
-        Import
+        <svg cdsIcon="upload" size="16"></svg>
       </button>
 
       <!-- Export -->
       <button cdsButton="ghost" size="sm" (click)="onExport()" title="Export Configuration as JSON">
-        <svg cdsIcon="download" size="16" class="cds--btn__icon"></svg>
-        Export
+        <svg cdsIcon="download" size="16"></svg>
       </button>
 
       <!-- Save As -->
       <button cdsButton="ghost" size="sm" (click)="saveCurrentAsProfile()" title="Save Current Config as New Profile">
-        <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
-        Save As
+        <svg cdsIcon="save" size="16"></svg>
       </button>
 
       <!-- Delete -->
       <button cdsButton="danger--ghost" size="sm" (click)="deleteCurrentProfile()" *ngIf="isCustomProfileSelected()" title="Delete Custom Profile">
-        <svg cdsIcon="trash-can" size="16" class="cds--btn__icon"></svg>
-        Delete
+        <svg cdsIcon="trash-can" size="16"></svg>
       </button>
 
       <!-- Sync Status — Carbon Tag -->
