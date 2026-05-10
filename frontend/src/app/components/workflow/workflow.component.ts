@@ -46,6 +46,9 @@ import TrashCan16 from '@carbon/icons/es/trash-can/16';
 })
 export class WorkflowComponent implements OnInit, OnDestroy {
   @ViewChild('fileInput') fileInput!: ElementRef<HTMLInputElement>;
+  @ViewChild(GenerateComponent) generateComp!: GenerateComponent;
+  @ViewChild(TrainComponent) trainComp!: TrainComponent;
+  @ViewChild(RunComponent) runComp!: RunComponent;
 
   activeTab = 0;
   profiles: ConfigProfile[] = CONFIG_PROFILES;
@@ -75,6 +78,18 @@ export class WorkflowComponent implements OnInit, OnDestroy {
     );
   }
 
+  onTabSelected(index: number) {
+    this.activeTab = index;
+    // Trigger refresh of data from backend when switching tabs to ensure latest state
+    if (index === 0 && this.generateComp) {
+      this.generateComp.loadSyntheticData();
+    } else if (index === 1 && this.trainComp) {
+      this.trainComp.loadModels();
+    } else if (index === 2 && this.runComp) {
+      this.runComp.loadModels();
+    }
+  }
+
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
   }
@@ -89,6 +104,8 @@ export class WorkflowComponent implements OnInit, OnDestroy {
       title: 'Profile Applied',
       message: `Switched to "${this.profiles.find(p => p.id === profileId)?.name}" profile.`,
     };
+    // Refresh current active tab data after profile change
+    this.onTabSelected(this.activeTab);
   }
 
   updateProfileItems(): void {

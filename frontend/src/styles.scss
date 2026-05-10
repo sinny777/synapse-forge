@@ -76,3 +76,42 @@ cds-toggletip {
 .config-section__header-right cds-tag {
   white-space: nowrap;
 }
+// Carbon Content Switcher — force dark theme
+.cds--content-switcher {
+  background-color: #262626 !important;
+  border: 1px solid #393939 !important;
+  
+  .cds--content-switcher-btn {
+    background-color: transparent !important;
+    color: #a8a8a8 !important;
+    
+    &.cds--content-switcher-btn--selected,
+    &.cds--content-switcher--selected {
+      background-color: #393939 !important;
+      color: #ffffff !important;
+
+      svg {
+        fill: #ffffff !important;
+      }
+    }
+
+    &:hover:not(.cds--content-switcher-btn--selected):not(.cds--content-switcher--selected) {
+      background-color: #353535 !important;
+    }
+
+    svg {
+      fill: #a8a8a8 !important;
+    }
+  }
+}
+
+// Global Input Fixes (Boxed style)
+.cds--text-input,
+.cds--number input,
+.cds--select-input,
+.cds--text-area {
+  background-color: var(--cds-field, #262626) !important;
+  color: var(--cds-text-primary, #f4f4f4) !important;
+  border: 1px solid var(--cds-border-strong, #8d8d8d) !important;
+  border-radius: 2px !important;
+}

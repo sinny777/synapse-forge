@@ -36,7 +36,7 @@
   }
 
   &__subtitle {
-    color: var(--cds-text-secondary, #c6c6c6);
+    color: var(--cds-text-secondary, #c6c6c6) !important;
     max-width: 640px;
   }
 
@@ -93,7 +93,7 @@
     }
 
     p {
-      color: var(--cds-text-secondary, #c6c6c6);
+      color: var(--cds-text-secondary, #c6c6c6) !important;
       margin: 0.125rem 0 0;
     }
   }
@@ -182,7 +182,7 @@
   .cds--label {
     display: block;
     margin-bottom: 0;
-    color: var(--cds-text-secondary, #c6c6c6);
+    color: var(--cds-text-secondary, #c6c6c6) !important;
     font-size: 0.75rem;
     letter-spacing: 0.32px;
     line-height: 1rem;
@@ -268,7 +268,7 @@
 
 // ─── Subsection Labels ────────────────────────────────────────────
 .config-subsection-label {
-  color: var(--cds-text-secondary, #c6c6c6);
+  color: var(--cds-text-secondary, #c6c6c6) !important;
   text-transform: uppercase;
   letter-spacing: 0.08rem;
   margin-bottom: 0.75rem;
@@ -299,7 +299,7 @@
   th {
     text-align: left;
     padding: 0.625rem 0.75rem;
-    color: var(--cds-text-secondary, #c6c6c6);
+    color: var(--cds-text-secondary, #c6c6c6) !important;
     font-size: 0.75rem;
     font-weight: 600;
     text-transform: uppercase;
@@ -484,3 +484,94 @@
   background-color: var(--cds-interactive, #0f62fe);
   transition: width 0.3s ease;
 }
+// ─── Vertical Tabs Support ──────────────────────────────────────
+.vertical-tabs-container {
+  background-color: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, #393939);
+  margin-bottom: 2rem;
+  min-height: 500px;
+  display: block;
+  overflow: hidden;
+
+  ::ng-deep .cds--tabs-vertical,
+  ::ng-deep .bx--tabs-vertical {
+    width: 100%;
+    display: flex;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  ::ng-deep .cds--tabs-vertical__nav,
+  ::ng-deep .bx--tabs-vertical__nav {
+    width: 240px;
+    min-width: 240px;
+    border-right: 1px solid var(--cds-border-subtle, #393939);
+    background-color: var(--cds-layer, #262626);
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  ::ng-deep .cds--tabs-vertical__nav-item,
+  ::ng-deep .bx--tabs-vertical__nav-item {
+    height: auto !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: var(--cds-text-secondary, #a8a8a8);
+    
+    &.cds--tabs-vertical__nav-item--selected,
+    &.bx--tabs-vertical__nav-item--selected {
+      background-color: var(--cds-layer-selected, #393939) !important;
+      
+      .cds--tabs-vertical__nav-link,
+      .bx--tabs-vertical__nav-link {
+        color: var(--cds-text-primary, #ffffff) !important;
+        border-left: 4px solid var(--cds-interactive, #0f62fe);
+      }
+    }
+
+    &:hover:not(.cds--tabs-vertical__nav-item--selected):not(.bx--tabs-vertical__nav-item--selected) {
+      background-color: var(--cds-layer-hover, #353535) !important;
+    }
+  }
+
+  ::ng-deep .cds--tabs-vertical__nav-link,
+  ::ng-deep .bx--tabs-vertical__nav-link {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 0.75rem 1rem !important;
+    height: auto !important;
+    min-height: 48px !important;
+    color: inherit !important;
+    text-decoration: none !important;
+    border-left: 4px solid transparent;
+    transition: all 0.15s ease;
+  }
+
+  ::ng-deep .cds--tabs-vertical__content,
+  ::ng-deep .bx--tabs-vertical__content {
+    padding: 0;
+    background-color: var(--cds-ui-background, #161616);
+    flex-grow: 1;
+    margin: 0 !important;
+  }
+}
+
+.config-section__body--tabs {
+  border-top: none;
+  padding: 1.5rem;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.tab-header-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}
+

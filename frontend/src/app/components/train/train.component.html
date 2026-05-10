@@ -1,4 +1,4 @@
-<div class="train-page">
+<div class="train-page" data-carbon-theme="g100">
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- Page Header                                                     -->
@@ -8,7 +8,17 @@
       <h2>Phase 2: Model Fine-Tuning</h2>
     </div>
     <div class="page-header__actions">
-      <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" title="Toggle all sections">
+      <!-- View Mode Toggle -->
+      <cds-content-switcher (selected)="onViewModeChange($event)" size="sm" style="margin-right: 1rem;" [selectedIndex]="viewMode === 'tabs' ? 0 : 1">
+        <button cdsContentOption name="tabs" title="Vertical Tabs View">
+          <svg cdsIcon="list" size="16"></svg>
+        </button>
+        <button cdsContentOption name="accordion" title="Accordion View">
+          <svg cdsIcon="list--dropdown" size="16"></svg>
+        </button>
+      </cds-content-switcher>
+
+      <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" [hidden]="viewMode === 'tabs'" title="Toggle all sections">
         <svg cdsIcon="view" size="16" class="cds--btn__icon"></svg>
         {{ allExpanded() ? 'Collapse All' : 'Expand All' }}
       </button>
@@ -34,13 +44,51 @@
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- SECTION 1: Training Hyperparameters                             -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <section class="config-section">
+  
+<ng-template #trainingTabHeading>
+  <div class="tab-header-content">
+    <svg cdsIcon="model-builder" size="16"></svg>
+    <span>Training Hyperparameters</span>
+  </div>
+</ng-template>
+
+<ng-template #embeddingTabHeading>
+  <div class="tab-header-content">
+    <svg cdsIcon="machine-learning-model" size="16"></svg>
+    <span>Embedding Model</span>
+  </div>
+</ng-template>
+
+<ng-template #monitoringTabHeading>
+  <div class="tab-header-content">
+    <svg cdsIcon="chart--line" size="16"></svg>
+    <span>Training Monitor</span>
+  </div>
+</ng-template>
+
+<ng-template #modelManagementTabHeading>
+  <div class="tab-header-content">
+    <svg cdsIcon="data--base" size="16"></svg>
+    <span>Model Management</span>
+  </div>
+</ng-template>
+
+<ng-template #evaluationTabHeading>
+  <div class="tab-header-content">
+    <svg cdsIcon="machine-learning-model" size="16"></svg>
+    <span>Evaluate Model</span>
+  </div>
+</ng-template>
+
+  <!-- ═══ ACCORDION VIEW ═══ -->
+  <div *ngIf="viewMode === 'accordion'">
+<section class="config-section">
     <div class="config-section__header" (click)="toggleSection('training')">
       <div class="config-section__header-left">
         <svg cdsIcon="model-builder" size="20" class="config-section__icon"></svg>
         <div>
-          <h2 class="cds--type-productive-heading-03">Training Hyperparameters</h2>
-          <p class="cds--type-helper-text-01">Core training loop parameters for embedding model fine-tuning.</p>
+          <h2 class="ibm--type-productive-heading-03">Training Hyperparameters</h2>
+          <p class="ibm--type-helper-text-01">Core training loop parameters for embedding model fine-tuning.</p>
         </div>
       </div>
       <div class="config-section__header-right">
@@ -121,7 +169,7 @@
       </div>
 
       <div class="config-section__divider"></div>
-      <p class="cds--type-label-01 config-subsection-label">Evaluation & Checkpoints</p>
+      <p class="ibm--type-label-01 config-subsection-label">Evaluation & Checkpoints</p>
 
       <div class="config-row">
         <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'eval_steps')">
@@ -150,7 +198,7 @@
       </div>
 
       <div class="config-section__divider"></div>
-      <p class="cds--type-label-01 config-subsection-label">Data & Logging Paths</p>
+      <p class="ibm--type-label-01 config-subsection-label">Data & Logging Paths</p>
 
       <div class="config-row">
         <div class="config-field config-field--wide"
@@ -187,8 +235,8 @@
       <div class="config-section__header-left">
         <svg cdsIcon="machine-learning-model" size="20" class="config-section__icon"></svg>
         <div>
-          <h2 class="cds--type-productive-heading-03">Embedding Model</h2>
-          <p class="cds--type-helper-text-01">Base model and output paths for fine-tuned embeddings.</p>
+          <h2 class="ibm--type-productive-heading-03">Embedding Model</h2>
+          <p class="ibm--type-helper-text-01">Base model and output paths for fine-tuned embeddings.</p>
         </div>
       </div>
       <div class="config-section__header-right">
@@ -263,8 +311,8 @@
       <div class="config-section__header-left">
         <svg cdsIcon="chart--line" size="20" class="config-section__icon"></svg>
         <div>
-          <h2 class="cds--type-productive-heading-03">Training Monitor</h2>
-          <p class="cds--type-helper-text-01">Real-time training progress, metrics, and loss visualization.</p>
+          <h2 class="ibm--type-productive-heading-03">Training Monitor</h2>
+          <p class="ibm--type-helper-text-01">Real-time training progress, metrics, and loss visualization.</p>
         </div>
       </div>
       <div class="config-section__header-right">
@@ -278,8 +326,8 @@
       <div class="monitoring-progress">
         <div class="monitoring-progress__header">
           <div class="monitoring-progress__title">
-            <svg cdsIcon="renew" size="20" style="fill: var(--cds-interactive)" [class.spin]="isLoading"></svg>
-            <span class="cds--type-heading-02">Training Progress</span>
+            <svg cdsIcon="renew" size="20" style="fill: var(--ibm-interactive)" [class.spin]="isLoading"></svg>
+            <span class="ibm--type-heading-02">Training Progress</span>
           </div>
           <cds-tag type="blue" size="sm" *ngIf="progressStatus">{{ progressStatus.message }}</cds-tag>
         </div>
@@ -291,15 +339,15 @@
 
         <div class="monitoring-metrics">
           <div class="monitoring-metric">
-            <div class="cds--type-label-01 monitoring-metric__label">Current Loss</div>
+            <div class="ibm--type-label-01 monitoring-metric__label">Current Loss</div>
             <div class="monitoring-metric__value">{{ currentLoss }}</div>
           </div>
           <div class="monitoring-metric monitoring-metric--bordered">
-            <div class="cds--type-label-01 monitoring-metric__label">Est. Time Remaining</div>
+            <div class="ibm--type-label-01 monitoring-metric__label">Est. Time Remaining</div>
             <div class="monitoring-metric__value">{{ estimatedTime }}</div>
           </div>
           <div class="monitoring-metric monitoring-metric--bordered">
-            <div class="cds--type-label-01 monitoring-metric__label">Steps/Sec</div>
+            <div class="ibm--type-label-01 monitoring-metric__label">Steps/Sec</div>
             <div class="monitoring-metric__value">{{ stepsPerSec }}</div>
           </div>
         </div>
@@ -309,7 +357,7 @@
 
       <div class="monitoring-chart">
         <div class="monitoring-chart__area">
-          <span class="cds--type-body-01" style="color: var(--cds-text-secondary)"
+          <span class="ibm--type-body-01" style="color: var(--ibm-text-secondary)"
             *ngIf="chartData.length === 0">
             No chart data available yet. Start training to visualize loss curves.
           </span>
@@ -327,8 +375,8 @@
       <div class="config-section__header-left">
         <svg cdsIcon="data--base" size="20" class="config-section__icon"></svg>
         <div>
-          <h2 class="cds--type-productive-heading-03">Model Management</h2>
-          <p class="cds--type-helper-text-01">Manage trained models, archive current model, and select models for evaluation.</p>
+          <h2 class="ibm--type-productive-heading-03">Model Management</h2>
+          <p class="ibm--type-helper-text-01">Manage trained models, archive current model, and select models for evaluation.</p>
         </div>
       </div>
       <div class="config-section__header-right">
@@ -340,7 +388,7 @@
 
     <div class="config-section__body" *ngIf="sections['modelManagement']">
       <div style="margin-bottom: 2rem;" *ngIf="isTrainingComplete">
-        <h3 class="cds--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
+        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
         <div style="display: flex; gap: 1rem; align-items: flex-end;">
           <div style="flex: 1;" class="config-field">
             <cds-label>Model Name
@@ -358,15 +406,15 @@
         </div>
       </div>
 
-      <h3 class="cds--type-heading-01" style="margin-bottom: 1rem;">Available Models</h3>
-      <div *ngIf="availableModels.length === 0" style="color: var(--cds-text-secondary); padding: 1rem; background: var(--cds-ui-01); border-radius: 4px;">
+      <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Available Models</h3>
+      <div *ngIf="availableModels.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
         No trained models found. Train a new model first.
       </div>
-      <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--cds-ui-03); border-radius: 4px; overflow: hidden;">
-        <div *ngFor="let model of availableModels; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--cds-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--cds-ui-01);">
+      <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
+        <div *ngFor="let model of availableModels; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
           <div>
-            <strong class="cds--type-body-02">{{ model.name }}</strong>
-            <div class="cds--type-helper-text-01" style="margin-top: 0.25rem;">Path: {{ model.path }}</div>
+            <strong class="ibm--type-body-02">{{ model.name }}</strong>
+            <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Path: {{ model.path }}</div>
           </div>
           <div style="display: flex; gap: 0.5rem;">
             <button cdsButton="ghost" size="sm" (click)="selectedEvaluationModel = model.path; sections['evaluation'] = true;" title="Evaluate this model">
@@ -392,8 +440,8 @@
       <div class="config-section__header-left">
         <svg cdsIcon="machine-learning-model" size="20" class="config-section__icon"></svg>
         <div>
-          <h2 class="cds--type-productive-heading-03">Evaluate Trained Model</h2>
-          <p class="cds--type-helper-text-01">Test the fine-tuned embedding model by routing a query to the top-k tools.</p>
+          <h2 class="ibm--type-productive-heading-03">Evaluate Trained Model</h2>
+          <p class="ibm--type-helper-text-01">Test the fine-tuned embedding model by routing a query to the top-k tools.</p>
         </div>
       </div>
       <div class="config-section__header-right">
@@ -405,7 +453,7 @@
     <div class="config-section__body" *ngIf="sections['evaluation']">
       <div class="console-layout">
         <!-- Left: Query Input -->
-        <div class="console-input" style="flex: 1; padding: 1rem; border: 1px solid var(--cds-ui-03); border-radius: 4px; background: var(--cds-ui-01);">
+        <div class="console-input" style="flex: 1; padding: 1rem; border: 1px solid var(--ibm-ui-03); border-radius: 4px; background: var(--ibm-ui-01);">
           <div style="margin-bottom: 1rem;" class="config-field">
             <cds-label>Target Model
               <select cdsSelect [(ngModel)]="selectedEvaluationModel">
@@ -414,7 +462,7 @@
               </select>
             </cds-label>
           </div>
-          <h3 class="cds--type-heading-01" style="margin-bottom: 0.5rem;">Test Query</h3>
+          <h3 class="ibm--type-heading-01" style="margin-bottom: 0.5rem;">Test Query</h3>
           <textarea cdsTextArea [(ngModel)]="evaluationQuery" placeholder="Enter a natural language query to test tool retrieval..." rows="3" class="console-input__textarea" style="width: 100%; margin-bottom: 1rem;"></textarea>
           <div style="display: flex; gap: 0.5rem;">
             <button cdsButton="primary" (click)="onEvaluate()" [disabled]="isEvaluating || !evaluationQuery.trim() || !selectedEvaluationModel">
@@ -425,9 +473,9 @@
         </div>
 
         <!-- Right: Results -->
-        <div class="console-trace" style="flex: 2; padding: 1rem; border: 1px solid var(--cds-ui-03); border-radius: 4px; background: var(--cds-ui-01); margin-left: 1rem;">
+        <div class="console-trace" style="flex: 2; padding: 1rem; border: 1px solid var(--ibm-ui-03); border-radius: 4px; background: var(--ibm-ui-01); margin-left: 1rem;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <h3 class="cds--type-heading-01">Retrieval Results</h3>
+            <h3 class="ibm--type-heading-01">Retrieval Results</h3>
             <cds-tag *ngIf="evaluationResult?.time_taken" type="blue" size="sm">Time: {{ evaluationResult.time_taken | number:'1.2-2' }}s</cds-tag>
           </div>
           
@@ -435,30 +483,369 @@
             <div class="monitoring-progress__bar" style="margin-bottom: 1rem;">
               <div class="monitoring-progress__bar-fill monitoring-progress__bar-fill--active" style="width: 100%;"></div>
             </div>
-            <p class="cds--type-body-01">Querying vector index with fine-tuned model...</p>
+            <p class="ibm--type-body-01">Querying vector index with fine-tuned model...</p>
           </div>
 
-          <div *ngIf="evaluationError" style="color: var(--cds-support-error);">
+          <div *ngIf="evaluationError" style="color: var(--ibm-support-error);">
             <svg cdsIcon="warning" size="16"></svg> {{ evaluationError }}
           </div>
 
           <div *ngIf="evaluationResult && !isEvaluating">
-            <div *ngFor="let tool of evaluationResult.retrieved_tools; let i = index" style="margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--cds-ui-03); background: var(--cds-background);">
+            <div *ngFor="let tool of evaluationResult.retrieved_tools; let i = index" style="margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--ibm-ui-03); background: var(--ibm-background);">
               <div style="display: flex; justify-content: space-between;">
-                <strong class="cds--type-body-01">{{ i + 1 }}. {{ tool.id }}</strong>
+                <strong class="ibm--type-body-01">{{ i + 1 }}. {{ tool.id }}</strong>
                 <cds-tag [type]="tool.score > 0.5 ? 'green' : 'gray'" size="sm">Score: {{ tool.score | number:'1.3-3' }}</cds-tag>
               </div>
             </div>
-            <p *ngIf="evaluationResult.retrieved_tools?.length === 0" class="cds--type-body-01">No tools retrieved.</p>
+            <p *ngIf="evaluationResult.retrieved_tools?.length === 0" class="ibm--type-body-01">No tools retrieved.</p>
           </div>
           
-          <div *ngIf="!evaluationResult && !isEvaluating && !evaluationError" style="color: var(--cds-text-secondary); text-align: center; padding: 2rem;">
+          <div *ngIf="!evaluationResult && !isEvaluating && !evaluationError" style="color: var(--ibm-text-secondary); text-align: center; padding: 2rem;">
             Submit a query to evaluate the model's retrieval accuracy.
           </div>
         </div>
       </div>
     </div>
   </section>
+  </div>
+
+  <!-- ═══ VERTICAL TABS VIEW ═══ -->
+  <div *ngIf="viewMode === 'tabs'" class="vertical-tabs-container" data-carbon-theme="g100">
+    <cds-tabs-vertical [cacheActive]="true">
+    <cds-tab [heading]="trainingTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        <div class="validation-errors" *ngIf="!getSectionValidation('training').valid">
+        <p *ngFor="let err of getSectionValidation('training').errors" class="validation-error">⚠ {{ err }}</p>
+      </div>
+
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'num_epochs')">
+          <cds-label>
+            Epochs
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['num_epochs'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.num_epochs" (ngModelChange)="onConfigChange()"
+              min="1" max="100" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'batch_size')">
+          <cds-label>
+            Batch Size
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['batch_size'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.batch_size" (ngModelChange)="onConfigChange()"
+              min="1" max="512" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'learning_rate')">
+          <cds-label>
+            Learning Rate
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['learning_rate'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="trainingConfig.learning_rate" (ngModelChange)="onConfigChange()"
+              placeholder="2e-5" />
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'warmup_steps')">
+          <cds-label>
+            Warmup Steps
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['warmup_steps'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.warmup_steps" (ngModelChange)="onConfigChange()"
+              min="0" max="10000" />
+          </cds-label>
+        </div>
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('training', 'loss_function')">
+          <cds-label>
+            Loss Function
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['loss_function'] }}</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="trainingConfig.loss_function" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of lossFunctionOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Evaluation & Checkpoints</p>
+
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'eval_steps')">
+          <cds-label>
+            Evaluation Steps
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['eval_steps'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.eval_steps" (ngModelChange)="onConfigChange()"
+              min="10" max="5000" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'save_steps')">
+          <cds-label>
+            Save Steps
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['save_steps'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="trainingConfig.save_steps" (ngModelChange)="onConfigChange()"
+              min="50" max="10000" />
+          </cds-label>
+        </div>
+        <div class="config-field"></div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Data & Logging Paths</p>
+
+      <div class="config-row">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('training', 'training_data_path')">
+          <cds-label>
+            Training Data Path
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['training_data_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="trainingConfig.training_data_path"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('training', 'logging_dir')">
+          <cds-label>
+            Logging Directory
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['logging_dir'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="trainingConfig.logging_dir" (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+      </div>
+      </div>
+    </cds-tab>
+    <cds-tab [heading]="embeddingTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        <div class="config-row">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('embedding', 'base_model_name')">
+          <cds-label>
+            Base Model Name
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['base_model_name'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="embeddingConfig.base_model_name"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('embedding', 'device')">
+          <cds-label>
+            Device
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['device'] }}</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="embeddingConfig.device" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of deviceOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+      <div class="config-row">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('embedding', 'fine_tuned_model_dir')">
+          <cds-label>
+            Fine-tuned Model Directory
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['fine_tuned_model_dir'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="embeddingConfig.fine_tuned_model_dir"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field">
+          <cds-label>
+            Embedding Dimensions
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['embedding_dim'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="embeddingConfig.embedding_dim" (ngModelChange)="onConfigChange()"
+              placeholder="Auto-detected" />
+          </cds-label>
+        </div>
+      </div>
+      </div>
+    </cds-tab>
+    <cds-tab [heading]="monitoringTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        <div class="monitoring-progress">
+        <div class="monitoring-progress__header">
+          <div class="monitoring-progress__title">
+            <svg cdsIcon="renew" size="20" style="fill: var(--ibm-interactive)" [class.spin]="isLoading"></svg>
+            <span class="ibm--type-heading-02">Training Progress</span>
+          </div>
+          <cds-tag type="blue" size="sm" *ngIf="progressStatus">{{ progressStatus.message }}</cds-tag>
+        </div>
+
+        <div class="monitoring-progress__bar">
+          <div class="monitoring-progress__bar-fill" [style.width]="trainingProgress + '%'"
+            [class.monitoring-progress__bar-fill--active]="isLoading"></div>
+        </div>
+
+        <div class="monitoring-metrics">
+          <div class="monitoring-metric">
+            <div class="ibm--type-label-01 monitoring-metric__label">Current Loss</div>
+            <div class="monitoring-metric__value">{{ currentLoss }}</div>
+          </div>
+          <div class="monitoring-metric monitoring-metric--bordered">
+            <div class="ibm--type-label-01 monitoring-metric__label">Est. Time Remaining</div>
+            <div class="monitoring-metric__value">{{ estimatedTime }}</div>
+          </div>
+          <div class="monitoring-metric monitoring-metric--bordered">
+            <div class="ibm--type-label-01 monitoring-metric__label">Steps/Sec</div>
+            <div class="monitoring-metric__value">{{ stepsPerSec }}</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+
+      <div class="monitoring-chart">
+        <div class="monitoring-chart__area">
+          <span class="ibm--type-body-01" style="color: var(--ibm-text-secondary)"
+            *ngIf="chartData.length === 0">
+            No chart data available yet. Start training to visualize loss curves.
+          </span>
+          <ibm-line-chart *ngIf="chartData.length > 0" [data]="chartData" [options]="chartOptions"></ibm-line-chart>
+        </div>
+      </div>
+      </div>
+    </cds-tab>
+    <cds-tab [heading]="modelManagementTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        <div style="margin-bottom: 2rem;" *ngIf="isTrainingComplete">
+        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
+        <div style="display: flex; gap: 1rem; align-items: flex-end;">
+          <div style="flex: 1;" class="config-field">
+            <cds-label>Model Name
+              <input cdsText [(ngModel)]="archiveName" placeholder="e.g. banking_domain" />
+            </cds-label>
+          </div>
+          <div style="width: 150px;" class="config-field">
+            <cds-label>Version
+              <input cdsText [(ngModel)]="archiveVersion" placeholder="1.0" />
+            </cds-label>
+          </div>
+          <button cdsButton="primary" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)" [disabled]="!archiveName || !archiveVersion || isArchiving">
+            {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
+          </button>
+        </div>
+      </div>
+
+      <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Available Models</h3>
+      <div *ngIf="availableModels.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+        No trained models found. Train a new model first.
+      </div>
+      <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
+        <div *ngFor="let model of availableModels; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
+          <div>
+            <strong class="ibm--type-body-02">{{ model.name }}</strong>
+            <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Path: {{ model.path }}</div>
+          </div>
+          <div style="display: flex; gap: 0.5rem;">
+            <button cdsButton="ghost" size="sm" (click)="selectedEvaluationModel = model.path; sections['evaluation'] = true;" title="Evaluate this model">
+              Evaluate
+            </button>
+            <button cdsButton="ghost" size="sm" (click)="embeddingConfig.fine_tuned_model_dir = model.path; onConfigChange()" title="Set as base for retraining">
+              Retrain
+            </button>
+            <button cdsButton="danger--ghost" size="sm" (click)="deleteModel(model.name)" title="Delete Model">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
+      </div>
+    </cds-tab>
+    <cds-tab [heading]="evaluationTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        <div class="console-layout">
+        <!-- Left: Query Input -->
+        <div class="console-input" style="flex: 1; padding: 1rem; border: 1px solid var(--ibm-ui-03); border-radius: 4px; background: var(--ibm-ui-01);">
+          <div style="margin-bottom: 1rem;" class="config-field">
+            <cds-label>Target Model
+              <select cdsSelect [(ngModel)]="selectedEvaluationModel">
+                <option value="" disabled selected>Select a model...</option>
+                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
+              </select>
+            </cds-label>
+          </div>
+          <h3 class="ibm--type-heading-01" style="margin-bottom: 0.5rem;">Test Query</h3>
+          <textarea cdsTextArea [(ngModel)]="evaluationQuery" placeholder="Enter a natural language query to test tool retrieval..." rows="3" class="console-input__textarea" style="width: 100%; margin-bottom: 1rem;"></textarea>
+          <div style="display: flex; gap: 0.5rem;">
+            <button cdsButton="primary" (click)="onEvaluate()" [disabled]="isEvaluating || !evaluationQuery.trim() || !selectedEvaluationModel">
+              <svg cdsIcon="play--filled" size="16" class="cds--btn__icon"></svg>
+              {{ isEvaluating ? 'Evaluating...' : 'Test Model' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Results -->
+        <div class="console-trace" style="flex: 2; padding: 1rem; border: 1px solid var(--ibm-ui-03); border-radius: 4px; background: var(--ibm-ui-01); margin-left: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h3 class="ibm--type-heading-01">Retrieval Results</h3>
+            <cds-tag *ngIf="evaluationResult?.time_taken" type="blue" size="sm">Time: {{ evaluationResult.time_taken | number:'1.2-2' }}s</cds-tag>
+          </div>
+          
+          <div *ngIf="isEvaluating" style="padding: 2rem; text-align: center;">
+            <div class="monitoring-progress__bar" style="margin-bottom: 1rem;">
+              <div class="monitoring-progress__bar-fill monitoring-progress__bar-fill--active" style="width: 100%;"></div>
+            </div>
+            <p class="ibm--type-body-01">Querying vector index with fine-tuned model...</p>
+          </div>
+
+          <div *ngIf="evaluationError" style="color: var(--ibm-support-error);">
+            <svg cdsIcon="warning" size="16"></svg> {{ evaluationError }}
+          </div>
+
+          <div *ngIf="evaluationResult && !isEvaluating">
+            <div *ngFor="let tool of evaluationResult.retrieved_tools; let i = index" style="margin-bottom: 0.5rem; padding: 0.5rem; border: 1px solid var(--ibm-ui-03); background: var(--ibm-background);">
+              <div style="display: flex; justify-content: space-between;">
+                <strong class="ibm--type-body-01">{{ i + 1 }}. {{ tool.id }}</strong>
+                <cds-tag [type]="tool.score > 0.5 ? 'green' : 'gray'" size="sm">Score: {{ tool.score | number:'1.3-3' }}</cds-tag>
+              </div>
+            </div>
+            <p *ngIf="evaluationResult.retrieved_tools?.length === 0" class="ibm--type-body-01">No tools retrieved.</p>
+          </div>
+          
+          <div *ngIf="!evaluationResult && !isEvaluating && !evaluationError" style="color: var(--ibm-text-secondary); text-align: center; padding: 2rem;">
+            Submit a query to evaluate the model's retrieval accuracy.
+          </div>
+        </div>
+      </div>
+      </div>
+    </cds-tab>
+    </cds-tabs-vertical>
+  </div>
+
 
   <div class="page-bottom-spacer"></div>
 </div>

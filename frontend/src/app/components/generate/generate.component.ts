@@ -15,6 +15,7 @@ import {
   TagModule,
   PaginationModule,
   PaginationModel,
+  ContentSwitcherModule,
 } from 'carbon-components-angular';
 import { ToggletipModule } from 'carbon-components-angular/toggletip';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
@@ -32,6 +33,8 @@ import TrashCan16 from '@carbon/icons/es/trash-can/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
 import Warning16 from '@carbon/icons/es/warning/16';
 import ViewAll16 from '@carbon/icons/es/view/16';
+import List16 from '@carbon/icons/es/list/16';
+import ListDropdown16 from '@carbon/icons/es/list--dropdown/16';
 
 // Size 20 icons for section headers
 import Settings20 from '@carbon/icons/es/settings/20';
@@ -40,6 +43,13 @@ import DataCategorical20 from '@carbon/icons/es/data--categorical/20';
 import Connect20 from '@carbon/icons/es/connect/20';
 import DocumentExport20 from '@carbon/icons/es/document--export/20';
 import DataBase20 from '@carbon/icons/es/data--base/20';
+
+// Size 16 icons for tabs
+import MachineLearningModel16 from '@carbon/icons/es/machine-learning-model/16';
+import DataCategorical16 from '@carbon/icons/es/data--categorical/16';
+import Connect16 from '@carbon/icons/es/connect/16';
+import DocumentExport16 from '@carbon/icons/es/document--export/16';
+import DataBase16 from '@carbon/icons/es/data--base/16';
 
 /** Interfaces matching the backend config.py dataclasses */
 interface LLMConfig {
@@ -114,6 +124,7 @@ interface MCPServerEntry {
     TagModule,
     ToggletipModule,
     PaginationModule,
+    ContentSwitcherModule,
   ],
   templateUrl: './generate.component.html',
   styleUrls: ['./generate.component.scss'],
@@ -128,6 +139,9 @@ export class GenerateComponent implements OnInit {
     dataGeneration: false,
     syntheticData: true,
   };
+
+  /** View mode: vertical tabs or accordion */
+  viewMode = 'tabs';
 
   /** Default config snapshots for diff detection */
   private readonly DEFAULTS = {
@@ -234,7 +248,13 @@ export class GenerateComponent implements OnInit {
   }
   
   onSelectPage(event: any) {
-    this.paginationModel.currentPage = event;
+    this.paginationModel.currentPage = event.page;
+  }
+
+  /** Handle view mode change from content switcher */
+  onViewModeChange(event: any): void {
+    this.viewMode = event.name || event.item.name;
+    localStorage.setItem('generate_viewMode', this.viewMode);
   }
 
   isDataLoading = false;
@@ -249,12 +269,18 @@ export class GenerateComponent implements OnInit {
       PlayFilled16, Save16, Reset16, ChevronDown16,
       Settings16, InformationFilled16, Add16, TrashCan16,
       Checkmark16, Warning16, ViewAll16,
+      List16,
+      ListDropdown16,
       Settings20, MachineLearningModel20, DataCategorical20,
       Connect20, DocumentExport20, DataBase20,
+      MachineLearningModel16, DataCategorical16, Connect16,
+      DocumentExport16, DataBase16,
     ]);
   }
 
   ngOnInit(): void {
+    const savedMode = localStorage.getItem('generate_viewMode');
+    if (savedMode) this.viewMode = savedMode;
     this.paginationModel.pageLength = 20;
     this.paginationModel.currentPage = 1;
     this.syncMCPtoTable();

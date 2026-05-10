@@ -82,9 +82,9 @@
   <!-- Tabs & Content Area                                             -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <cds-tabs>
-    <cds-tab [heading]="phase1Heading" (selected)="activeTab = 0" [active]="activeTab === 0"></cds-tab>
-    <cds-tab [heading]="phase2Heading" (selected)="activeTab = 1" [active]="activeTab === 1"></cds-tab>
-    <cds-tab [heading]="phase3Heading" (selected)="activeTab = 2" [active]="activeTab === 2"></cds-tab>
+    <cds-tab [heading]="phase1Heading" (selected)="onTabSelected(0)" [active]="activeTab === 0"></cds-tab>
+    <cds-tab [heading]="phase2Heading" (selected)="onTabSelected(1)" [active]="activeTab === 1"></cds-tab>
+    <cds-tab [heading]="phase3Heading" (selected)="onTabSelected(2)" [active]="activeTab === 2"></cds-tab>
   </cds-tabs>
 
   <ng-template #phase1Heading>

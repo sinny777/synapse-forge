@@ -12,6 +12,7 @@ import {
   TabsModule,
   DropdownModule,
   TagModule,
+  ContentSwitcherModule,
 } from 'carbon-components-angular';
 import { ToggletipModule } from 'carbon-components-angular/toggletip';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
@@ -27,12 +28,20 @@ import Download16 from '@carbon/icons/es/download/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
 import Warning16 from '@carbon/icons/es/warning/16';
 import ViewAll16 from '@carbon/icons/es/view/16';
+import List16 from '@carbon/icons/es/list/16';
+import ListDropdown16 from '@carbon/icons/es/list--dropdown/16';
 
 // Size 20 icons for section headers
 import Rocket20 from '@carbon/icons/es/rocket/20';
 import Settings20 from '@carbon/icons/es/settings/20';
 import ChartLine20 from '@carbon/icons/es/chart--line/20';
 import Keyboard20 from '@carbon/icons/es/keyboard/20';
+
+// Size 16 icons for tabs
+import Rocket16 from '@carbon/icons/es/rocket/16';
+import Settings16 from '@carbon/icons/es/settings/16';
+import ChartLine16 from '@carbon/icons/es/chart--line/16';
+import Keyboard16 from '@carbon/icons/es/keyboard/16';
 
 /** Interfaces matching backend config.py RuntimeConfig + LLMConfig */
 interface RuntimeConfig {
@@ -72,6 +81,7 @@ interface RuntimeLLMConfig {
     IconModule,
     DropdownModule,
     TagModule,
+    ContentSwitcherModule,
     ToggletipModule,
   ],
   templateUrl: './run.component.html',
@@ -83,6 +93,15 @@ export class RunComponent implements OnInit {
     runtimeConfig: false,
     llmConfig: false,
   };
+
+  /** View mode: vertical tabs or accordion */
+  viewMode = 'tabs';
+
+  /** Handle view mode change from content switcher */
+  onViewModeChange(event: any): void {
+    this.viewMode = event.name || event.item.name;
+    localStorage.setItem('run_viewMode', this.viewMode);
+  }
 
   /** Default snapshots for diff */
   private readonly DEFAULTS = {
@@ -151,11 +170,15 @@ export class RunComponent implements OnInit {
     this.iconService.registerAll([
       PlayFilled16, Reset16, ChevronDown16, InformationFilled16,
       TrashCan16, Download16, Checkmark16, Warning16, ViewAll16,
+      List16, ListDropdown16,
       Rocket20, Settings20, ChartLine20, Keyboard20,
+      Rocket16, Settings16, ChartLine16, Keyboard16,
     ]);
   }
 
   ngOnInit(): void {
+    const savedMode = localStorage.getItem('run_viewMode');
+    if (savedMode) this.viewMode = savedMode;
     this.runValidation();
     this.loadModels();
   }
@@ -273,8 +296,10 @@ export class RunComponent implements OnInit {
           if (chunk.event === 'start') {
             this.resultData.query = chunk.data.query;
             this.resultData.isExpanding = true;
+            this.traceExpanded['expansion'] = true; // Auto-expand
           } else if (chunk.event === 'expansion_stream') {
             this.resultData.expanded_query = (this.resultData.expanded_query || '') + chunk.data.chunk;
+            this.traceExpanded['expansion'] = true;
           } else if (chunk.event === 'expansion') {
             this.resultData.expanded_query = chunk.data.expanded_query;
             this.resultData.timings.expansion_time = chunk.data.time;
@@ -283,15 +308,18 @@ export class RunComponent implements OnInit {
             this.resultData.retrieved_tools = chunk.data.retrieved_tools;
             this.resultData.timings.routing_time = chunk.data.time;
             this.resultData.isReasoning = true;
+            this.traceExpanded['routing'] = true; // Auto-expand
           } else if (chunk.event === 'reasoning_stream') {
             this.resultData.raw_content = (this.resultData.raw_content || '') + chunk.data.chunk;
+            this.traceExpanded['reasoning'] = true; // Auto-expand
           } else if (chunk.event === 'reasoning') {
             this.resultData.llm_reasoning = chunk.data.llm_reasoning;
             this.resultData.raw_content = chunk.data.raw_content;
             this.resultData.timings.llm_time = chunk.data.time;
             this.resultData.isReasoning = false;
           } else if (chunk.event === 'tool_execution') {
-            this.resultData.tool_results.push(chunk.data);
+            const toolRes = { ...chunk.data, expanded: true }; // Auto-expand tool output
+            this.resultData.tool_results.push(toolRes);
           } else if (chunk.event === 'complete') {
             this.resultData.timings = chunk.data.timings;
           }

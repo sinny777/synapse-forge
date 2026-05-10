@@ -1,4 +1,4 @@
-<div class="run-page">
+<div class="run-page" data-carbon-theme="g100">
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- Page Header                                                     -->
@@ -8,7 +8,17 @@
       <h2>Phase 3: Agentic Runtime</h2>
     </div>
     <div class="page-header__actions">
-      <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" title="Toggle all sections">
+      <!-- View Mode Toggle -->
+      <cds-content-switcher (selected)="onViewModeChange($event)" size="sm" style="margin-right: 1rem;" [selectedIndex]="viewMode === 'tabs' ? 0 : 1">
+        <button cdsContentOption name="tabs" title="Vertical Tabs View">
+          <svg cdsIcon="list" size="16"></svg>
+        </button>
+        <button cdsContentOption name="accordion" title="Accordion View">
+          <svg cdsIcon="list--dropdown" size="16"></svg>
+        </button>
+      </cds-content-switcher>
+
+      <button cdsButton="ghost" (click)="allExpanded() ? collapseAll() : expandAll()" [hidden]="viewMode === 'tabs'" title="Toggle all sections">
         <svg cdsIcon="view" size="16" class="cds--btn__icon"></svg>
         {{ allExpanded() ? 'Collapse All' : 'Expand All' }}
       </button>
@@ -30,13 +40,30 @@
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- SECTION 1: Runtime Configuration                                -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <section class="config-section">
+  
+<ng-template #runtimeConfigTabHeading>
+  <div class="tab-header-content">
+    <svg cdsIcon="settings" size="16"></svg>
+    <span>Runtime Configuration</span>
+  </div>
+</ng-template>
+
+<ng-template #llmConfigTabHeading>
+  <div class="tab-header-content">
+    <svg cdsIcon="rocket" size="16"></svg>
+    <span>Runtime LLM Models</span>
+  </div>
+</ng-template>
+
+  <!-- ═══ ACCORDION VIEW ═══ -->
+  <div *ngIf="viewMode === 'accordion'">
+<section class="config-section">
     <div class="config-section__header" (click)="toggleSection('runtimeConfig')">
       <div class="config-section__header-left">
         <svg cdsIcon="settings" size="20" class="config-section__icon"></svg>
         <div>
-          <h2 class="cds--type-productive-heading-03">Runtime Configuration</h2>
-          <p class="cds--type-helper-text-01">Query expansion, tool retrieval, and execution parameters.</p>
+          <h2 class="ibm--type-productive-heading-03">Runtime Configuration</h2>
+          <p class="ibm--type-helper-text-01">Query expansion, tool retrieval, and execution parameters.</p>
         </div>
       </div>
       <div class="config-section__header-right">
@@ -94,28 +121,28 @@
       <div class="config-row">
         <div class="config-field">
           <div class="toggle-field">
-            <span class="cds--type-body-compact-01" style="color: var(--cds-text-primary)">
+            <span class="ibm--type-body-compact-01" style="color: var(--ibm-text-primary)">
               Enable Query Expansion
               <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
                     cdsIcon="information--filled" size="16"></svg></button>
                 <p cdsToggletipContent>{{ tooltips['enable_query_expansion'] }}</p>
               </cds-toggletip>
             </span>
-            <ibm-toggle [(ngModel)]="runtimeConfig.enable_query_expansion" (ngModelChange)="onConfigChange()"
-              size="sm"></ibm-toggle>
+            <cds-toggle [(ngModel)]="runtimeConfig.enable_query_expansion" (ngModelChange)="onConfigChange()"
+              size="sm"></cds-toggle>
           </div>
         </div>
         <div class="config-field">
           <div class="toggle-field">
-            <span class="cds--type-body-compact-01" style="color: var(--cds-text-primary)">
+            <span class="ibm--type-body-compact-01" style="color: var(--ibm-text-primary)">
               Enable Fallback Tool
               <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
                     cdsIcon="information--filled" size="16"></svg></button>
                 <p cdsToggletipContent>{{ tooltips['enable_fallback_tool'] }}</p>
               </cds-toggletip>
             </span>
-            <ibm-toggle [(ngModel)]="runtimeConfig.enable_fallback_tool" (ngModelChange)="onConfigChange()"
-              size="sm"></ibm-toggle>
+            <cds-toggle [(ngModel)]="runtimeConfig.enable_fallback_tool" (ngModelChange)="onConfigChange()"
+              size="sm"></cds-toggle>
           </div>
         </div>
         <div class="config-field"
@@ -133,7 +160,7 @@
       </div>
 
       <div class="config-section__divider"></div>
-      <p class="cds--type-label-01 config-subsection-label">Logging</p>
+      <p class="ibm--type-label-01 config-subsection-label">Logging</p>
       <div class="config-row">
         <div class="config-field config-field--wide"
           [class.config-field--modified]="isFieldModified('runtimeConfig', 'log_file')">
@@ -150,7 +177,7 @@
       </div>
 
       <div class="config-section__divider"></div>
-      <p class="cds--type-label-01 config-subsection-label">
+      <p class="ibm--type-label-01 config-subsection-label">
         Query Expansion Prompt Template
         <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
               cdsIcon="information--filled" size="16"></svg></button>
@@ -175,8 +202,8 @@
       <div class="config-section__header-left">
         <svg cdsIcon="rocket" size="20" class="config-section__icon"></svg>
         <div>
-          <h2 class="cds--type-productive-heading-03">Runtime LLM Models</h2>
-          <p class="cds--type-helper-text-01">Expansion (fast/cheap) and Heavy (execution) model settings for Phase 3.
+          <h2 class="ibm--type-productive-heading-03">Runtime LLM Models</h2>
+          <p class="ibm--type-helper-text-01">Expansion (fast/cheap) and Heavy (execution) model settings for Phase 3.
           </p>
         </div>
       </div>
@@ -194,7 +221,7 @@
         <p *ngFor="let err of getSectionValidation('llmConfig').errors" class="validation-error">⚠ {{ err }}</p>
       </div>
 
-      <p class="cds--type-label-01 config-subsection-label">Expansion LLM <span class="config-subsection-hint">(fast
+      <p class="ibm--type-label-01 config-subsection-label">Expansion LLM <span class="config-subsection-hint">(fast
           query decomposition)</span></p>
       <div class="config-row">
         <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'expansion_model')">
@@ -234,7 +261,7 @@
       </div>
 
       <div class="config-section__divider"></div>
-      <p class="cds--type-label-01 config-subsection-label">Heavy LLM <span class="config-subsection-hint">(tool
+      <p class="ibm--type-label-01 config-subsection-label">Heavy LLM <span class="config-subsection-hint">(tool
           execution & reasoning)</span></p>
       <div class="config-row">
         <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_model')">
@@ -272,6 +299,217 @@
       </div>
     </div>
   </section>
+  </div>
+
+  <!-- ═══ VERTICAL TABS VIEW ═══ -->
+  <div *ngIf="viewMode === 'tabs'" class="vertical-tabs-container" data-carbon-theme="g100">
+    <cds-tabs-vertical [cacheActive]="true">
+    <cds-tab [heading]="runtimeConfigTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        <div class="validation-errors" *ngIf="!getSectionValidation('runtimeConfig').valid">
+        <p *ngFor="let err of getSectionValidation('runtimeConfig').errors" class="validation-error">⚠ {{ err }}</p>
+      </div>
+
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('runtimeConfig', 'max_tool_calls')">
+          <cds-label>
+            Max Tool Calls
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['max_tool_calls'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeConfig.max_tool_calls" (ngModelChange)="onConfigChange()"
+              min="1" max="100" />
+          </cds-label>
+        </div>
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('runtimeConfig', 'tool_call_timeout')">
+          <cds-label>
+            Tool Call Timeout (s)
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['tool_call_timeout'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeConfig.tool_call_timeout"
+              (ngModelChange)="onConfigChange()" min="5" max="300" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('runtimeConfig', 'log_level')">
+          <cds-label>
+            Log Level
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['log_level'] }}</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="runtimeConfig.log_level" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of logLevelOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-row">
+        <div class="config-field">
+          <div class="toggle-field">
+            <span class="ibm--type-body-compact-01" style="color: var(--ibm-text-primary)">
+              Enable Query Expansion
+              <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                    cdsIcon="information--filled" size="16"></svg></button>
+                <p cdsToggletipContent>{{ tooltips['enable_query_expansion'] }}</p>
+              </cds-toggletip>
+            </span>
+            <cds-toggle [(ngModel)]="runtimeConfig.enable_query_expansion" (ngModelChange)="onConfigChange()"
+              size="sm"></cds-toggle>
+          </div>
+        </div>
+        <div class="config-field">
+          <div class="toggle-field">
+            <span class="ibm--type-body-compact-01" style="color: var(--ibm-text-primary)">
+              Enable Fallback Tool
+              <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                    cdsIcon="information--filled" size="16"></svg></button>
+                <p cdsToggletipContent>{{ tooltips['enable_fallback_tool'] }}</p>
+              </cds-toggletip>
+            </span>
+            <cds-toggle [(ngModel)]="runtimeConfig.enable_fallback_tool" (ngModelChange)="onConfigChange()"
+              size="sm"></cds-toggle>
+          </div>
+        </div>
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('runtimeConfig', 'fallback_tool_name')">
+          <cds-label>
+            Fallback Tool Name
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['fallback_tool_name'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeConfig.fallback_tool_name"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Logging</p>
+      <div class="config-row">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('runtimeConfig', 'log_file')">
+          <cds-label>
+            Log File Path
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['log_file'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeConfig.log_file" (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field"></div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">
+        Query Expansion Prompt Template
+        <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+              cdsIcon="information--filled" size="16"></svg></button>
+          <p cdsToggletipContent>{{ tooltips['expansion_prompt_template'] }}</p>
+        </cds-toggletip>
+      </p>
+      <div class="config-row config-row--full">
+        <div class="config-field config-field--full">
+          <textarea cdsTextArea [(ngModel)]="runtimeConfig.expansion_prompt_template" (ngModelChange)="onConfigChange()"
+            rows="5" placeholder="Enter the expansion prompt template..." class="prompt-editor">
+          </textarea>
+        </div>
+      </div>
+      </div>
+    </cds-tab>
+    <cds-tab [heading]="llmConfigTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        <div class="validation-errors" *ngIf="!getSectionValidation('llmConfig').valid">
+        <p *ngFor="let err of getSectionValidation('llmConfig').errors" class="validation-error">⚠ {{ err }}</p>
+      </div>
+
+      <p class="ibm--type-label-01 config-subsection-label">Expansion LLM <span class="config-subsection-hint">(fast
+          query decomposition)</span></p>
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'expansion_model')">
+          <cds-label>
+            Expansion Model
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['expansion_model'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('llmConfig', 'expansion_temperature')">
+          <cds-label>
+            Temperature
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['expansion_temperature'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.expansion_temperature"
+              (ngModelChange)="onConfigChange()" step="0.1" min="0" max="2" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'expansion_max_tokens')">
+          <cds-label>
+            Max Tokens
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['expansion_max_tokens'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.expansion_max_tokens"
+              (ngModelChange)="onConfigChange()" min="100" max="8000" />
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Heavy LLM <span class="config-subsection-hint">(tool
+          execution & reasoning)</span></p>
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_model')">
+          <cds-label>
+            Heavy Model
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['heavy_model'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_temperature')">
+          <cds-label>
+            Temperature
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['heavy_temperature'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.heavy_temperature"
+              (ngModelChange)="onConfigChange()" step="0.1" min="0" max="2" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('llmConfig', 'heavy_max_tokens')">
+          <cds-label>
+            Max Tokens
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['heavy_max_tokens'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="runtimeLLMConfig.heavy_max_tokens"
+              (ngModelChange)="onConfigChange()" min="100" max="16000" />
+          </cds-label>
+        </div>
+      </div>
+      </div>
+    </cds-tab>
+    </cds-tabs-vertical>
+  </div>
+
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- SECTION 3: Interactive Query Console                            -->
@@ -283,7 +521,7 @@
         <div class="console-input__header">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
             <svg cdsIcon="keyboard" size="20"></svg>
-            <h3 class="cds--type-heading-02">User Query Input</h3>
+            <h3 class="ibm--type-heading-02">User Query Input</h3>
           </div>
         </div>
         <div class="console-input__body">
@@ -314,8 +552,8 @@
       <div class="console-trace">
         <div class="console-trace__header">
           <div style="display: flex; align-items: center; gap: 0.5rem;">
-            <svg cdsIcon="chart--line" size="20" style="fill: var(--cds-interactive)"></svg>
-            <h3 class="cds--type-heading-02">Execution Trace</h3>
+            <svg cdsIcon="chart--line" size="20" style="fill: var(--ibm-interactive)"></svg>
+            <h3 class="ibm--type-heading-02">Execution Trace</h3>
           </div>
           <cds-tag [type]="(resultData && !isLoading) ? 'green' : 'blue'" size="sm">
             {{ (resultData && !isLoading) ? 'Completed' : (isLoading ? 'Processing' : 'Ready') }}
@@ -324,22 +562,22 @@
 
         <div class="console-trace__body">
           <div *ngIf="!resultData && !isLoading" class="console-trace__empty">
-            <p class="cds--type-body-01">Submit a query to see the execution trace...</p>
+            <p class="ibm--type-body-01">Submit a query to see the execution trace...</p>
           </div>
           <div *ngIf="isLoading && !resultData?.expanded_query" class="console-trace__empty">
             <div class="console-trace__spinner"></div>
-            <p class="cds--type-body-01">Processing query through the tool router...</p>
+            <p class="ibm--type-body-01">Processing query through the tool router...</p>
           </div>
           <div *ngIf="resultData && (resultData.expanded_query || !isLoading)" class="console-trace__results">
             
             <!-- Overall Info -->
-            <div style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--cds-ui-03);" *ngIf="resultData.timings?.total_time">
-              <span class="cds--type-body-01">Total Execution Time: <strong>{{ resultData.timings?.total_time | number:'1.2-2' }}s</strong></span>
+            <div style="margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--ibm-ui-03);" *ngIf="resultData.timings?.total_time">
+              <span class="ibm--type-body-01">Total Execution Time: <strong>{{ resultData.timings?.total_time | number:'1.2-2' }}s</strong></span>
             </div>
 
             <!-- Phase 1: Expansion -->
             <div class="trace-step" *ngIf="resultData.expanded_query">
-              <div class="trace-step__phase cds--type-label-01">Phase 1</div>
+              <div class="trace-step__phase ibm--type-label-01">Phase 1</div>
               <div class="trace-step__line">
                 <div class="trace-step__dot" style="background-color: #0f62fe;"></div>
               </div>
@@ -347,15 +585,15 @@
                 <div class="trace-step__header" (click)="toggleTrace('expansion')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
                   <div>
                     <cds-tag type="blue" size="sm">EXPANSION</cds-tag>
-                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Query Expansion ({{ runtimeLLMConfig.expansion_model }})</span>
+                    <span class="ibm--type-body-01" style="color: var(--ibm-text-primary)">Query Expansion ({{ runtimeLLMConfig.expansion_model }})</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span class="cds--type-helper-text-01" *ngIf="resultData.timings?.expansion_time">{{ resultData.timings?.expansion_time | number:'1.2-2' }}s</span>
-                    <span class="cds--type-helper-text-01" *ngIf="!resultData.timings?.expansion_time && resultData.isExpanding">Thinking...</span>
+                    <span class="ibm--type-helper-text-01" *ngIf="resultData.timings?.expansion_time">{{ resultData.timings?.expansion_time | number:'1.2-2' }}s</span>
+                    <span class="ibm--type-helper-text-01" *ngIf="!resultData.timings?.expansion_time && resultData.isExpanding">Thinking...</span>
                     <svg cdsIcon="chevron--down" size="16" [class.rotated]="traceExpanded['expansion']"></svg>
                   </div>
                 </div>
-                <div class="trace-step__output cds--type-code-01" *ngIf="traceExpanded['expansion']">
+                <div class="trace-step__output ibm--type-code-01" *ngIf="traceExpanded['expansion']">
                   <pre style="margin: 0; white-space: pre-wrap; word-break: break-all; font-family: inherit;">{{ resultData.expanded_query }}</pre>
                 </div>
               </div>
@@ -363,7 +601,7 @@
 
             <!-- Phase 2: Routing (Added) -->
             <div class="trace-step" *ngIf="resultData.retrieved_tools">
-              <div class="trace-step__phase cds--type-label-01">Phase 2</div>
+              <div class="trace-step__phase ibm--type-label-01">Phase 2</div>
               <div class="trace-step__line">
                 <div class="trace-step__dot" style="background-color: #007d79;"></div>
               </div>
@@ -371,14 +609,14 @@
                 <div class="trace-step__header" (click)="toggleTrace('routing')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
                   <div>
                     <cds-tag type="teal" size="sm">ROUTING</cds-tag>
-                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Semantic Routing</span>
+                    <span class="ibm--type-body-01" style="color: var(--ibm-text-primary)">Semantic Routing</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span class="cds--type-helper-text-01">{{ resultData.timings?.routing_time | number:'1.2-2' }}s</span>
+                    <span class="ibm--type-helper-text-01">{{ resultData.timings?.routing_time | number:'1.2-2' }}s</span>
                     <svg cdsIcon="chevron--down" size="16" [class.rotated]="traceExpanded['routing']"></svg>
                   </div>
                 </div>
-                <div class="trace-step__output cds--type-code-01" *ngIf="traceExpanded['routing']">
+                <div class="trace-step__output ibm--type-code-01" *ngIf="traceExpanded['routing']">
                   <div *ngFor="let tool of resultData.retrieved_tools; let i = index">
                     {{ i + 1 }}. {{ tool.id }} (Score: {{ tool.score | number:'1.3-3' }})
                   </div>
@@ -388,7 +626,7 @@
 
             <!-- Phase 3: Reasoning -->
             <div class="trace-step" *ngIf="resultData.llm_reasoning || resultData.raw_content">
-              <div class="trace-step__phase cds--type-label-01">Phase 3</div>
+              <div class="trace-step__phase ibm--type-label-01">Phase 3</div>
               <div class="trace-step__line">
                 <div class="trace-step__dot" style="background-color: #8a3ffc;"></div>
               </div>
@@ -396,15 +634,15 @@
                 <div class="trace-step__header" (click)="toggleTrace('reasoning')" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
                   <div>
                     <cds-tag type="purple" size="sm">REASONING</cds-tag>
-                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">Agent Logic ({{ runtimeLLMConfig.heavy_model }})</span>
+                    <span class="ibm--type-body-01" style="color: var(--ibm-text-primary)">Agent Logic ({{ runtimeLLMConfig.heavy_model }})</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span class="cds--type-helper-text-01" *ngIf="resultData.timings?.llm_time">{{ resultData.timings?.llm_time | number:'1.2-2' }}s</span>
-                    <span class="cds--type-helper-text-01" *ngIf="!resultData.timings?.llm_time && resultData.isReasoning">Thinking...</span>
+                    <span class="ibm--type-helper-text-01" *ngIf="resultData.timings?.llm_time">{{ resultData.timings?.llm_time | number:'1.2-2' }}s</span>
+                    <span class="ibm--type-helper-text-01" *ngIf="!resultData.timings?.llm_time && resultData.isReasoning">Thinking...</span>
                     <svg cdsIcon="chevron--down" size="16" [class.rotated]="traceExpanded['reasoning']"></svg>
                   </div>
                 </div>
-                <div class="trace-step__output cds--type-code-01" *ngIf="traceExpanded['reasoning']">
+                <div class="trace-step__output ibm--type-code-01" *ngIf="traceExpanded['reasoning']">
                   <pre style="margin: 0; white-space: pre-wrap; word-break: break-all; font-family: inherit;">{{ resultData.raw_content || resultData.llm_reasoning }}</pre>
                 </div>
               </div>
@@ -412,7 +650,7 @@
 
             <!-- Phase 4: Tools Execution -->
             <div class="trace-step" *ngFor="let res of resultData.tool_results; let i = index">
-              <div class="trace-step__phase cds--type-label-01">Tool {{ i + 1 }}</div>
+              <div class="trace-step__phase ibm--type-label-01">Tool {{ i + 1 }}</div>
               <div class="trace-step__line">
                 <div class="trace-step__dot" [style.background-color]="res.success ? '#24a148' : '#fa4d56'"></div>
               </div>
@@ -420,14 +658,14 @@
                 <div class="trace-step__header" (click)="res.expanded = !res.expanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between;">
                   <div>
                     <cds-tag [type]="res.success ? 'green' : 'red'" size="sm">{{ res.success ? 'SUCCESS' : 'ERROR' }}</cds-tag>
-                    <span class="cds--type-body-01" style="color: var(--cds-text-primary)">{{ res.tool_name }}</span>
+                    <span class="ibm--type-body-01" style="color: var(--ibm-text-primary)">{{ res.tool_name }}</span>
                   </div>
                   <div style="display: flex; align-items: center; gap: 0.5rem;">
-                    <span class="cds--type-helper-text-01">{{ res.time_taken | number:'1.2-2' }}s</span>
+                    <span class="ibm--type-helper-text-01">{{ res.time_taken | number:'1.2-2' }}s</span>
                     <svg cdsIcon="chevron--down" size="16" [class.rotated]="res.expanded"></svg>
                   </div>
                 </div>
-                <div class="trace-step__output cds--type-code-01" *ngIf="res.expanded">
+                <div class="trace-step__output ibm--type-code-01" *ngIf="res.expanded">
                   <pre style="margin: 0; white-space: pre-wrap; word-break: break-all;">{{ res.content || res.result || res.error | json }}</pre>
                 </div>
               </div>

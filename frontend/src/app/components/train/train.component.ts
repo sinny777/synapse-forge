@@ -12,6 +12,7 @@ import {
   TabsModule,
   DropdownModule,
   TagModule,
+  ContentSwitcherModule,
 } from 'carbon-components-angular';
 import { ChartsModule } from '@carbon/charts-angular';
 import { ScaleTypes } from '@carbon/charts/interfaces';
@@ -27,6 +28,8 @@ import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
 import Warning16 from '@carbon/icons/es/warning/16';
 import ViewAll16 from '@carbon/icons/es/view/16';
+import List16 from '@carbon/icons/es/list/16';
+import ListDropdown16 from '@carbon/icons/es/list--dropdown/16';
 
 // Size 20 icons for section headers
 import ModelBuilder20 from '@carbon/icons/es/model-builder/20';
@@ -34,6 +37,13 @@ import MachineLearningModel20 from '@carbon/icons/es/machine-learning-model/20';
 import DataBase20 from '@carbon/icons/es/data--base/20';
 import ChartLine20 from '@carbon/icons/es/chart--line/20';
 import Renew20 from '@carbon/icons/es/renew/20';
+
+// Size 16 icons for tabs
+import ModelBuilder16 from '@carbon/icons/es/model-builder/16';
+import MachineLearningModel16 from '@carbon/icons/es/machine-learning-model/16';
+import DataBase16 from '@carbon/icons/es/data--base/16';
+import ChartLine16 from '@carbon/icons/es/chart--line/16';
+import Renew16 from '@carbon/icons/es/renew/16';
 
 /** Interfaces matching backend config.py TrainingConfig */
 interface TrainingConfig {
@@ -72,6 +82,7 @@ interface EmbeddingConfig {
     IconModule,
     DropdownModule,
     TagModule,
+    ContentSwitcherModule,
     ToggletipModule,
     ChartsModule,
   ],
@@ -86,6 +97,15 @@ export class TrainComponent implements OnInit {
     monitoring: false,
     evaluation: false,
   };
+
+  /** View mode: vertical tabs or accordion */
+  viewMode = 'tabs';
+
+  /** Handle view mode change from content switcher */
+  onViewModeChange(event: any): void {
+    this.viewMode = event.name || event.item.name;
+    localStorage.setItem('train_viewMode', this.viewMode);
+  }
 
   /** Default snapshots for diff */
   private readonly DEFAULTS = {
@@ -193,12 +213,17 @@ export class TrainComponent implements OnInit {
   ) {
     this.iconService.registerAll([
       PlayFilled16, Reset16, ChevronDown16, InformationFilled16,
-      Checkmark16, Warning16, ViewAll16,
-      ModelBuilder20, MachineLearningModel20, DataBase20, ChartLine20, Renew20,
+      Checkmark16, Warning16, ViewAll16, List16, ListDropdown16,
+      ModelBuilder20, MachineLearningModel20, DataBase20,
+      ChartLine20, Renew20,
+      ModelBuilder16, MachineLearningModel16, DataBase16,
+      ChartLine16, Renew16,
     ]);
   }
 
   ngOnInit(): void {
+    const savedMode = localStorage.getItem('train_viewMode');
+    if (savedMode) this.viewMode = savedMode;
     this.runValidation();
     this.loadModels();
   }
