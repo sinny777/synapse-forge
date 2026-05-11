@@ -751,10 +751,38 @@ What tool(s) should be called to fulfill this request?"""
         logger.info(f"Query processing complete in {total_time:.2f}s")
         logger.info("=" * 60)
         
+        # Enrich retrieved tools with complete metadata
+        enriched_tools = []
+        for tid, score in retrieved_tools:
+            tool_schema = self.mcp_client.tools.get(tid)
+            if tool_schema:
+                enriched_tools.append({
+                    "id": tid,
+                    "score": score,
+                    "name": tool_schema.name,
+                    "description": tool_schema.description,
+                    "server_name": tool_schema.server_name,
+                    "parameters": tool_schema.parameters,
+                    "input_schema": tool_schema.raw_schema.get("inputSchema", {}),
+                    "output_format": tool_schema.raw_schema.get("outputFormat", "Tool execution result")
+                })
+            else:
+                # Fallback if tool schema not found
+                enriched_tools.append({
+                    "id": tid,
+                    "score": score,
+                    "name": tid.split('.')[-1] if '.' in tid else tid,
+                    "description": "Tool metadata not available",
+                    "server_name": "unknown",
+                    "parameters": {},
+                    "input_schema": {},
+                    "output_format": "Tool execution result"
+                })
+        
         return {
             "query": user_query,
             "expanded_query": expanded_query,
-            "retrieved_tools": [{"id": tid, "score": score} for tid, score in retrieved_tools],
+            "retrieved_tools": enriched_tools,
             "llm_reasoning": llm_response.get("reasoning"),
             "tool_results": results,
             "timings": {
@@ -805,8 +833,35 @@ What tool(s) should be called to fulfill this request?"""
         routing_time = time.time() - t0
         timings["routing_time"] = routing_time
         
+        # Enrich retrieved tools with complete metadata for streaming
+        enriched_tools = []
+        for tid, score in retrieved_tools:
+            tool_schema = self.mcp_client.tools.get(tid)
+            if tool_schema:
+                enriched_tools.append({
+                    "id": tid,
+                    "score": score,
+                    "name": tool_schema.name,
+                    "description": tool_schema.description,
+                    "server_name": tool_schema.server_name,
+                    "parameters": tool_schema.parameters,
+                    "input_schema": tool_schema.raw_schema.get("inputSchema", {}),
+                    "output_format": tool_schema.raw_schema.get("outputFormat", "Tool execution result")
+                })
+            else:
+                enriched_tools.append({
+                    "id": tid,
+                    "score": score,
+                    "name": tid.split('.')[-1] if '.' in tid else tid,
+                    "description": "Tool metadata not available",
+                    "server_name": "unknown",
+                    "parameters": {},
+                    "input_schema": {},
+                    "output_format": "Tool execution result"
+                })
+        
         yield json.dumps({"event": "routing", "data": {
-            "retrieved_tools": [{"id": tid, "score": score} for tid, score in retrieved_tools],
+            "retrieved_tools": enriched_tools,
             "time": routing_time
         }}) + "\n"
         

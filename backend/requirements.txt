@@ -18,8 +18,16 @@ rank-bm25>=0.2.2
 # LLM Integration
 litellm>=1.0.0
 
+# Agent Frameworks (for Real Mode)
+langchain>=0.1.0
+langchain-core>=0.1.0
+langchain-openai>=0.0.5
+langgraph>=0.0.20
+beeai-framework>=0.1.0  # Optional: for BeeAI scenarios
+
 # MCP Protocol
 mcp>=0.9.0
+fastmcp>=0.1.0  # For FastMCP server support
 
 # Data Processing
 tqdm>=4.65.0

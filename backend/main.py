@@ -2,10 +2,17 @@ import asyncio
 import logging
 import time
 from typing import Optional, Dict, Any
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+env_path = Path(__file__).parent / '.env'
+load_dotenv(dotenv_path=env_path)
+print(f"[Main] Loaded environment from: {env_path}")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -158,6 +165,7 @@ async def evaluate_phase(config_data: EvaluateConfig):
     import time
     from tool_router.runtime import SemanticRouter
     from tool_router.config import config
+    from tool_router.mcp_client import MCPClient
     from sentence_transformers import SentenceTransformer
     
     try:
@@ -184,11 +192,42 @@ async def evaluate_phase(config_data: EvaluateConfig):
             pass
             
         retrieved_tools = semantic_router.retrieve_tools(
-            config_data.query, 
-            top_k=config_data.top_k, 
-            use_hybrid=False, 
+            config_data.query,
+            top_k=config_data.top_k,
+            use_hybrid=False,
             apply_threshold=False
         )
+        
+        # Load tool cache to get metadata
+        mcp_client = MCPClient(config.mcp)
+        mcp_client.load_tool_cache(config.mcp.tool_cache_path)
+        
+        # Enrich retrieved tools with complete metadata
+        enriched_tools = []
+        for tid, score in retrieved_tools:
+            tool_schema = mcp_client.tools.get(tid)
+            if tool_schema:
+                enriched_tools.append({
+                    "id": tid,
+                    "score": score,
+                    "name": tool_schema.name,
+                    "description": tool_schema.description,
+                    "server_name": tool_schema.server_name,
+                    "parameters": tool_schema.parameters,
+                    "input_schema": tool_schema.raw_schema.get("inputSchema", {}),
+                    "output_format": tool_schema.raw_schema.get("outputFormat", "Tool execution result")
+                })
+            else:
+                enriched_tools.append({
+                    "id": tid,
+                    "score": score,
+                    "name": tid.split('.')[-1] if '.' in tid else tid,
+                    "description": "Tool metadata not available",
+                    "server_name": "unknown",
+                    "parameters": {},
+                    "input_schema": {},
+                    "output_format": "Tool execution result"
+                })
         
         total_time = time.time() - t0
         
@@ -197,7 +236,7 @@ async def evaluate_phase(config_data: EvaluateConfig):
             "message": "Evaluation completed.",
             "data": {
                 "query": config_data.query,
-                "retrieved_tools": [{"id": tid, "score": score} for tid, score in retrieved_tools],
+                "retrieved_tools": enriched_tools,
                 "time_taken": total_time
             }
         }
@@ -403,9 +442,8 @@ async def list_agent_scenarios():
         List of scenario metadata including agents, tools, and benefits
     """
     try:
-        from tool_router.agent_service import AgentOrchestrator
-        orchestrator = AgentOrchestrator()
-        scenarios = orchestrator.get_scenarios()
+        from tool_router.agent_service import agent_orchestrator
+        scenarios = agent_orchestrator.list_scenarios()
         return {
             "status": "success",
             "scenarios": scenarios
@@ -426,9 +464,8 @@ async def get_agent_scenario(scenario_id: str):
         Detailed scenario information
     """
     try:
-        from tool_router.agent_service import AgentOrchestrator
-        orchestrator = AgentOrchestrator()
-        scenario = orchestrator.get_scenario(scenario_id)
+        from tool_router.agent_service import agent_orchestrator
+        scenario = agent_orchestrator.get_scenario(scenario_id)
         
         if not scenario:
             raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found")
@@ -464,10 +501,9 @@ async def execute_agent_scenario(request: AgentExecuteRequest):
     async def event_generator():
         """Generate SSE events from agent execution"""
         try:
-            from tool_router.agent_service import AgentOrchestrator
-            orchestrator = AgentOrchestrator()
+            from tool_router.agent_service import agent_orchestrator
             
-            async for event in orchestrator.execute_scenario(
+            async for event in agent_orchestrator.execute_scenario(
                 scenario_id=request.scenario_id,
                 llm_config=request.llm_config,
                 runtime_config=request.runtime_config

@@ -121,6 +121,7 @@ interface AgentExecutionData {
   scenarioId?: string;
   scenarioName?: string;
   userQuery?: string;
+  executionMode?: string;
   finalResponse?: string;
   steps: AgentStep[];
   metrics: {
@@ -591,7 +592,11 @@ export class RunComponent implements OnInit {
 
     switch (event.type) {
       case 'scenario_start':
-        // Scenario started
+        // Scenario started - capture user query and execution mode
+        if (event.data.scenario && this.agentExecutionData) {
+          this.agentExecutionData.userQuery = event.data.scenario.example_query;
+          this.agentExecutionData.executionMode = event.data.execution_mode || 'mock';
+        }
         break;
 
       case 'agent_activated':
@@ -666,7 +671,8 @@ export class RunComponent implements OnInit {
           if (this.currentAgentStep.startTime) {
             this.currentAgentStep.executionTime = (this.currentAgentStep.endTime - this.currentAgentStep.startTime) / 1000;
           }
-          this.currentAgentStep.expanded = false; // Collapse after completion
+          // Keep agent expanded to show response
+          // this.currentAgentStep.expanded = false; // Removed - keep expanded to show details
           // Store as final response (will be overwritten by each agent, keeping the last one)
           if (this.agentExecutionData) {
             this.agentExecutionData.finalResponse = event.data.response;
