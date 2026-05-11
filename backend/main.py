@@ -1,6 +1,7 @@
 import asyncio
 import logging
-from typing import Optional
+import time
+from typing import Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -383,6 +384,119 @@ async def delete_model(model_name: str):
     except Exception as e:
         logger.error(f"Error deleting model: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# Agent Orchestration Endpoints
+# ============================================================================
+
+class AgentExecuteRequest(BaseModel):
+    scenario_id: str
+    llm_config: Optional[Dict[str, Any]] = None
+    runtime_config: Optional[Dict[str, Any]] = None
+
+@app.get("/api/agents/scenarios")
+async def list_agent_scenarios():
+    """
+    Get list of available agent scenarios.
+    
+    Returns:
+        List of scenario metadata including agents, tools, and benefits
+    """
+    try:
+        from tool_router.agent_service import AgentOrchestrator
+        orchestrator = AgentOrchestrator()
+        scenarios = orchestrator.get_scenarios()
+        return {
+            "status": "success",
+            "scenarios": scenarios
+        }
+    except Exception as e:
+        logger.error(f"Error listing agent scenarios: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/agents/scenarios/{scenario_id}")
+async def get_agent_scenario(scenario_id: str):
+    """
+    Get detailed information about a specific agent scenario.
+    
+    Args:
+        scenario_id: ID of the scenario
+        
+    Returns:
+        Detailed scenario information
+    """
+    try:
+        from tool_router.agent_service import AgentOrchestrator
+        orchestrator = AgentOrchestrator()
+        scenario = orchestrator.get_scenario(scenario_id)
+        
+        if not scenario:
+            raise HTTPException(status_code=404, detail=f"Scenario '{scenario_id}' not found")
+        
+        return {
+            "status": "success",
+            "scenario": scenario
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting agent scenario: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agents/execute")
+async def execute_agent_scenario(request: AgentExecuteRequest):
+    """
+    Execute an agent scenario and stream events.
+    
+    This endpoint uses Server-Sent Events (SSE) to stream real-time
+    execution events including agent activations, tool retrievals,
+    tool executions, and agent responses.
+    
+    Args:
+        request: Agent execution request with scenario_id and configs
+        
+    Returns:
+        StreamingResponse with SSE events
+    """
+    from fastapi.responses import StreamingResponse
+    import json
+    
+    async def event_generator():
+        """Generate SSE events from agent execution"""
+        try:
+            from tool_router.agent_service import AgentOrchestrator
+            orchestrator = AgentOrchestrator()
+            
+            async for event in orchestrator.execute_scenario(
+                scenario_id=request.scenario_id,
+                llm_config=request.llm_config,
+                runtime_config=request.runtime_config
+            ):
+                # Format as SSE event
+                event_data = json.dumps(event.to_dict())
+                yield f"data: {event_data}\n\n"
+                
+        except Exception as e:
+            logger.error(f"Error in agent execution stream: {e}")
+            error_event = {
+                "type": "error",
+                "timestamp": time.time(),
+                "data": {
+                    "error": str(e),
+                    "error_type": type(e).__name__
+                }
+            }
+            yield f"data: {json.dumps(error_event)}\n\n"
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 if __name__ == "__main__":
     import uvicorn

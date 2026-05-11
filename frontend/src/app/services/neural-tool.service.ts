@@ -91,4 +91,84 @@ export class NeuralToolService {
   deleteModel(modelName: string): Observable<any> {
     return this.http.delete(`${this.apiUrl}/models/${modelName}`);
   }
+
+  // ============================================================================
+  // Agent Orchestration Methods
+  // ============================================================================
+
+  /**
+   * Get list of available agent scenarios
+   */
+  getAgentScenarios(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/agents/scenarios`);
+  }
+
+  /**
+   * Get detailed information about a specific agent scenario
+   */
+  getAgentScenario(scenarioId: string): Observable<any> {
+    return this.http.get(`${this.apiUrl}/agents/scenarios/${scenarioId}`);
+  }
+
+  /**
+   * Execute an agent scenario with Server-Sent Events streaming
+   * @param scenarioId - ID of the scenario to execute
+   * @param llmConfig - LLM configuration
+   * @param runtimeConfig - Runtime configuration
+   * @param onEvent - Callback for each event
+   */
+  async executeAgentScenario(
+    scenarioId: string,
+    llmConfig: any,
+    runtimeConfig: any,
+    onEvent: (event: any) => void
+  ): Promise<void> {
+    const response = await fetch(`${this.apiUrl}/agents/execute`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        scenario_id: scenarioId,
+        llm_config: llmConfig,
+        runtime_config: runtimeConfig
+      })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || 'Agent execution failed');
+    }
+
+    if (!response.body) {
+      throw new Error('ReadableStream not supported');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Process SSE format: "data: {...}\n\n"
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.substring(6); // Remove "data: " prefix
+          if (jsonStr.trim()) {
+            try {
+              const event = JSON.parse(jsonStr);
+              onEvent(event);
+            } catch (e) {
+              console.error('Failed to parse SSE event:', e, jsonStr);
+            }
+          }
+        }
+      }
+    }
+  }
 }

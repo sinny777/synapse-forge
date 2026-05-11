@@ -711,6 +711,302 @@
       </div>
     </div>
   </section>
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 4: Agent Mode - Multi-Agent Orchestration               -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="agent-mode-section" *ngIf="agentModeEnabled">
+    <div class="agent-mode-header">
+      <div class="agent-mode-header__left">
+        <svg cdsIcon="bot" size="20" style="fill: var(--ibm-interactive);"></svg>
+        <h3 class="ibm--type-productive-heading-03">Agent Mode - Multi-Agent Orchestration</h3>
+      </div>
+      <div class="agent-mode-header__right">
+        <cds-toggle [(ngModel)]="showAgentMode" size="sm">
+          <label>Show Agent Mode</label>
+        </cds-toggle>
+      </div>
+    </div>
+
+    <div class="agent-mode-body" *ngIf="showAgentMode">
+      <!-- Info Banner -->
+      <div class="agent-info-banner">
+        <svg cdsIcon="information--filled" size="16"></svg>
+        <p class="ibm--type-body-compact-01">
+          Demonstrates how AI Agents (BeeAI & LangGraph) use NeuralToolRouter for intelligent multi-agent orchestration with dynamic tool selection.
+        </p>
+      </div>
+
+      <!-- Scenario Selector -->
+      <div class="scenario-selector">
+        <div class="scenario-selector__controls">
+          <div class="config-field" style="flex: 1;">
+            <cds-label>
+              Select Agent Scenario
+              <select cdsSelect [(ngModel)]="selectedScenarioId" [disabled]="agentExecutionData.isExecuting">
+                <option value="" disabled>Choose a scenario...</option>
+                <option *ngFor="let scenario of agentScenarios" [value]="scenario.id">
+                  {{ scenario.name }} ({{ scenario.framework }})
+                </option>
+              </select>
+            </cds-label>
+          </div>
+          <div class="config-field" style="flex: 1;">
+            <cds-label>
+              NeuralToolRouter Model
+              <cds-toggletip align="bottom">
+                <button cdsToggletipButton ariaLabel="Show info">
+                  <svg cdsIcon="information--filled" size="16"></svg>
+                </button>
+                <p cdsToggletipContent>Select a trained NeuralToolRouter model for intelligent tool selection. This demonstrates the advantage of using NeuralToolRouter for context-aware tool routing.</p>
+              </cds-toggletip>
+              <select cdsSelect [(ngModel)]="selectedModel" [disabled]="agentExecutionData.isExecuting">
+                <option value="" disabled>Select routing model...</option>
+                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
+              </select>
+            </cds-label>
+          </div>
+          <button 
+            cdsButton="primary" 
+            (click)="executeAgentScenario()" 
+            [disabled]="!selectedScenarioId || agentExecutionData.isExecuting"
+            style="margin-top: 1.5rem;">
+            <svg cdsIcon="play--filled" size="16" class="cds--btn__icon"></svg>
+            {{ agentExecutionData.isExecuting ? 'Executing...' : 'Run Agent Scenario' }}
+          </button>
+          <button 
+            cdsButton="ghost" 
+            (click)="clearAgentExecution()" 
+            *ngIf="agentExecutionData && !agentExecutionData.isExecuting"
+            style="margin-top: 1.5rem;"
+            title="Clear Results">
+            <svg cdsIcon="trash-can" size="16" class="cds--btn__icon"></svg>
+          </button>
+        </div>
+
+        <!-- Scenario Details -->
+        <div class="scenario-details" *ngIf="selectedScenarioId && !agentExecutionData.scenarioId">
+          <div class="scenario-details__card" *ngFor="let scenario of agentScenarios">
+            <div *ngIf="scenario.id === selectedScenarioId">
+              <div class="scenario-details__header">
+                <h4 class="ibm--type-productive-heading-02">{{ scenario.name }}</h4>
+                <cds-tag [type]="getFrameworkBadgeType(scenario.framework)" size="sm">
+                  {{ scenario.framework === 'beeai' ? 'IBM BeeAI' : 'LangGraph' }}
+                </cds-tag>
+              </div>
+              <p class="ibm--type-body-compact-01" style="margin: 0.5rem 0 1rem 0;">{{ scenario.description }}</p>
+              
+              <div class="scenario-details__meta">
+                <div class="meta-item">
+                  <svg cdsIcon="collaborate" size="16"></svg>
+                  <span>{{ scenario.agents.length }} Agents</span>
+                </div>
+                <div class="meta-item">
+                  <svg cdsIcon="data-vis--4" size="16"></svg>
+                  <span>{{ scenario.total_tools }} Tools</span>
+                </div>
+                <div class="meta-item">
+                  <svg cdsIcon="time" size="16"></svg>
+                  <span>~{{ scenario.estimated_duration }}s</span>
+                </div>
+              </div>
+
+              <div class="scenario-details__benefits">
+                <p class="ibm--type-label-01">Key Benefits:</p>
+                <ul class="ibm--type-body-compact-01">
+                  <li *ngFor="let benefit of scenario.benefits">{{ benefit }}</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agent Execution Panel -->
+      <div class="agent-execution-panel" *ngIf="agentExecutionData && agentExecutionData.scenarioId">
+        <div class="agent-execution-panel__header">
+          <div>
+            <h4 class="ibm--type-productive-heading-02">{{ agentExecutionData.scenarioName }}</h4>
+            <p class="ibm--type-helper-text-01">Multi-agent execution trace</p>
+          </div>
+          <cds-tag [type]="agentExecutionData.isExecuting ? 'blue' : 'green'" size="sm">
+            {{ agentExecutionData.isExecuting ? 'Executing' : 'Completed' }}
+          </cds-tag>
+        </div>
+
+        <!-- User Query Display -->
+        <div class="user-query-display" *ngIf="agentExecutionData.userQuery">
+          <div class="user-query-display__header">
+            <svg cdsIcon="user" size="16"></svg>
+            <span class="ibm--type-label-01">User Query</span>
+          </div>
+          <div class="user-query-display__content ibm--type-body-compact-01">
+            {{ agentExecutionData.userQuery }}
+          </div>
+        </div>
+
+        <!-- Agent Steps Timeline -->
+        <div class="agent-timeline">
+          <div *ngFor="let step of agentExecutionData.steps; let i = index" class="agent-step">
+            <div class="agent-step__indicator">
+              <div class="agent-step__number">{{ i + 1 }}</div>
+              <div class="agent-step__line" *ngIf="i < agentExecutionData.steps.length - 1"></div>
+            </div>
+
+            <div class="agent-step__content">
+              <div class="agent-step__header" (click)="toggleAgentStep(step)">
+                <div class="agent-step__header-left">
+                  <svg cdsIcon="bot" size="20"></svg>
+                  <div>
+                    <h5 class="ibm--type-productive-heading-01">{{ step.agentName }}</h5>
+                    <p class="ibm--type-helper-text-01">{{ step.agentRole }}</p>
+                  </div>
+                  <cds-tag [type]="getFrameworkBadgeType(step.framework)" size="sm">
+                    {{ step.framework }}
+                  </cds-tag>
+                </div>
+                <div class="agent-step__header-right">
+                  <span class="ibm--type-helper-text-01" *ngIf="step.executionTime">
+                    <svg cdsIcon="time" size="16" style="vertical-align: middle; margin-right: 0.25rem;"></svg>
+                    {{ step.executionTime | number:'1.2-2' }}s
+                  </span>
+                  <cds-tag type="gray" size="sm" *ngIf="step.toolsRetrieved.length > 0">
+                    {{ step.toolsRetrieved.length }} tools
+                  </cds-tag>
+                  <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.expanded"></svg>
+                </div>
+              </div>
+
+              <div class="agent-step__body" *ngIf="step.expanded">
+                <!-- Agent Reasoning -->
+                <div class="agent-step__section" *ngIf="step.reasoning">
+                  <p class="ibm--type-label-01">
+                    <svg cdsIcon="idea" size="16"></svg>
+                    Reasoning
+                  </p>
+                  <div class="agent-reasoning ibm--type-body-compact-01">
+                    {{ step.reasoning }}
+                  </div>
+                </div>
+
+                <!-- Tools Retrieved -->
+                <div class="agent-step__section" *ngIf="step.toolsRetrieved.length > 0">
+                  <p class="ibm--type-label-01">
+                    <svg cdsIcon="network--3" size="16"></svg>
+                    Tools Retrieved (Top-{{ step.toolsRetrieved.length }})
+                  </p>
+                  <div class="tools-list">
+                    <div *ngFor="let tool of step.toolsRetrieved" class="tool-item">
+                      <span class="tool-item__name">{{ tool.name }}</span>
+                      <cds-tag type="cool-gray" size="sm">{{ tool.score | number:'1.3-3' }}</cds-tag>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Tool Executions -->
+                <div class="agent-step__section" *ngIf="step.toolExecutions.length > 0">
+                  <p class="ibm--type-label-01">
+                    <svg cdsIcon="play--filled" size="16"></svg>
+                    Tool Executions
+                  </p>
+                  <div class="tool-executions">
+                    <div *ngFor="let exec of step.toolExecutions; let j = index" class="tool-execution">
+                      <div class="tool-execution__header" (click)="exec.expanded = !exec.expanded" style="cursor: pointer;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                          <cds-tag [type]="getToolStatusType(exec.success)" size="sm">
+                            {{ exec.success ? 'SUCCESS' : 'ERROR' }}
+                          </cds-tag>
+                          <span class="ibm--type-body-compact-01">{{ exec.tool }}</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                          <span class="ibm--type-helper-text-01">{{ exec.time | number:'1.2-2' }}s</span>
+                          <svg cdsIcon="chevron--down" size="16" [class.rotated]="exec.expanded"></svg>
+                        </div>
+                      </div>
+                      <div class="tool-execution__details" *ngIf="exec.expanded">
+                        <div class="tool-execution__detail-section" *ngIf="exec.args && (exec.args | json) !== '{}'">
+                          <span class="tool-execution__detail-label">Arguments:</span>
+                          <pre class="tool-execution__detail-content">{{ exec.args | json }}</pre>
+                        </div>
+                        <div class="tool-execution__detail-section" *ngIf="exec.result">
+                          <span class="tool-execution__detail-label">Result:</span>
+                          <pre class="tool-execution__detail-content">{{ exec.result | json }}</pre>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Agent Response -->
+                <div class="agent-step__section" *ngIf="step.response">
+                  <p class="ibm--type-label-01">
+                    <svg cdsIcon="chat" size="16"></svg>
+                    Agent Response
+                  </p>
+                  <div class="agent-response ibm--type-body-compact-01">
+                    {{ step.response }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Metrics Summary -->
+        <div class="agent-metrics" *ngIf="!agentExecutionData.isExecuting && (agentExecutionData.metrics?.execution_time || 0) > 0">
+          <h5 class="ibm--type-productive-heading-01">Execution Metrics</h5>
+          <div class="metrics-grid">
+            <div class="metric-card">
+              <svg cdsIcon="time" size="20"></svg>
+              <div>
+                <span class="metric-card__label">Total Time</span>
+                <strong class="metric-card__value">{{ (agentExecutionData.metrics?.execution_time || 0) | number:'1.2-2' }}s</strong>
+              </div>
+            </div>
+            <div class="metric-card">
+              <svg cdsIcon="collaborate" size="20"></svg>
+              <div>
+                <span class="metric-card__label">Agents Used</span>
+                <strong class="metric-card__value">{{ agentExecutionData.metrics?.agents_executed || 0 }}</strong>
+              </div>
+            </div>
+            <div class="metric-card">
+              <svg cdsIcon="network--3" size="20"></svg>
+              <div>
+                <span class="metric-card__label">Tools Retrieved</span>
+                <strong class="metric-card__value">{{ agentExecutionData.metrics?.tools_retrieved || 0 }}</strong>
+              </div>
+            </div>
+            <div class="metric-card">
+              <svg cdsIcon="data-vis--4" size="20"></svg>
+              <div>
+                <span class="metric-card__label">Tools Executed</span>
+                <strong class="metric-card__value">{{ agentExecutionData.metrics?.tools_executed || 0 }}</strong>
+              </div>
+            </div>
+            <div class="metric-card metric-card--highlight">
+              <svg cdsIcon="chart--line" size="20"></svg>
+              <div>
+                <span class="metric-card__label">Context Reduction</span>
+                <strong class="metric-card__value">{{ (agentExecutionData.metrics?.context_reduction || 0) | number:'1.0-0' }}%</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Final Agent Response -->
+        <div class="final-response" *ngIf="!agentExecutionData.isExecuting && agentExecutionData.finalResponse">
+          <div class="final-response__header">
+            <svg cdsIcon="checkmark--filled" size="20"></svg>
+            <h5 class="ibm--type-productive-heading-01">Final Response</h5>
+          </div>
+          <div class="final-response__content ibm--type-body-compact-01">
+            {{ agentExecutionData.finalResponse }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
 
   <div class="page-bottom-spacer"></div>
 </div>

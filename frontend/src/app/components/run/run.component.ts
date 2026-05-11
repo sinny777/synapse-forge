@@ -14,6 +14,7 @@ import {
   TagModule,
   ContentSwitcherModule,
 } from 'carbon-components-angular';
+import { TagType } from 'carbon-components-angular/tag';
 import { ToggletipModule } from 'carbon-components-angular/toggletip';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
 import { NeuralToolService } from '../../services/neural-tool.service';
@@ -28,10 +29,13 @@ import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 import TrashCan16 from '@carbon/icons/es/trash-can/16';
 import Download16 from '@carbon/icons/es/download/16';
 import Checkmark16 from '@carbon/icons/es/checkmark/16';
+import CheckmarkFilled16 from '@carbon/icons/es/checkmark--filled/16';
+import CheckmarkFilled20 from '@carbon/icons/es/checkmark--filled/20';
 import WarningAltFilled16 from '@carbon/icons/es/warning--filled/16';
 import ViewAll16 from '@carbon/icons/es/view/16';
 import List16 from '@carbon/icons/es/list/16';
 import ListDropdown16 from '@carbon/icons/es/list--dropdown/16';
+import User16 from '@carbon/icons/es/user/16';
 
 // Size 20 icons for section headers
 import Rocket20 from '@carbon/icons/es/rocket/20';
@@ -44,6 +48,17 @@ import Rocket16 from '@carbon/icons/es/rocket/16';
 import Settings16 from '@carbon/icons/es/settings/16';
 import ChartLine16 from '@carbon/icons/es/chart--line/16';
 import Keyboard16 from '@carbon/icons/es/keyboard/16';
+
+// Agent Mode icons
+import Bot16 from '@carbon/icons/es/bot/16';
+import Bot20 from '@carbon/icons/es/bot/20';
+import Network_316 from '@carbon/icons/es/network--3/16';
+import Network_320 from '@carbon/icons/es/network--3/20';
+import DataVis_416 from '@carbon/icons/es/data-vis--4/16';
+import Time16 from '@carbon/icons/es/time/16';
+import Collaborate16 from '@carbon/icons/es/collaborate/16';
+import Idea16 from '@carbon/icons/es/idea/16';
+import Chat16 from '@carbon/icons/es/chat/16';
 
 /** Interfaces matching backend config.py RuntimeConfig + LLMConfig */
 interface RuntimeConfig {
@@ -64,6 +79,60 @@ interface RuntimeLLMConfig {
   heavy_model: string;
   heavy_temperature: number;
   heavy_max_tokens: number;
+}
+
+/** Agent-related interfaces */
+interface AgentScenario {
+  id: string;
+  name: string;
+  description: string;
+  framework: string;
+  agents: AgentInfo[];
+  example_query: string;
+  estimated_duration: number;
+  total_tools: number;
+  use_case: string;
+  benefits: string[];
+}
+
+interface AgentInfo {
+  name: string;
+  role: string;
+  description: string;
+  tools_count: number;
+}
+
+interface AgentStep {
+  agentName: string;
+  agentRole: string;
+  framework: string;
+  toolsRetrieved: Array<{name: string, score: number, args?: any}>;
+  reasoning: string;
+  toolExecutions: Array<{tool: string, args: any, result: any, time: number, success: boolean, expanded?: boolean}>;
+  response: string;
+  timestamp: number;
+  startTime?: number;
+  endTime?: number;
+  executionTime?: number;
+  expanded: boolean;
+}
+
+interface AgentExecutionData {
+  scenarioId?: string;
+  scenarioName?: string;
+  userQuery?: string;
+  finalResponse?: string;
+  steps: AgentStep[];
+  metrics: {
+    execution_time?: number;
+    agents_executed?: number;
+    tools_retrieved?: number;
+    tools_executed?: number;
+    context_reduction?: number;
+  };
+  isExecuting: boolean;
+  startTime?: number | null;
+  endTime?: number | null;
 }
 
 @Component({
@@ -169,6 +238,26 @@ export class RunComponent implements OnInit {
   selectedExpansionConfigId = '';
   selectedHeavyConfigId = '';
 
+  /** Agent Mode Properties */
+  agentModeEnabled = true;
+  showAgentMode = false;
+  agentScenarios: AgentScenario[] = [];
+  selectedScenarioId: string = '';
+  agentExecutionData: AgentExecutionData = {
+    isExecuting: false,
+    startTime: null,
+    endTime: null,
+    steps: [],
+    metrics: {
+      execution_time: 0,
+      agents_executed: 0,
+      tools_retrieved: 0,
+      tools_executed: 0,
+      context_reduction: 0
+    }
+  };
+  currentAgentStep: AgentStep | null = null;
+
   constructor(
     private service: NeuralToolService,
     private iconService: IconService,
@@ -178,10 +267,12 @@ export class RunComponent implements OnInit {
   ) {
     this.iconService.registerAll([
       PlayFilled16, Reset16, ChevronDown16, InformationFilled16,
-      TrashCan16, Download16, Checkmark16, WarningAltFilled16, ViewAll16,
-      List16, ListDropdown16,
+      TrashCan16, Download16, Checkmark16, CheckmarkFilled16, CheckmarkFilled20,
+      WarningAltFilled16, ViewAll16, List16, ListDropdown16, User16,
       Rocket20, Settings20, ChartLine20, Keyboard20,
       Rocket16, Settings16, ChartLine16, Keyboard16,
+      Bot16, Bot20, Network_316, Network_320, DataVis_416, Time16, Collaborate16,
+      Idea16, Chat16,
     ]);
   }
 
@@ -191,6 +282,7 @@ export class RunComponent implements OnInit {
     this.runValidation();
     this.loadModels();
     this.loadLLMConfigs();
+    this.loadAgentScenarios();
   }
 
   loadLLMConfigs(): void {
@@ -375,5 +467,278 @@ export class RunComponent implements OnInit {
         this.notification = { type: 'error', title: 'Execution Failed', message: err.message || 'Query execution failed.' };
       });
     }
+  }
+
+  // ============================================================================
+  // Agent Mode Methods
+  // ============================================================================
+
+  /**
+   * Load available agent scenarios
+   */
+  loadAgentScenarios(): void {
+    this.service.getAgentScenarios().subscribe({
+      next: (response) => {
+        if (response.status === 'success') {
+          this.agentScenarios = response.scenarios;
+        }
+      },
+      error: (err) => {
+        console.error('Error loading agent scenarios:', err);
+        this.notification = {
+          type: 'error',
+          title: 'Failed to Load Scenarios',
+          message: 'Could not load agent scenarios. Please try again.'
+        };
+      }
+    });
+  }
+
+  /**
+   * Execute selected agent scenario
+   */
+  async executeAgentScenario(): Promise<void> {
+    if (!this.selectedScenarioId) {
+      this.notification = {
+        type: 'warning',
+        title: 'No Scenario Selected',
+        message: 'Please select an agent scenario to execute.'
+      };
+      return;
+    }
+
+    // Validate configuration
+    this.runValidation();
+    const hasErrors = Object.values(this.validationResults).some((v) => !v.valid);
+    if (hasErrors) {
+      const allErrors = Object.values(this.validationResults).flatMap((v) => v.errors);
+      this.notification = {
+        type: 'error',
+        title: 'Configuration Error',
+        message: allErrors.join(' ')
+      };
+      return;
+    }
+
+    // Initialize execution data
+    const scenario = this.agentScenarios.find(s => s.id === this.selectedScenarioId);
+    if (!scenario) return;
+
+    this.agentExecutionData = {
+      scenarioId: this.selectedScenarioId,
+      scenarioName: scenario.name,
+      userQuery: scenario.example_query,
+      finalResponse: '',
+      steps: [],
+      metrics: {
+        execution_time: 0,
+        agents_executed: 0,
+        tools_retrieved: 0,
+        tools_executed: 0,
+        context_reduction: 0
+      },
+      isExecuting: true,
+      startTime: Date.now(),
+      endTime: null
+    };
+
+    this.currentAgentStep = null;
+    this.notification = null;
+
+    try {
+      await this.service.executeAgentScenario(
+        this.selectedScenarioId,
+        this.runtimeLLMConfig,
+        this.runtimeConfig,
+        (event) => {
+          this.ngZone.run(() => {
+            this.handleAgentEvent(event);
+          });
+        }
+      );
+
+      this.ngZone.run(() => {
+        if (this.agentExecutionData) {
+          this.agentExecutionData.isExecuting = false;
+        }
+        this.notification = {
+          type: 'success',
+          title: 'Scenario Complete',
+          message: `${scenario.name} executed successfully!`
+        };
+      });
+    } catch (err: any) {
+      this.ngZone.run(() => {
+        if (this.agentExecutionData) {
+          this.agentExecutionData.isExecuting = false;
+        }
+        this.notification = {
+          type: 'error',
+          title: 'Execution Failed',
+          message: err.message || 'Agent scenario execution failed.'
+        };
+      });
+    }
+  }
+
+  /**
+   * Handle agent execution events
+   */
+  handleAgentEvent(event: any): void {
+    if (!this.agentExecutionData) {
+      return;
+    }
+
+    switch (event.type) {
+      case 'scenario_start':
+        // Scenario started
+        break;
+
+      case 'agent_activated':
+        // New agent activated - create new step
+        this.currentAgentStep = {
+          agentName: event.data.agent_name,
+          agentRole: event.data.agent_role,
+          framework: event.data.framework,
+          toolsRetrieved: [],
+          reasoning: '',
+          toolExecutions: [],
+          response: '',
+          timestamp: event.timestamp,
+          startTime: Date.now(),
+          expanded: true // Auto-expand current step
+        };
+        if (!this.agentExecutionData.steps) {
+          this.agentExecutionData.steps = [];
+        }
+        this.agentExecutionData.steps.push(this.currentAgentStep);
+        break;
+
+      case 'supervisor_routing':
+        // LangGraph supervisor routing decision
+        if (this.currentAgentStep) {
+          this.currentAgentStep.reasoning = `Supervisor routed from ${event.data.from_agent} to ${event.data.to_agent}: ${event.data.reasoning}`;
+        }
+        break;
+
+      case 'tool_retrieval':
+        // Tools retrieved by router
+        if (this.currentAgentStep) {
+          this.currentAgentStep.toolsRetrieved = event.data.tools || [];
+        }
+        // Update metrics
+        if (this.agentExecutionData.metrics) {
+          this.agentExecutionData.metrics.tools_retrieved = (this.agentExecutionData.metrics.tools_retrieved || 0) + (event.data.tools?.length || 0);
+        }
+        break;
+
+      case 'tool_execution':
+        // Tool executed
+        if (this.currentAgentStep) {
+          this.currentAgentStep.toolExecutions.push({
+            tool: event.data.tool_name,
+            args: event.data.tool_args,
+            result: event.data.result || 'Success',
+            time: event.data.execution_time,
+            success: event.data.success,
+            expanded: false // Start collapsed
+          });
+        }
+        // Update metrics
+        if (this.agentExecutionData.metrics) {
+          this.agentExecutionData.metrics.tools_executed = (this.agentExecutionData.metrics.tools_executed || 0) + 1;
+        }
+        break;
+
+      case 'agent_reasoning':
+        // Agent reasoning/thought process
+        if (this.currentAgentStep) {
+          this.currentAgentStep.reasoning = event.data.reasoning;
+        }
+        break;
+
+      case 'agent_response':
+        // Agent final response
+        if (this.currentAgentStep) {
+          this.currentAgentStep.response = event.data.response;
+          this.currentAgentStep.endTime = Date.now();
+          // Calculate execution time for this step
+          if (this.currentAgentStep.startTime) {
+            this.currentAgentStep.executionTime = (this.currentAgentStep.endTime - this.currentAgentStep.startTime) / 1000;
+          }
+          this.currentAgentStep.expanded = false; // Collapse after completion
+          // Store as final response (will be overwritten by each agent, keeping the last one)
+          if (this.agentExecutionData) {
+            this.agentExecutionData.finalResponse = event.data.response;
+          }
+        }
+        // Update metrics
+        if (this.agentExecutionData.metrics) {
+          this.agentExecutionData.metrics.agents_executed = (this.agentExecutionData.metrics.agents_executed || 0) + 1;
+        }
+        break;
+
+      case 'scenario_complete':
+        // Scenario completed - merge metrics (keep accumulated values, only update execution_time and context_reduction from backend)
+        if (this.agentExecutionData.metrics) {
+          this.agentExecutionData.metrics = {
+            ...this.agentExecutionData.metrics,
+            execution_time: event.data.execution_time || this.agentExecutionData.metrics.execution_time,
+            context_reduction: event.data.context_reduction || this.agentExecutionData.metrics.context_reduction
+          };
+        }
+        break;
+
+      case 'error':
+        // Error occurred
+        this.notification = {
+          type: 'error',
+          title: 'Execution Error',
+          message: event.data.error
+        };
+        break;
+    }
+  }
+
+  /**
+   * Toggle agent step expansion
+   */
+  toggleAgentStep(step: AgentStep): void {
+    step.expanded = !step.expanded;
+  }
+
+  /**
+   * Clear agent execution data
+   */
+  clearAgentExecution(): void {
+    this.agentExecutionData = {
+      isExecuting: false,
+      startTime: null,
+      endTime: null,
+      steps: [],
+      metrics: {
+        execution_time: 0,
+        agents_executed: 0,
+        tools_retrieved: 0,
+        tools_executed: 0,
+        context_reduction: 0
+      }
+    };
+    this.currentAgentStep = null;
+    this.selectedScenarioId = '';
+  }
+
+  /**
+   * Get framework badge color
+   */
+  getFrameworkBadgeType(framework: string): TagType {
+    return framework === 'beeai' ? 'blue' : 'purple';
+  }
+
+  /**
+   * Get tool execution status color
+   */
+  getToolStatusType(success: boolean): TagType {
+    return success ? 'green' : 'red';
   }
 }
