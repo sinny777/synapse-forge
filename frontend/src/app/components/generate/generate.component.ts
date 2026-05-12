@@ -244,6 +244,14 @@ export class GenerateComponent implements OnInit {
   syntheticData: any[] = [];
   cachedTools: any[] = [];
   
+  // Dataset Management
+  availableDatasets: any[] = [];
+  selectedDataset: string = '';
+  datasetArchiveName: string = '';
+  datasetArchiveVersion: string = '1.0';
+  isArchivingDataset = false;
+  currentDatasetPath: string = 'data/synthetic_queries.jsonl';
+  
   // Pagination
   paginationModel = new PaginationModel();
 
@@ -291,6 +299,7 @@ export class GenerateComponent implements OnInit {
     this.paginationModel.currentPage = 1;
     this.syncMCPtoTable();
     this.runValidation();
+    this.loadDatasets();
     this.loadSyntheticData();
     this.loadTeacherConfigs();
   }
@@ -600,7 +609,85 @@ export class GenerateComponent implements OnInit {
     });
   }
 
+  loadDatasets(): void {
+    this.service.getDatasets().subscribe({
+      next: (res) => {
+        if (res.status === 'success') {
+          this.availableDatasets = res.datasets || [];
+        }
+      },
+      error: (err) => {
+        console.error('Error loading datasets', err);
+      }
+    });
+  }
 
+  onDatasetSelect(): void {
+    if (this.selectedDataset) {
+      // Find the dataset object to get its path
+      const dataset = this.availableDatasets.find(ds => ds.name === this.selectedDataset);
+      if (!dataset) {
+        this.notification = { type: 'error', title: 'Error', message: 'Dataset not found.' };
+        return;
+      }
+      
+      this.isDataLoading = true;
+      this.service.loadDataset(dataset.path).subscribe({
+        next: (res) => {
+          this.syntheticData = res.data || [];
+          this.isDataLoading = false;
+          this.paginationModel.totalDataLength = this.syntheticData.length;
+          this.paginationModel.currentPage = 1;
+          this.currentDatasetPath = dataset.path;
+          this.notification = { type: 'success', title: 'Dataset Loaded', message: `Loaded dataset: ${dataset.name} (v${dataset.version})` };
+        },
+        error: (err) => {
+          this.isDataLoading = false;
+          this.notification = { type: 'error', title: 'Load Failed', message: 'Failed to load selected dataset.' };
+        }
+      });
+    }
+  }
+
+  archiveDataset(): void {
+    if (!this.datasetArchiveName || !this.datasetArchiveVersion) {
+      this.notification = { type: 'error', title: 'Validation Error', message: 'Dataset name and version are required for archiving.' };
+      return;
+    }
+    
+    this.isArchivingDataset = true;
+    this.service.archiveDataset(this.datasetArchiveName, this.datasetArchiveVersion, this.currentDatasetPath).subscribe({
+      next: (res) => {
+        this.isArchivingDataset = false;
+        this.notification = { type: 'success', title: 'Dataset Archived', message: res.message };
+        this.datasetArchiveName = '';
+        this.datasetArchiveVersion = '1.0';
+        this.loadDatasets();
+      },
+      error: (err) => {
+        this.isArchivingDataset = false;
+        this.notification = { type: 'error', title: 'Archive Failed', message: err.error?.detail || err.message };
+      }
+    });
+  }
+
+  deleteDataset(datasetName: string): void {
+    if (confirm(`Are you sure you want to delete dataset ${datasetName}?`)) {
+      this.service.deleteDataset(datasetName).subscribe({
+        next: (res) => {
+          this.notification = { type: 'success', title: 'Dataset Deleted', message: res.message };
+          this.loadDatasets();
+          if (this.selectedDataset === datasetName) {
+            this.selectedDataset = '';
+            this.loadSyntheticData();
+          }
+        },
+        error: (err) => {
+          this.notification = { type: 'error', title: 'Deletion Failed', message: err.error?.detail || err.message };
+        }
+      });
+    }
+  }
 
   saveData() {
     this.isDataSaving = true;

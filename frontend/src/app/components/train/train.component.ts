@@ -174,9 +174,14 @@ export class TrainComponent implements OnInit {
   /** Model Management */
   availableModels: any[] = [];
   selectedEvaluationModel: string = '';
+  selectedTrainingModel: string = '';
   archiveName: string = '';
   archiveVersion: string = '1.0';
   isArchiving = false;
+
+  /** Dataset Selection for Training */
+  availableDatasets: any[] = [];
+  selectedDataset: string = '';
 
   /** Chart Data */
   chartData: any[] = [];
@@ -226,6 +231,44 @@ export class TrainComponent implements OnInit {
     if (savedMode) this.viewMode = savedMode;
     this.runValidation();
     this.loadModels();
+    this.loadDatasets();
+  }
+
+  loadDatasets(): void {
+    this.service.getDatasets().subscribe({
+      next: (res) => {
+        if (res.status === 'success') {
+          this.availableDatasets = res.datasets || [];
+        }
+      },
+      error: (err) => {
+        console.error('Error loading datasets', err);
+      }
+    });
+  }
+
+  onDatasetSelect(): void {
+    if (this.selectedDataset) {
+      // Find the dataset object to get its path
+      const dataset = this.availableDatasets.find(ds => ds.name === this.selectedDataset);
+      if (dataset) {
+        this.trainingConfig.training_data_path = dataset.path;
+        this.onConfigChange();
+        this.notification = { type: 'info', title: 'Dataset Selected', message: `Training will use: ${dataset.name} (v${dataset.version})` };
+      }
+    }
+  }
+
+  onTrainingModelSelect(): void {
+    if (this.selectedTrainingModel) {
+      // Find the model object to get its path
+      const model = this.availableModels.find(m => m.name === this.selectedTrainingModel);
+      if (model) {
+        this.embeddingConfig.fine_tuned_model_dir = model.path;
+        this.onConfigChange();
+        this.notification = { type: 'info', title: 'Model Selected', message: `Will retrain model: ${model.name} (v${model.version})` };
+      }
+    }
   }
 
   loadModels(): void {
@@ -466,7 +509,11 @@ export class TrainComponent implements OnInit {
     this.evaluationResult = null;
     this.evaluationError = null;
 
-    this.service.evaluate(this.evaluationQuery, 5, this.selectedEvaluationModel).subscribe({
+    // Find the model object to get its path
+    const model = this.availableModels.find(m => m.name === this.selectedEvaluationModel);
+    const modelPath = model ? model.path : this.selectedEvaluationModel;
+
+    this.service.evaluate(this.evaluationQuery, 5, modelPath).subscribe({
       next: (res) => {
         this.isEvaluating = false;
         this.evaluationResult = res.data;

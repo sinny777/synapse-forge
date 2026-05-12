@@ -195,6 +195,25 @@
       </div>
 
       <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Dataset Selection</p>
+
+      <div class="config-row">
+        <div class="config-field config-field--wide">
+          <cds-label>
+            Select Training Dataset
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>Choose a dataset to train the model. Select from archived datasets or use the default path.</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="selectedDataset" (ngModelChange)="onDatasetSelect()">
+              <option value="">Default Dataset</option>
+              <option *ngFor="let ds of availableDatasets" [value]="ds.name">{{ ds.name }} (v{{ ds.version }})</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
       <p class="ibm--type-label-01 config-subsection-label">Data & Logging Paths</p>
 
       <div class="config-row">
@@ -246,6 +265,25 @@
     </div>
 
     <div class="config-section__body" *ngIf="sections['embedding']">
+      <!-- Model Selection for Retraining -->
+      <div class="config-row" style="margin-bottom: 1.5rem; padding: 1rem; background: #262626; border-radius: 4px;">
+        <div class="config-field config-field--wide">
+          <cds-label>
+            Select Model to Retrain (Optional)
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>Select an existing model to continue training, or leave empty to train from the base model.</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="selectedTrainingModel" (ngModelChange)="onTrainingModelSelect()">
+              <option value="">Train New Model from Base</option>
+              <option *ngFor="let model of availableModels" [value]="model.name">{{ model.name }} (v{{ model.version }})</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+
       <div class="config-row">
         <div class="config-field config-field--wide"
           [class.config-field--modified]="isFieldModified('embedding', 'base_model_name')">
@@ -297,6 +335,62 @@
           </cds-label>
         </div>
       </div>
+
+      <!-- Model Archive Section -->
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Archive Trained Model</p>
+      
+      <div class="config-row">
+        <div class="config-field">
+          <cds-label>
+            Model Name
+            <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" />
+          </cds-label>
+        </div>
+        <div class="config-field">
+          <cds-label>
+            Version
+            <input cdsText type="text" [(ngModel)]="archiveVersion" placeholder="1.0" />
+          </cds-label>
+        </div>
+        <div class="config-field" style="display: flex; align-items: flex-end;">
+          <button cdsButton="primary" size="sm" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)"
+            [disabled]="isArchiving || !archiveName || !archiveVersion">
+            <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
+            {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Available Models List -->
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Available Models</p>
+      
+      <div class="mcp-table-wrapper" *ngIf="availableModels.length > 0">
+        <table class="mcp-table">
+          <thead>
+            <tr>
+              <th>Model Name</th>
+              <th>Version</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let model of availableModels">
+              <td>{{ model.name }}</td>
+              <td><cds-tag type="gray" size="sm">v{{ model.version }}</cds-tag></td>
+              <td>
+                <button cdsButton="danger--ghost" size="sm" (click)="deleteModel(model.name)" title="Delete model">
+                  <svg cdsIcon="trash-can" size="16"></svg>
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p *ngIf="availableModels.length === 0" class="ibm--type-body-compact-01" style="color: #8d8d8d; margin-top: 0.5rem;">
+        No archived models available. Train and archive a model to see it here.
+      </p>
     </div>
   </section>
 
@@ -373,7 +467,7 @@
         <svg cdsIcon="data--base" size="20" class="config-section__icon"></svg>
         <div>
           <h2 class="ibm--type-productive-heading-03">Model Management</h2>
-          <p class="ibm--type-helper-text-01">Manage trained models, archive current model, and select models for evaluation.</p>
+          <p class="ibm--type-helper-text-01">Manage trained models, archive current model, and select models for retraining.</p>
         </div>
       </div>
       <div class="config-section__header-right">
@@ -384,47 +478,85 @@
     </div>
 
     <div class="config-section__body" *ngIf="sections['modelManagement']">
-      <div style="margin-bottom: 2rem;" *ngIf="isTrainingComplete">
-        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
-        <div style="display: flex; gap: 1rem; align-items: flex-end;">
-          <div style="flex: 1;" class="config-field">
-            <cds-label>Model Name
-              <input cdsText [(ngModel)]="archiveName" placeholder="e.g. banking_domain" />
-            </cds-label>
-          </div>
-          <div style="width: 150px;" class="config-field">
-            <cds-label>Version
-              <input cdsText [(ngModel)]="archiveVersion" placeholder="1.0" />
-            </cds-label>
-          </div>
-          <button cdsButton="primary" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)" [disabled]="!archiveName || !archiveVersion || isArchiving">
+      <!-- Model Selection -->
+      <div class="config-row" style="margin-bottom: 1.5rem;">
+        <div class="config-field config-field--wide">
+          <cds-label>
+            Select Model
+            <select cdsSelect [(ngModel)]="selectedTrainingModel" (ngModelChange)="onTrainingModelSelect()">
+              <option value="">Train New Model from Base</option>
+              <option *ngFor="let model of availableModels" [value]="model.name">{{ model.name }} (v{{ model.version }})</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      
+      <!-- Archive Current Model -->
+      <p class="ibm--type-label-01 config-subsection-label">Archive Current Model</p>
+      <div class="config-row" style="margin-bottom: 1.5rem;">
+        <div class="config-field">
+          <cds-label>
+            Model Name
+            <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" />
+          </cds-label>
+        </div>
+        <div class="config-field">
+          <cds-label>
+            Version
+            <input cdsText type="text" [(ngModel)]="archiveVersion" placeholder="1.0" />
+          </cds-label>
+        </div>
+        <div class="config-field" style="display: flex; align-items: flex-end; gap: 0.5rem;">
+          <button cdsButton="primary" size="sm" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)" [disabled]="isArchiving || !archiveName || !archiveVersion">
+            <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
             {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
           </button>
         </div>
       </div>
 
-      <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Available Models</h3>
-      <div *ngIf="availableModels.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
-        No trained models found. Train a new model first.
+      <div class="config-section__divider"></div>
+      
+      <!-- Manage Models -->
+      <p class="ibm--type-label-01 config-subsection-label">Manage Models</p>
+      <div *ngIf="availableModels.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px; margin-bottom: 1rem;">
+        No trained models found. Train and archive a model to see it here.
       </div>
-      <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
+      <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden; margin-bottom: 1rem;">
         <div *ngFor="let model of availableModels; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
           <div>
             <strong class="ibm--type-body-02">{{ model.name }}</strong>
-            <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Path: {{ model.path }}</div>
+            <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Version: {{ model.version }}</div>
           </div>
           <div style="display: flex; gap: 0.5rem;">
-            <button cdsButton="ghost" size="sm" (click)="selectedEvaluationModel = model.path; sections['evaluation'] = true;" title="Evaluate this model">
-              Evaluate
+            <button cdsButton="ghost" size="sm" (click)="selectedTrainingModel = model.name; onTrainingModelSelect()" title="Load this model for retraining">
+              Load
             </button>
-            <button cdsButton="ghost" size="sm" (click)="embeddingConfig.fine_tuned_model_dir = model.path; onConfigChange()" title="Set as base for retraining">
-              Retrain
+            <button cdsButton="ghost" size="sm" (click)="selectedEvaluationModel = model.name" title="Evaluate this model">
+              Evaluate
             </button>
             <button cdsButton="danger--ghost" size="sm" (click)="deleteModel(model.name)" title="Delete Model">
               Delete
             </button>
           </div>
         </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      
+      <!-- Current Model Info -->
+      <p class="ibm--type-label-01 config-subsection-label">Current Model Info</p>
+      <div *ngIf="selectedTrainingModel" style="padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+        <p class="ibm--type-body-01" style="margin-bottom: 0.5rem;">
+          <strong>Selected Model:</strong> {{ selectedTrainingModel }}
+        </p>
+        <p class="ibm--type-helper-text-01">
+          This model will be used as the base for retraining
+        </p>
+      </div>
+      <div *ngIf="!selectedTrainingModel" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+        No model selected. Training will start from the base model.
       </div>
     </div>
   </section>
@@ -608,6 +740,25 @@
       </div>
 
       <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Dataset Selection</p>
+
+      <div class="config-row">
+        <div class="config-field config-field--wide">
+          <cds-label>
+            Select Training Dataset
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>Choose a dataset to train the model. Select from archived datasets or use the default path.</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="selectedDataset" (ngModelChange)="onDatasetSelect()">
+              <option value="">Default Dataset</option>
+              <option *ngFor="let ds of availableDatasets" [value]="ds.name">{{ ds.name }} (v{{ ds.version }})</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
       <p class="ibm--type-label-01 config-subsection-label">Data & Logging Paths</p>
 
       <div class="config-row">
@@ -738,48 +889,81 @@
     </cds-tab>
     <cds-tab [heading]="modelManagementTabHeading" [cacheActive]="true">
       <div class="config-section__body config-section__body--tabs">
-        <div style="margin-bottom: 2rem;" *ngIf="isTrainingComplete">
-        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
-        <div style="display: flex; gap: 1rem; align-items: flex-end;">
-          <div style="flex: 1;" class="config-field">
-            <cds-label>Model Name
-              <input cdsText [(ngModel)]="archiveName" placeholder="e.g. banking_domain" />
+        <!-- Model Selection -->
+        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Select Model</h3>
+        <div class="config-row" style="margin-bottom: 1.5rem;">
+          <div class="config-field config-field--wide">
+            <cds-label>
+              Available Models
+              <select cdsSelect [(ngModel)]="selectedTrainingModel" (ngModelChange)="onTrainingModelSelect()">
+                <option value="">Train New Model from Base</option>
+                <option *ngFor="let model of availableModels" [value]="model.name">{{ model.name }} (v{{ model.version }})</option>
+              </select>
             </cds-label>
           </div>
-          <div style="width: 150px;" class="config-field">
-            <cds-label>Version
-              <input cdsText [(ngModel)]="archiveVersion" placeholder="1.0" />
-            </cds-label>
-          </div>
-          <button cdsButton="primary" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)" [disabled]="!archiveName || !archiveVersion || isArchiving">
-            {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
-          </button>
         </div>
-      </div>
 
-      <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Available Models</h3>
-      <div *ngIf="availableModels.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
-        No trained models found. Train a new model first.
-      </div>
-      <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
-        <div *ngFor="let model of availableModels; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
-          <div>
-            <strong class="ibm--type-body-02">{{ model.name }}</strong>
-            <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Path: {{ model.path }}</div>
+        <div class="config-section__divider"></div>
+        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
+        <div class="config-row" style="margin-bottom: 1.5rem;">
+          <div class="config-field">
+            <cds-label>
+              Model Name
+              <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" />
+            </cds-label>
           </div>
-          <div style="display: flex; gap: 0.5rem;">
-            <button cdsButton="ghost" size="sm" (click)="selectedEvaluationModel = model.path; sections['evaluation'] = true;" title="Evaluate this model">
-              Evaluate
-            </button>
-            <button cdsButton="ghost" size="sm" (click)="embeddingConfig.fine_tuned_model_dir = model.path; onConfigChange()" title="Set as base for retraining">
-              Retrain
-            </button>
-            <button cdsButton="danger--ghost" size="sm" (click)="deleteModel(model.name)" title="Delete Model">
-              Delete
+          <div class="config-field">
+            <cds-label>
+              Version
+              <input cdsText type="text" [(ngModel)]="archiveVersion" placeholder="1.0" />
+            </cds-label>
+          </div>
+          <div class="config-field" style="display: flex; align-items: flex-end; gap: 0.5rem;">
+            <button cdsButton="primary" size="sm" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)" [disabled]="isArchiving || !archiveName || !archiveVersion">
+              <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
+              {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
             </button>
           </div>
         </div>
-      </div>
+
+        <div class="config-section__divider"></div>
+        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Manage Models</h3>
+        <div *ngIf="availableModels.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+          No trained models found. Train and archive a model to see it here.
+        </div>
+        <div *ngIf="availableModels.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
+          <div *ngFor="let model of availableModels; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
+            <div>
+              <strong class="ibm--type-body-02">{{ model.name }}</strong>
+              <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Version: {{ model.version }}</div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button cdsButton="ghost" size="sm" (click)="selectedTrainingModel = model.name; onTrainingModelSelect()" title="Load this model for retraining">
+                Load
+              </button>
+              <button cdsButton="ghost" size="sm" (click)="selectedEvaluationModel = model.name" title="Evaluate this model">
+                Evaluate
+              </button>
+              <button cdsButton="danger--ghost" size="sm" (click)="deleteModel(model.name)" title="Delete Model">
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section__divider"></div>
+        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Current Model Info</h3>
+        <div *ngIf="selectedTrainingModel" style="padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+          <p class="ibm--type-body-01" style="margin-bottom: 0.5rem;">
+            <strong>Selected Model:</strong> {{ selectedTrainingModel }}
+          </p>
+          <p class="ibm--type-helper-text-01">
+            This model will be used as the base for retraining
+          </p>
+        </div>
+        <div *ngIf="!selectedTrainingModel" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+          No model selected. Training will start from the base model.
+        </div>
       </div>
     </cds-tab>
     <cds-tab [heading]="evaluationTabHeading" [cacheActive]="true">
@@ -791,7 +975,7 @@
             <cds-label>Target Model
               <select cdsSelect [(ngModel)]="selectedEvaluationModel">
                 <option value="" disabled selected>Select a model...</option>
-                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
+                <option *ngFor="let model of availableModels" [value]="model.name">{{ model.name }} (v{{ model.version }})</option>
               </select>
             </cds-label>
           </div>

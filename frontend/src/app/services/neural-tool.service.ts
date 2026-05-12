@@ -93,6 +93,38 @@ export class NeuralToolService {
   }
 
   // ============================================================================
+  // Dataset Management Methods
+  // ============================================================================
+
+  /**
+   * Get list of available datasets
+   */
+  getDatasets(): Observable<any> {
+    return this.http.get(`${this.apiUrl}/datasets`);
+  }
+
+  /**
+   * Archive a dataset with name and version
+   */
+  archiveDataset(name: string, version: string, sourceFile: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/datasets/archive`, { name, version, source_file: sourceFile });
+  }
+
+  /**
+   * Delete a dataset
+   */
+  deleteDataset(datasetName: string): Observable<any> {
+    return this.http.delete(`${this.apiUrl}/datasets/${datasetName}`);
+  }
+
+  /**
+   * Load a specific dataset for editing/training
+   */
+  loadDataset(datasetPath: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/datasets/load`, { dataset_path: datasetPath });
+  }
+
+  // ============================================================================
   // Agent Orchestration Methods
   // ============================================================================
 
