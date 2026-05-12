@@ -140,7 +140,12 @@ class LangGraphExecutor(BaseAgentExecutor):
                 }
             ]
             
-            # Execute each agent sequentially
+            # Execute each agent sequentially with context passing
+            agent_context = {
+                "user_query": user_query,
+                "previous_results": []
+            }
+            
             for agent_config in agents_config:
                 start_time = time.time()
                 self.agents_executed += 1
@@ -217,6 +222,7 @@ class LangGraphExecutor(BaseAgentExecutor):
                 ]
                 
                 # Execute tools and capture results
+                tool_results = []
                 for idx, (tool, tool_mcp) in enumerate(zip(tools, tools_mcp)):
                     self.tools_executed += 1
                     tool_start = time.time()
@@ -227,8 +233,16 @@ class LangGraphExecutor(BaseAgentExecutor):
                         
                         # Execute tool
                         result = await tool.ainvoke(tool_args)
+                        parsed_result = self._parse_tool_result(result)
                         
                         tool_time = time.time() - tool_start
+                        
+                        # Store tool result for LLM context
+                        tool_results.append({
+                            "tool_name": tool_mcp.name,
+                            "args": tool_args,
+                            "result": parsed_result
+                        })
                         
                         # Emit tool execution
                         yield AgentEvent(
@@ -238,7 +252,7 @@ class LangGraphExecutor(BaseAgentExecutor):
                                 "agent_name": agent_config["name"],
                                 "tool_name": tool_mcp.name,
                                 "tool_args": tool_args,
-                                "result": self._parse_tool_result(result),
+                                "result": parsed_result,
                                 "execution_time": tool_time,
                                 "success": True
                             }
@@ -246,6 +260,12 @@ class LangGraphExecutor(BaseAgentExecutor):
                         
                     except Exception as e:
                         logger.error(f"Tool execution failed: {e}")
+                        error_result = {"error": str(e)}
+                        tool_results.append({
+                            "tool_name": tool_mcp.name,
+                            "args": tool_args,
+                            "result": error_result
+                        })
                         yield AgentEvent(
                             type=EventType.TOOL_EXECUTION,
                             timestamp=time.time(),
@@ -253,20 +273,64 @@ class LangGraphExecutor(BaseAgentExecutor):
                                 "agent_name": agent_config["name"],
                                 "tool_name": tool_mcp.name,
                                 "tool_args": tool_args,
-                                "result": {"error": str(e)},
+                                "result": error_result,
                                 "execution_time": time.time() - tool_start,
                                 "success": False
                             }
                         )
                 
-                # Emit agent response
+                # Build LLM prompt with context
+                llm_input = self._build_agent_prompt(
+                    agent_config=agent_config,
+                    user_query=user_query,
+                    tool_results=tool_results,
+                    previous_context=agent_context["previous_results"]
+                )
+                
+                # Call LLM with streaming to generate agent response
+                try:
+                    agent_output = ""
+                    
+                    # Stream LLM response
+                    async for chunk in llm.astream(llm_input):
+                        chunk_content = chunk.content if hasattr(chunk, 'content') else str(chunk)
+                        if chunk_content:
+                            agent_output += chunk_content
+                            
+                            # Emit streaming chunk
+                            yield AgentEvent(
+                                type=EventType.AGENT_RESPONSE_CHUNK,
+                                timestamp=time.time(),
+                                data={
+                                    "agent_name": agent_config["name"],
+                                    "chunk": chunk_content,
+                                    "accumulated": agent_output
+                                }
+                            )
+                    
+                    # Store result for next agent
+                    agent_context["previous_results"].append({
+                        "agent_name": agent_config["name"],
+                        "input": llm_input,
+                        "output": agent_output,
+                        "tool_results": tool_results
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"LLM call failed: {e}")
+                    agent_output = f"Error generating response: {str(e)}"
+                
+                # Emit final agent response with complete LLM output
                 agent_time = time.time() - start_time
                 yield AgentEvent(
                     type=EventType.AGENT_RESPONSE,
                     timestamp=time.time(),
                     data={
                         "agent_name": agent_config["name"],
-                        "response": f"{agent_config['name']} completed analysis. Retrieved {len(tools)} tools and executed {len(tools)} operations in {agent_time:.2f}s."
+                        "input": llm_input,
+                        "response": agent_output,
+                        "tool_results": tool_results,
+                        "execution_time": agent_time
                     }
                 )
                 
@@ -356,5 +420,50 @@ class LangGraphExecutor(BaseAgentExecutor):
             return result
         else:
             return {"result": str(result)}
+    
+    def _build_agent_prompt(
+        self,
+        agent_config: Dict[str, Any],
+        user_query: str,
+        tool_results: List[Dict[str, Any]],
+        previous_context: List[Dict[str, Any]]
+    ) -> str:
+        """Build LLM prompt for agent with context"""
+        
+        # Build context from previous agents
+        context_str = ""
+        if previous_context:
+            context_str = "\n\n## Previous Agent Results:\n"
+            for prev in previous_context:
+                context_str += f"\n### {prev['agent_name']}:\n"
+                context_str += f"{prev['output']}\n"
+        
+        # Build tool results section
+        tools_str = "\n\n## Tool Execution Results:\n"
+        for tr in tool_results:
+            tools_str += f"\n### {tr['tool_name']}:\n"
+            tools_str += f"Arguments: {json.dumps(tr['args'], indent=2)}\n"
+            tools_str += f"Result: {json.dumps(tr['result'], indent=2)}\n"
+        
+        # Build complete prompt
+        prompt = f"""You are a {agent_config['role']} named {agent_config['name']}.
+
+## User Query:
+{user_query}
+{context_str}
+{tools_str}
+
+## Your Task:
+Based on the tool execution results above{' and previous agent analysis' if previous_context else ''}, provide a comprehensive analysis and recommendations for the user's query.
+
+Focus on:
+1. Key insights from the tool results
+2. Actionable recommendations
+3. Any risks or considerations
+4. Next steps if applicable
+
+Provide your response in a clear, professional manner."""
+
+        return prompt
 
 # Made with Bob

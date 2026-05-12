@@ -21,6 +21,7 @@ import { NeuralToolService } from '../../services/neural-tool.service';
 import { ConfigService, FIELD_TOOLTIPS, ValidationResult } from '../../services/config.service';
 import { LLMConfigService } from '../../services/llm-config.service';
 import { LLMModelConfig } from '../../models/llm-config.model';
+import { MarkdownPipe } from '../../pipes/markdown.pipe';
 
 import PlayFilled16 from '@carbon/icons/es/play--filled/16';
 import Reset16 from '@carbon/icons/es/reset/16';
@@ -106,15 +107,29 @@ interface AgentStep {
   agentName: string;
   agentRole: string;
   framework: string;
-  toolsRetrieved: Array<{name: string, score: number, args?: any}>;
+  status: 'activated' | 'retrieving_tools' | 'executing_tools' | 'thinking' | 'complete';  // Current status
+  toolsRetrieved: Array<{
+    name: string;
+    score: number;
+    args?: any;
+    id?: string;
+    description?: string;
+    server_name?: string;
+    parameters?: any;
+    input_schema?: any;
+    output_format?: string;
+  }>;
   reasoning: string;
   toolExecutions: Array<{tool: string, args: any, result: any, time: number, success: boolean, expanded?: boolean}>;
+  input?: string;  // LLM prompt input
   response: string;
   timestamp: number;
   startTime?: number;
   endTime?: number;
   executionTime?: number;
   expanded: boolean;
+  toolsExpanded: boolean;  // Tools Retrieved section expanded
+  executionsExpanded: boolean;  // Tool Executions section expanded
 }
 
 interface AgentExecutionData {
@@ -155,6 +170,7 @@ interface AgentExecutionData {
     TagModule,
     ContentSwitcherModule,
     ToggletipModule,
+    MarkdownPipe,
   ],
   templateUrl: './run.component.html',
   styleUrls: ['./run.component.scss'],
@@ -600,18 +616,27 @@ export class RunComponent implements OnInit {
         break;
 
       case 'agent_activated':
+        // Collapse previous step if exists
+        if (this.currentAgentStep) {
+          this.currentAgentStep.expanded = false;
+          this.currentAgentStep.status = 'complete';
+        }
+        
         // New agent activated - create new step
         this.currentAgentStep = {
           agentName: event.data.agent_name,
           agentRole: event.data.agent_role,
           framework: event.data.framework,
+          status: 'activated',
           toolsRetrieved: [],
           reasoning: '',
           toolExecutions: [],
           response: '',
           timestamp: event.timestamp,
           startTime: Date.now(),
-          expanded: true // Auto-expand current step
+          expanded: false, // Start collapsed
+          toolsExpanded: false,
+          executionsExpanded: false
         };
         if (!this.agentExecutionData.steps) {
           this.agentExecutionData.steps = [];
@@ -629,6 +654,7 @@ export class RunComponent implements OnInit {
       case 'tool_retrieval':
         // Tools retrieved by router
         if (this.currentAgentStep) {
+          this.currentAgentStep.status = 'retrieving_tools';
           this.currentAgentStep.toolsRetrieved = event.data.tools || [];
         }
         // Update metrics
@@ -640,6 +666,7 @@ export class RunComponent implements OnInit {
       case 'tool_execution':
         // Tool executed
         if (this.currentAgentStep) {
+          this.currentAgentStep.status = 'executing_tools';
           this.currentAgentStep.toolExecutions.push({
             tool: event.data.tool_name,
             args: event.data.tool_args,
@@ -662,17 +689,30 @@ export class RunComponent implements OnInit {
         }
         break;
 
-      case 'agent_response':
-        // Agent final response
+      case 'agent_response_chunk':
+        // Streaming response chunk
         if (this.currentAgentStep) {
+          this.currentAgentStep.status = 'thinking';
+          // Append chunk to response (streaming)
+          this.currentAgentStep.response = event.data.accumulated || event.data.chunk;
+          // Trigger change detection
+          this.ngZone.run(() => {});
+        }
+        break;
+
+      case 'agent_response':
+        // Agent final response (complete)
+        if (this.currentAgentStep) {
+          this.currentAgentStep.status = 'complete';
           this.currentAgentStep.response = event.data.response;
+          this.currentAgentStep.input = event.data.input; // Store LLM input
           this.currentAgentStep.endTime = Date.now();
           // Calculate execution time for this step
           if (this.currentAgentStep.startTime) {
             this.currentAgentStep.executionTime = (this.currentAgentStep.endTime - this.currentAgentStep.startTime) / 1000;
           }
-          // Keep agent expanded to show response
-          // this.currentAgentStep.expanded = false; // Removed - keep expanded to show details
+          // Keep collapsed - user can expand if needed
+          this.currentAgentStep.expanded = false;
           // Store as final response (will be overwritten by each agent, keeping the last one)
           if (this.agentExecutionData) {
             this.agentExecutionData.finalResponse = event.data.response;

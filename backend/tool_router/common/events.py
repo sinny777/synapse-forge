@@ -14,6 +14,7 @@ class EventType(str, Enum):
     AGENT_REASONING = "agent_reasoning"
     TOOL_RETRIEVAL = "tool_retrieval"
     TOOL_EXECUTION = "tool_execution"
+    AGENT_RESPONSE_CHUNK = "agent_response_chunk"  # Streaming response chunk
     AGENT_RESPONSE = "agent_response"
     SUPERVISOR_ROUTING = "supervisor_routing"
     SCENARIO_COMPLETE = "scenario_complete"

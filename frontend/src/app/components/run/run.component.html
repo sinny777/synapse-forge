@@ -891,6 +891,17 @@
                   <cds-tag [type]="getFrameworkBadgeType(step.framework)" size="sm">
                     {{ step.framework }}
                   </cds-tag>
+                  <!-- Status Indicator -->
+                  <cds-tag
+                    [type]="step.status === 'complete' ? 'green' : step.status === 'thinking' ? 'blue' : 'gray'"
+                    size="sm"
+                    *ngIf="step.status">
+                    <span *ngIf="step.status === 'activated'">Activated</span>
+                    <span *ngIf="step.status === 'retrieving_tools'">Retrieving Tools...</span>
+                    <span *ngIf="step.status === 'executing_tools'">Executing Tools...</span>
+                    <span *ngIf="step.status === 'thinking'">Thinking...</span>
+                    <span *ngIf="step.status === 'complete'">Complete</span>
+                  </cds-tag>
                 </div>
                 <div class="agent-step__header-right">
                   <span class="ibm--type-helper-text-01" *ngIf="step.executionTime">
@@ -918,11 +929,15 @@
 
                 <!-- Tools Retrieved -->
                 <div class="agent-step__section" *ngIf="step.toolsRetrieved.length > 0">
-                  <p class="ibm--type-label-01">
-                    <svg cdsIcon="network--3" size="16"></svg>
-                    Tools Retrieved (Top-{{ step.toolsRetrieved.length }})
-                  </p>
-                  <div class="tools-list">
+                  <div class="collapsible-section-header" (click)="step.toolsExpanded = !step.toolsExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--ibm-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">
+                    <p class="ibm--type-label-01" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                      <svg cdsIcon="network--3" size="16"></svg>
+                      Tools Retrieved (Top-{{ step.toolsRetrieved.length }})
+                      <cds-tag type="gray" size="sm" *ngIf="step.status === 'retrieving_tools'">Loading...</cds-tag>
+                    </p>
+                    <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.toolsExpanded"></svg>
+                  </div>
+                  <div class="tools-list" *ngIf="step.toolsExpanded">
                     <div *ngFor="let tool of step.toolsRetrieved" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--ibm-layer-01); border-radius: 4px;">
                       <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
                         <span class="ibm--type-body-compact-02" style="color: var(--ibm-text-primary); font-weight: 600;">{{ tool.name }}</span>
@@ -957,11 +972,15 @@
 
                 <!-- Tool Executions -->
                 <div class="agent-step__section" *ngIf="step.toolExecutions.length > 0">
-                  <p class="ibm--type-label-01">
-                    <svg cdsIcon="play--filled" size="16"></svg>
-                    Tool Executions
-                  </p>
-                  <div class="tool-executions">
+                  <div class="collapsible-section-header" (click)="step.executionsExpanded = !step.executionsExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--ibm-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">
+                    <p class="ibm--type-label-01" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                      <svg cdsIcon="play--filled" size="16"></svg>
+                      Tool Executions ({{ step.toolExecutions.length }})
+                      <cds-tag type="gray" size="sm" *ngIf="step.status === 'executing_tools'">Running...</cds-tag>
+                    </p>
+                    <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.executionsExpanded"></svg>
+                  </div>
+                  <div class="tool-executions" *ngIf="step.executionsExpanded">
                     <div *ngFor="let exec of step.toolExecutions; let j = index" class="tool-execution">
                       <div class="tool-execution__header" (click)="exec.expanded = !exec.expanded" style="cursor: pointer;">
                         <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
@@ -989,14 +1008,29 @@
                   </div>
                 </div>
 
+                <!-- Agent LLM Input -->
+                <div class="agent-step__section" *ngIf="step.input">
+                  <p class="ibm--type-label-01">
+                    <svg cdsIcon="document" size="16"></svg>
+                    Agent Input (LLM Prompt)
+                  </p>
+                  <details style="margin-top: 0.5rem;">
+                    <summary class="ibm--type-label-01" style="cursor: pointer; color: var(--ibm-link-primary);">View Full Prompt</summary>
+                    <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--ibm-layer-02); border-radius: 4px; border-left: 3px solid var(--ibm-border-interactive);">
+                      <pre class="ibm--type-code-01" style="white-space: pre-wrap; color: var(--ibm-text-primary); margin: 0;">{{ step.input }}</pre>
+                    </div>
+                  </details>
+                </div>
+
                 <!-- Agent Response -->
                 <div class="agent-step__section" *ngIf="step.response">
-                  <p class="ibm--type-label-01">
+                  <p class="ibm--type-label-01" style="display: flex; align-items: center; gap: 0.5rem;">
                     <svg cdsIcon="chat" size="16"></svg>
-                    Agent Response
+                    Agent Output (LLM Response)
+                    <cds-tag type="blue" size="sm" *ngIf="step.status === 'thinking'">Streaming...</cds-tag>
                   </p>
-                  <div class="agent-response ibm--type-body-compact-01">
-                    {{ step.response }}
+                  <div class="agent-response ibm--type-body-compact-01 markdown-content" style="padding: 0.75rem; background: var(--ibm-layer-01); border-radius: 4px; border-left: 3px solid var(--ibm-border-success);">
+                    <div [innerHTML]="step.response | markdown"></div>
                   </div>
                 </div>
               </div>
@@ -1052,8 +1086,8 @@
             <svg cdsIcon="checkmark--filled" size="20"></svg>
             <h5 class="ibm--type-productive-heading-01">Final Response</h5>
           </div>
-          <div class="final-response__content ibm--type-body-compact-01">
-            {{ agentExecutionData.finalResponse }}
+          <div class="final-response__content ibm--type-body-compact-01 markdown-content">
+            <div [innerHTML]="agentExecutionData.finalResponse | markdown"></div>
           </div>
         </div>
       </div>
