@@ -196,12 +196,14 @@ class ToolRouterConfig:
     # Project paths
     project_root: Path = field(default_factory=lambda: Path(__file__).parent.parent)
     data_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data")
+    datasets_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "data" / "datasets")
     models_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "models")
     logs_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "logs")
     
     def __post_init__(self):
         """Create necessary directories."""
         self.data_dir.mkdir(parents=True, exist_ok=True)
+        self.datasets_dir.mkdir(parents=True, exist_ok=True)
         self.models_dir.mkdir(parents=True, exist_ok=True)
         self.logs_dir.mkdir(parents=True, exist_ok=True)
         self.training.logging_dir.mkdir(parents=True, exist_ok=True)

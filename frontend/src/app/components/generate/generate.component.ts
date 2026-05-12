@@ -247,6 +247,9 @@ export class GenerateComponent implements OnInit {
   // Dataset Management
   availableDatasets: any[] = [];
   selectedDataset: string = '';
+  datasetDropdownItems: any[] = [
+    { content: 'New Dataset', id: '', selected: true }
+  ];
   datasetArchiveName: string = '';
   datasetArchiveVersion: string = '1.0';
   isArchivingDataset = false;
@@ -299,8 +302,10 @@ export class GenerateComponent implements OnInit {
     this.paginationModel.currentPage = 1;
     this.syncMCPtoTable();
     this.runValidation();
+    // Initialize dropdown with default item
+    this.updateDatasetDropdownItems();
     this.loadDatasets();
-    this.loadSyntheticData();
+    // Don't load synthetic data on init - only when user selects a dataset
     this.loadTeacherConfigs();
   }
 
@@ -521,6 +526,13 @@ export class GenerateComponent implements OnInit {
   }
 
   private buildPayload(): any {
+    // Set output path based on dataset name and version
+    if (this.datasetArchiveName && this.datasetArchiveVersion) {
+      this.dataGenConfig.output_path = `data/datasets/${this.datasetArchiveName}_v${this.datasetArchiveVersion}.jsonl`;
+    } else {
+      this.dataGenConfig.output_path = 'data/synthetic_queries.jsonl';
+    }
+    
     return {
       llm: { ...this.llmConfig },
       embedding: { ...this.embeddingConfig },
@@ -550,6 +562,12 @@ export class GenerateComponent implements OnInit {
         this.stopPolling();
         this.isLoading = false;
         this.configService.markSynced();
+        
+        // Auto-archive the newly generated dataset if name and version are provided
+        if (this.datasetArchiveName && this.datasetArchiveVersion) {
+          this.archiveDataset();
+        }
+        
         this.notification = { type: 'success', title: 'Success', message: res.message || 'Synthetic data generation completed.' };
         this.loadSyntheticData();
       },
@@ -614,12 +632,39 @@ export class GenerateComponent implements OnInit {
       next: (res) => {
         if (res.status === 'success') {
           this.availableDatasets = res.datasets || [];
+          // Force update dropdown items after a brief delay to ensure Angular change detection
+          setTimeout(() => {
+            this.updateDatasetDropdownItems();
+          }, 0);
         }
       },
       error: (err) => {
         console.error('Error loading datasets', err);
       }
     });
+  }
+
+  updateDatasetDropdownItems(): void {
+    this.datasetDropdownItems = [
+      { content: 'New Dataset', id: '', selected: !this.selectedDataset },
+      ...this.availableDatasets.map(ds => ({
+        content: `${ds.name} (v${ds.version})`,
+        id: ds.name,
+        selected: ds.name === this.selectedDataset
+      }))
+    ];
+  }
+
+  onDatasetSelectFromDropdown(event: any): void {
+    const datasetId = event?.item?.id ?? event?.id ?? event;
+    this.selectedDataset = datasetId;
+    if (datasetId) {
+      this.onDatasetSelect();
+    } else {
+      // New dataset selected - clear synthetic data
+      this.createNewDataset();
+    }
+    this.updateDatasetDropdownItems();
   }
 
   onDatasetSelect(): void {
@@ -639,6 +684,8 @@ export class GenerateComponent implements OnInit {
           this.paginationModel.totalDataLength = this.syntheticData.length;
           this.paginationModel.currentPage = 1;
           this.currentDatasetPath = dataset.path;
+          this.datasetArchiveName = dataset.name;
+          this.datasetArchiveVersion = dataset.version;
           this.notification = { type: 'success', title: 'Dataset Loaded', message: `Loaded dataset: ${dataset.name} (v${dataset.version})` };
         },
         error: (err) => {
@@ -656,13 +703,24 @@ export class GenerateComponent implements OnInit {
     }
     
     this.isArchivingDataset = true;
-    this.service.archiveDataset(this.datasetArchiveName, this.datasetArchiveVersion, this.currentDatasetPath).subscribe({
+    const sourcePath = this.dataGenConfig.output_path || this.currentDatasetPath;
+    this.service.archiveDataset(this.datasetArchiveName, this.datasetArchiveVersion, sourcePath).subscribe({
       next: (res) => {
         this.isArchivingDataset = false;
         this.notification = { type: 'success', title: 'Dataset Archived', message: res.message };
+        
+        // Set the newly archived dataset as selected
+        const newDatasetName = this.datasetArchiveName;
         this.datasetArchiveName = '';
         this.datasetArchiveVersion = '1.0';
+        
+        // Reload datasets and select the new one
         this.loadDatasets();
+        setTimeout(() => {
+          this.selectedDataset = newDatasetName;
+          this.updateDatasetDropdownItems();
+          this.onDatasetSelect();
+        }, 500);
       },
       error: (err) => {
         this.isArchivingDataset = false;
@@ -701,5 +759,20 @@ export class GenerateComponent implements OnInit {
         this.notification = { type: 'error', title: 'Save Failed', message: 'Failed to save synthetic data updates.' };
       }
     });
+  }
+
+  createNewDataset(): void {
+    // Reset to default configuration for new dataset generation
+    this.selectedDataset = '';
+    this.datasetArchiveName = '';
+    this.datasetArchiveVersion = '1.0';
+    this.currentDatasetPath = 'data/synthetic_queries.jsonl';
+    this.syntheticData = [];
+    this.updateDatasetDropdownItems();
+    this.notification = {
+      type: 'info',
+      title: 'New Dataset',
+      message: 'Configure settings and click "Start Generation" to create a new synthetic dataset.'
+    };
   }
 }

@@ -173,6 +173,9 @@ export class TrainComponent implements OnInit {
 
   /** Model Management */
   availableModels: any[] = [];
+  modelDropdownItems: any[] = [
+    { content: 'New Model', id: '', selected: true }
+  ];
   selectedEvaluationModel: string = '';
   selectedTrainingModel: string = '';
   archiveName: string = '';
@@ -181,6 +184,9 @@ export class TrainComponent implements OnInit {
 
   /** Dataset Selection for Training */
   availableDatasets: any[] = [];
+  datasetDropdownItems: any[] = [
+    { content: 'Default Dataset', id: '', selected: true }
+  ];
   selectedDataset: string = '';
 
   /** Chart Data */
@@ -230,6 +236,9 @@ export class TrainComponent implements OnInit {
     const savedMode = localStorage.getItem('train_viewMode');
     if (savedMode) this.viewMode = savedMode;
     this.runValidation();
+    // Initialize dropdowns with default items
+    this.updateModelDropdownItems();
+    this.updateDatasetDropdownItems();
     this.loadModels();
     this.loadDatasets();
   }
@@ -239,12 +248,34 @@ export class TrainComponent implements OnInit {
       next: (res) => {
         if (res.status === 'success') {
           this.availableDatasets = res.datasets || [];
+          // Force update dropdown items after a brief delay to ensure Angular change detection
+          setTimeout(() => {
+            this.updateDatasetDropdownItems();
+          }, 0);
         }
       },
       error: (err) => {
         console.error('Error loading datasets', err);
       }
     });
+  }
+
+  updateDatasetDropdownItems(): void {
+    this.datasetDropdownItems = [
+      { content: 'Default Dataset', id: '', selected: !this.selectedDataset },
+      ...this.availableDatasets.map(ds => ({
+        content: `${ds.name} (v${ds.version})`,
+        id: ds.name,
+        selected: ds.name === this.selectedDataset
+      }))
+    ];
+  }
+
+  onDatasetSelectFromDropdown(event: any): void {
+    const datasetId = event?.item?.id ?? event?.id ?? event;
+    this.selectedDataset = datasetId;
+    this.onDatasetSelect();
+    this.updateDatasetDropdownItems();
   }
 
   onDatasetSelect(): void {
@@ -256,6 +287,10 @@ export class TrainComponent implements OnInit {
         this.onConfigChange();
         this.notification = { type: 'info', title: 'Dataset Selected', message: `Training will use: ${dataset.name} (v${dataset.version})` };
       }
+    } else {
+      // Reset to default
+      this.trainingConfig.training_data_path = this.DEFAULTS.training.training_data_path;
+      this.onConfigChange();
     }
   }
 
@@ -276,12 +311,39 @@ export class TrainComponent implements OnInit {
       next: (res) => {
         if (res.status === 'success') {
           this.availableModels = res.models;
+          // Force update dropdown items after a brief delay to ensure Angular change detection
+          setTimeout(() => {
+            this.updateModelDropdownItems();
+          }, 0);
         }
       },
       error: (err) => {
         console.error('Error loading models', err);
       }
     });
+  }
+
+  updateModelDropdownItems(): void {
+    this.modelDropdownItems = [
+      { content: 'New Model', id: '', selected: !this.selectedTrainingModel },
+      ...this.availableModels.map(model => ({
+        content: `${model.name} (v${model.version})`,
+        id: model.name,
+        selected: model.name === this.selectedTrainingModel
+      }))
+    ];
+  }
+
+  onModelSelectFromDropdown(event: any): void {
+    const modelId = event?.item?.id ?? event?.id ?? event;
+    this.selectedTrainingModel = modelId;
+    if (modelId) {
+      this.onTrainingModelSelect();
+    } else {
+      // New model selected
+      this.createNewModel();
+    }
+    this.updateModelDropdownItems();
   }
 
   archiveModel(sourceDir: string): void {
@@ -523,5 +585,19 @@ export class TrainComponent implements OnInit {
         this.evaluationError = err.error?.detail || err.message || 'Evaluation failed.';
       }
     });
+  }
+
+  createNewModel(): void {
+    // Reset to default configuration for new model training
+    this.selectedTrainingModel = '';
+    this.archiveName = '';
+    this.archiveVersion = '1.0';
+    this.embeddingConfig.fine_tuned_model_dir = this.DEFAULTS.embedding.fine_tuned_model_dir;
+    this.updateModelDropdownItems();
+    this.notification = {
+      type: 'info',
+      title: 'New Model',
+      message: 'Configure training settings and click "Start Training" to create a new fine-tuned model.'
+    };
   }
 }

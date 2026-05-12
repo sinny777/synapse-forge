@@ -39,6 +39,29 @@
   </div>
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- Dataset Selector                                                -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <section class="config-section" style="margin-bottom: 0;">
+    <div class="config-section__header" style="cursor: default; background: var(--ibm-ui-01);">
+      <div class="config-section__header-left" style="flex: 1;">
+        <div style="display: flex; align-items: center; width: 100%;">
+          <div style="flex: 1; max-width: 400px;">
+            <cds-dropdown
+              label="Select Synthetic Dataset"
+              placeholder="Select a dataset"
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="selectedDataset"
+              (selected)="onDatasetSelectFromDropdown($event)">
+              <cds-dropdown-list [items]="datasetDropdownItems"></cds-dropdown-list>
+            </cds-dropdown>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- SECTION 1: Embedding Configuration                              -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
 
@@ -505,20 +528,6 @@
         <span>Current sum: {{ getRatioSum() }} {{ isRatioValid() ? '✓' : '— must equal 1.0' }}</span>
       </div>
 
-      <div class="config-section__divider"></div>
-      <p class="ibm--type-label-01 config-subsection-label">Output</p>
-      <div class="config-row">
-        <div class="config-field config-field--full">
-          <cds-label>
-            Output Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['output_path'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="dataGenConfig.output_path" (ngModelChange)="onConfigChange()" />
-          </cds-label>
-        </div>
-      </div>
     </div>
   </section>
   </div>
@@ -526,6 +535,90 @@
   <!-- ═══ VERTICAL TABS VIEW ═══ -->
   <div *ngIf="viewMode === 'tabs'" class="vertical-tabs-container" data-carbon-theme="g100">
     <cds-tabs-vertical>
+    <cds-tab [heading]="datasetManagementTabHeading" [cacheActive]="true">
+      <div class="config-section__body config-section__body--tabs">
+        
+        <!-- New Dataset: Name and Version Input -->
+        <div *ngIf="!selectedDataset">
+          <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">New Dataset Configuration</h3>
+          <div class="config-row" style="margin-bottom: 1.5rem;">
+            <div class="config-field">
+              <cds-label>
+                Dataset Name
+                <input cdsText type="text" [(ngModel)]="datasetArchiveName" placeholder="e.g., banking-queries" />
+              </cds-label>
+            </div>
+            <div class="config-field">
+              <cds-label>
+                Version
+                <input cdsText type="text" [(ngModel)]="datasetArchiveVersion" placeholder="1.0" />
+              </cds-label>
+            </div>
+          </div>
+          <p class="ibm--type-helper-text-01" style="color: var(--ibm-text-secondary); margin-top: 0.5rem;">
+            Configure the settings in other tabs and click "Start Generation" to create this dataset.
+          </p>
+        </div>
+
+        <!-- Existing Dataset: Archive and Manage Options -->
+        <div *ngIf="selectedDataset">
+          <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Dataset</h3>
+          <div class="config-row" style="margin-bottom: 1.5rem;">
+            <div class="config-field">
+              <cds-label>
+                Dataset Name
+                <input cdsText type="text" [(ngModel)]="datasetArchiveName" placeholder="e.g., banking-queries" />
+              </cds-label>
+            </div>
+            <div class="config-field">
+              <cds-label>
+                Version
+                <input cdsText type="text" [(ngModel)]="datasetArchiveVersion" placeholder="1.0" />
+              </cds-label>
+            </div>
+            <div class="config-field" style="display: flex; align-items: flex-end; gap: 0.5rem;">
+              <button cdsButton="primary" size="sm" (click)="archiveDataset()" [disabled]="isArchivingDataset || !datasetArchiveName || !datasetArchiveVersion">
+                <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
+                {{ isArchivingDataset ? 'Archiving...' : 'Archive Dataset' }}
+              </button>
+            </div>
+          </div>
+
+          <div class="config-section__divider"></div>
+          <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Current Dataset Preview</h3>
+          <div *ngIf="syntheticData.length > 0" style="padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+            <p class="ibm--type-body-01" style="margin-bottom: 0.5rem;">
+              <strong>{{ syntheticData.length }}</strong> queries loaded
+            </p>
+            <p class="ibm--type-helper-text-01">
+              Current dataset: {{ currentDatasetPath }}
+            </p>
+          </div>
+          <div *ngIf="syntheticData.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+            No dataset loaded. Generate synthetic data or select an archived dataset.
+          </div>
+        </div>
+
+        <div class="config-section__divider"></div>
+        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Manage Datasets</h3>
+        <div *ngIf="availableDatasets.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
+          No archived datasets found. Generate and archive a dataset to see it here.
+        </div>
+        <div *ngIf="availableDatasets.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
+          <div *ngFor="let ds of availableDatasets; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
+            <div>
+              <strong class="ibm--type-body-02">{{ ds.name }}</strong>
+              <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Version: {{ ds.version }}</div>
+            </div>
+            <div style="display: flex; gap: 0.5rem;">
+              <button cdsButton="danger--ghost" size="sm" (click)="deleteDataset(ds.name)" title="Delete Dataset">
+                <svg cdsIcon="trash-can" size="16"></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </cds-tab>
     <cds-tab [heading]="embeddingTabHeading">
       <div class="config-section__body config-section__body--tabs">
         <div class="config-row">
@@ -868,96 +961,6 @@
         <span>Current sum: {{ getRatioSum() }} {{ isRatioValid() ? '✓' : '— must equal 1.0' }}</span>
       </div>
 
-      <div class="config-section__divider"></div>
-      <p class="ibm--type-label-01 config-subsection-label">Output</p>
-      <div class="config-row">
-        <div class="config-field config-field--full">
-          <cds-label>
-            Output Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['output_path'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="dataGenConfig.output_path" (ngModelChange)="onConfigChange()" />
-          </cds-label>
-        </div>
-      </div>
-      </div>
-    </cds-tab>
-    <cds-tab [heading]="datasetManagementTabHeading" [cacheActive]="true">
-      <div class="config-section__body config-section__body--tabs">
-        <!-- Dataset Selection and Management -->
-        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Select Dataset</h3>
-        <div class="config-row" style="margin-bottom: 1.5rem;">
-          <div class="config-field config-field--wide">
-            <cds-label>
-              Available Datasets
-              <select cdsSelect [(ngModel)]="selectedDataset" (ngModelChange)="onDatasetSelect()">
-                <option value="">Current/Default Dataset</option>
-                <option *ngFor="let ds of availableDatasets" [value]="ds.name">{{ ds.name }} (v{{ ds.version }})</option>
-              </select>
-            </cds-label>
-          </div>
-        </div>
-
-        <div class="config-section__divider"></div>
-        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Dataset</h3>
-        <div class="config-row" style="margin-bottom: 1.5rem;">
-          <div class="config-field">
-            <cds-label>
-              Dataset Name
-              <input cdsText type="text" [(ngModel)]="datasetArchiveName" placeholder="e.g., banking-queries" />
-            </cds-label>
-          </div>
-          <div class="config-field">
-            <cds-label>
-              Version
-              <input cdsText type="text" [(ngModel)]="datasetArchiveVersion" placeholder="1.0" />
-            </cds-label>
-          </div>
-          <div class="config-field" style="display: flex; align-items: flex-end; gap: 0.5rem;">
-            <button cdsButton="primary" size="sm" (click)="archiveDataset()" [disabled]="isArchivingDataset || !datasetArchiveName || !datasetArchiveVersion">
-              <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
-              {{ isArchivingDataset ? 'Archiving...' : 'Archive Dataset' }}
-            </button>
-          </div>
-        </div>
-
-        <div class="config-section__divider"></div>
-        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Manage Datasets</h3>
-        <div *ngIf="availableDatasets.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
-          No archived datasets found. Generate and archive a dataset to see it here.
-        </div>
-        <div *ngIf="availableDatasets.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
-          <div *ngFor="let ds of availableDatasets; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
-            <div>
-              <strong class="ibm--type-body-02">{{ ds.name }}</strong>
-              <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Version: {{ ds.version }}</div>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-              <button cdsButton="ghost" size="sm" (click)="selectedDataset = ds.name; onDatasetSelect()" title="Load this dataset">
-                Load
-              </button>
-              <button cdsButton="danger--ghost" size="sm" (click)="deleteDataset(ds.name)" title="Delete Dataset">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="config-section__divider"></div>
-        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Current Dataset Preview</h3>
-        <div *ngIf="syntheticData.length > 0" style="padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
-          <p class="ibm--type-body-01" style="margin-bottom: 0.5rem;">
-            <strong>{{ syntheticData.length }}</strong> queries loaded
-          </p>
-          <p class="ibm--type-helper-text-01">
-            Current dataset: {{ currentDatasetPath }}
-          </p>
-        </div>
-        <div *ngIf="syntheticData.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
-          No dataset loaded. Generate synthetic data or select an archived dataset.
-        </div>
       </div>
     </cds-tab>
     </cds-tabs-vertical>
@@ -980,7 +983,7 @@
   </div>
 
   <!-- Synthetic Data Viewer/Editor -->
-  <section class="config-section" *ngIf="!isLoading && syntheticData.length > 0">
+  <section class="config-section" *ngIf="!isLoading && selectedDataset && syntheticData.length > 0">
     <div class="config-section__header" (click)="toggleSection('syntheticData')">
       <div class="config-section__header-left">
         <svg cdsIcon="data--base" size="20" class="config-section__icon"></svg>
@@ -997,42 +1000,6 @@
     </div>
 
     <div class="config-section__body" *ngIf="sections['syntheticData'] !== false">
-      <!-- Dataset Management Section -->
-      <div class="config-row" style="margin-bottom: 1.5rem; padding: 1rem; background: #262626; border-radius: 4px;">
-        <div class="config-field config-field--wide">
-          <cds-label>
-            Select Dataset
-            <select cdsSelect [(ngModel)]="selectedDataset" (ngModelChange)="onDatasetSelect()">
-              <option value="">Current/Default Dataset</option>
-              <option *ngFor="let ds of availableDatasets" [value]="ds.path">{{ ds.name }} (v{{ ds.version }})</option>
-            </select>
-          </cds-label>
-        </div>
-        <div class="config-field">
-          <cds-label>
-            Dataset Name
-            <input cdsText type="text" [(ngModel)]="datasetArchiveName" placeholder="e.g., banking-queries" />
-          </cds-label>
-        </div>
-        <div class="config-field">
-          <cds-label>
-            Version
-            <input cdsText type="text" [(ngModel)]="datasetArchiveVersion" placeholder="1.0" />
-          </cds-label>
-        </div>
-        <div class="config-field" style="display: flex; align-items: flex-end; gap: 0.5rem;">
-          <button cdsButton="primary" size="sm" (click)="archiveDataset()" [disabled]="isArchivingDataset || !datasetArchiveName || !datasetArchiveVersion">
-            <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
-            {{ isArchivingDataset ? 'Archiving...' : 'Archive' }}
-          </button>
-          <button cdsButton="danger--ghost" size="sm" (click)="deleteDataset(selectedDataset)" *ngIf="selectedDataset" title="Delete selected dataset">
-            <svg cdsIcon="trash-can" size="16"></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="config-section__divider"></div>
-
       <div class="table-actions">
         <button cdsButton="primary" size="sm" (click)="saveData()" [disabled]="isDataSaving">
           <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
