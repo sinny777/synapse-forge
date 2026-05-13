@@ -207,20 +207,20 @@ export class GenerateComponent implements OnInit {
 
   /** Dropdown options */
   deviceOptions = [
-    { content: 'CPU', value: 'cpu' },
-    { content: 'CUDA (GPU)', value: 'cuda' },
-    { content: 'MPS (Apple Silicon)', value: 'mps' },
+    { content: 'CPU', value: 'cpu', selected: false },
+    { content: 'CUDA (GPU)', value: 'cuda', selected: false },
+    { content: 'MPS (Apple Silicon)', value: 'mps', selected: false },
   ];
 
   storeTypeOptions = [
-    { content: 'FAISS', value: 'faiss' },
-    { content: 'ChromaDB', value: 'chromadb' },
+    { content: 'FAISS', value: 'faiss', selected: false },
+    { content: 'ChromaDB', value: 'chromadb', selected: false },
   ];
 
   faissIndexOptions = [
-    { content: 'IndexFlatIP (Cosine Similarity)', value: 'IndexFlatIP' },
-    { content: 'IndexFlatL2 (Euclidean)', value: 'IndexFlatL2' },
-    { content: 'IndexIVFFlat', value: 'IndexIVFFlat' },
+    { content: 'IndexFlatIP (Cosine Similarity)', value: 'IndexFlatIP', selected: false },
+    { content: 'IndexFlatL2 (Euclidean)', value: 'IndexFlatL2', selected: false },
+    { content: 'IndexIVFFlat', value: 'IndexIVFFlat', selected: false },
   ];
 
   predefinedMcpOptions = [
@@ -229,6 +229,21 @@ export class GenerateComponent implements OnInit {
     { content: 'Mediclaim Processing Example', value: 'mediclaim' },
     { content: 'Filesystem (Local)', value: 'filesystem' },
   ];
+  
+  predefinedMcpDropdownItems = [
+    { content: 'Select an MCP Server...', value: '', selected: false },
+    { content: 'UHNW Private Banking Example', value: 'uhnwc_banking', selected: false },
+    { content: 'Mediclaim Processing Example', value: 'mediclaim', selected: false },
+    { content: 'Filesystem (Local)', value: 'filesystem', selected: false },
+  ];
+  
+  transportOptions = [
+    { content: 'stdio', value: 'stdio', selected: false },
+    { content: 'sse', value: 'sse', selected: false },
+    { content: 'streamable-http', value: 'streamable-http', selected: false },
+  ];
+  
+  toolDropdownItems: any[] = [];
   selectedPredefinedMcp = '';
 
   isLoading = false;
@@ -493,6 +508,31 @@ export class GenerateComponent implements OnInit {
     this.syncTableToMCP();
   }
 
+  /** Event handlers for Carbon dropdowns */
+  onPredefinedMcpSelectDropdown(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.selectedPredefinedMcp = value;
+    this.onPredefinedMcpSelect();
+  }
+
+  onTransportChange(event: any, index: number): void {
+    const value = event?.item?.value || event?.value || event;
+    this.mcpServers[index].transport = value;
+    this.onServerChange();
+  }
+
+  onNewServerTransportChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.newServer.transport = value;
+  }
+
+  onToolChange(event: any, index: number): void {
+    const value = event?.item?.value || event?.value || event;
+    if (this.syntheticData[index]) {
+      this.syntheticData[index].positive_tool_id = value;
+    }
+  }
+
   // ─── Common ─────────────────────────────────────────────────────
   onConfigChange(): void {
     this.configService.markUnsaved();
@@ -605,6 +645,13 @@ export class GenerateComponent implements OnInit {
     this.service.getCachedTools().subscribe({
       next: (toolsRes) => {
         this.cachedTools = toolsRes.tools || [];
+        
+        // Update tool dropdown items
+        this.toolDropdownItems = this.cachedTools.map(t => ({
+          content: t.name || t.id,
+          value: t.id,
+          selected: false
+        }));
         
         // Then fetch synthetic data
         this.service.getSyntheticData().subscribe({

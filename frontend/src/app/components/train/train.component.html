@@ -42,14 +42,15 @@
     <div class="config-section__header" style="cursor: default; background: var(--ibm-ui-01);">
       <div class="config-section__header-left" style="flex: 1;">
         <div style="display: flex; align-items: center; width: 100%; gap: 0.5rem;">
-          <div style="flex: 1; max-width: 400px;">
+          <div style="flex: 1; min-width: 300px; max-width: 500px;">
             <cds-dropdown
               label="Select Fine-tuned Model"
               placeholder="Select a model"
               [appendInline]="true"
               size="md"
               [(ngModel)]="selectedTrainingModel"
-              (selected)="onModelSelectFromDropdown($event)">
+              (selected)="onModelSelectFromDropdown($event)"
+              style="width: 100%;">
               <cds-dropdown-list [items]="modelDropdownItems"></cds-dropdown-list>
             </cds-dropdown>
           </div>
@@ -181,9 +182,14 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['loss_function'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="trainingConfig.loss_function" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of lossFunctionOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="trainingConfig.loss_function"
+              (selected)="onLossFunctionChange($event)"
+              style="width: 100%; min-width: 250px;">
+              <cds-dropdown-list [items]="lossFunctionOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
       </div>
@@ -234,7 +240,8 @@
               [appendInline]="true"
               size="md"
               [(ngModel)]="selectedDataset"
-              (selected)="onDatasetSelectFromDropdown($event)">
+              (selected)="onDatasetSelectFromDropdown($event)"
+              style="width: 100%; min-width: 300px;">
               <cds-dropdown-list [items]="datasetDropdownItems"></cds-dropdown-list>
             </cds-dropdown>
           </cds-label>
@@ -304,9 +311,14 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['store_type'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="vectorStoreConfig.store_type" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of storeTypeOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="vectorStoreConfig.store_type"
+              (selected)="onStoreTypeChange($event)"
+              style="width: 100%; min-width: 250px;">
+              <cds-dropdown-list [items]="storeTypeOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'top_k')">
@@ -355,9 +367,14 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['faiss_index_type'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="vectorStoreConfig.faiss_index_type" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of faissIndexOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="vectorStoreConfig.faiss_index_type"
+              (selected)="onFaissIndexTypeChange($event)"
+              style="width: 100%; min-width: 250px;">
+              <cds-dropdown-list [items]="faissIndexOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
       </div>
@@ -481,10 +498,14 @@
         <div class="console-input" style="flex: 1; padding: 1rem; border: 1px solid var(--ibm-ui-03); border-radius: 4px; background: var(--ibm-ui-01);">
           <div style="margin-bottom: 1rem;" class="config-field">
             <cds-label>Target Model
-              <select cdsSelect [(ngModel)]="selectedEvaluationModel">
-                <option value="" disabled selected>Select a model...</option>
-                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
-              </select>
+              <cds-dropdown
+                placeholder="Select a model..."
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedEvaluationModel"
+                (selected)="onEvaluationModelChange($event)">
+                <cds-dropdown-list [items]="evaluationModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
             </cds-label>
           </div>
           <h3 class="ibm--type-heading-01" style="margin-bottom: 0.5rem;">Test Query</h3>
@@ -632,9 +653,14 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['loss_function'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="trainingConfig.loss_function" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of lossFunctionOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="trainingConfig.loss_function"
+              (selected)="onLossFunctionChange($event)"
+              style="width: 100%; min-width: 250px;">
+              <cds-dropdown-list [items]="lossFunctionOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
       </div>
@@ -679,10 +705,15 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>Choose a dataset to train the model. Select from archived datasets or use the default path.</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="selectedDataset" (ngModelChange)="onDatasetSelect()">
-              <option value="">Default Dataset</option>
-              <option *ngFor="let ds of availableDatasets" [value]="ds.name">{{ ds.name }} (v{{ ds.version }})</option>
-            </select>
+            <cds-dropdown
+              placeholder="Default Dataset"
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="selectedDataset"
+              (selected)="onDatasetSelectDropdown($event)"
+              style="width: 100%; min-width: 300px;">
+              <cds-dropdown-list [items]="datasetDropdownItemsForTabs"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
       </div>
@@ -728,9 +759,14 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['store_type'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="vectorStoreConfig.store_type" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of storeTypeOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="vectorStoreConfig.store_type"
+              (selected)="onStoreTypeChange($event)"
+              style="width: 100%; min-width: 250px;">
+              <cds-dropdown-list [items]="storeTypeOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
         <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'top_k')">
@@ -779,9 +815,14 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['faiss_index_type'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="vectorStoreConfig.faiss_index_type" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of faissIndexOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="vectorStoreConfig.faiss_index_type"
+              (selected)="onFaissIndexTypeChange($event)"
+              style="width: 100%; min-width: 250px;">
+              <cds-dropdown-list [items]="faissIndexOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
       </div>
@@ -875,10 +916,15 @@
         <div class="console-input" style="flex: 1; padding: 1rem; border: 1px solid var(--ibm-ui-03); border-radius: 4px; background: var(--ibm-ui-01);">
           <div style="margin-bottom: 1rem;" class="config-field">
             <cds-label>Target Model
-              <select cdsSelect [(ngModel)]="selectedEvaluationModel">
-                <option value="" disabled selected>Select a model...</option>
-                <option *ngFor="let model of availableModels" [value]="model.name">{{ model.name }} (v{{ model.version }})</option>
-              </select>
+              <cds-dropdown
+                placeholder="Select a model..."
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedEvaluationModel"
+                (selected)="onEvaluationModelChange($event)"
+                style="width: 100%; min-width: 300px;">
+                <cds-dropdown-list [items]="evaluationModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
             </cds-label>
           </div>
           <h3 class="ibm--type-heading-01" style="margin-bottom: 0.5rem;">Test Query</h3>

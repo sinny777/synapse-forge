@@ -109,9 +109,13 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['log_level'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="runtimeConfig.log_level" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of logLevelOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="runtimeConfig.log_level"
+              (selected)="onLogLevelChange($event)">
+              <cds-dropdown-list [items]="logLevelOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
       </div>
@@ -230,12 +234,15 @@
               <p cdsToggletipContent>{{ tooltips['expansion_model'] }}</p>
             </cds-toggletip>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <select cdsSelect [(ngModel)]="selectedExpansionConfigId" (ngModelChange)="onExpansionModelSelect()" style="flex: 1;">
-                <option value="">Manual Entry</option>
-                <option *ngFor="let config of expansionConfigs" [value]="config.id">
-                  {{ config.provider }} - {{ config.modelName }}
-                </option>
-              </select>
+              <cds-dropdown
+                placeholder="Manual Entry"
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedExpansionConfigId"
+                (selected)="onExpansionModelSelectDropdown($event)"
+                style="flex: 1; min-width: 250px;">
+                <cds-dropdown-list [items]="expansionModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
               <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model"
                 (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedExpansionConfigId" />
             </div>
@@ -278,12 +285,15 @@
               <p cdsToggletipContent>{{ tooltips['heavy_model'] }}</p>
             </cds-toggletip>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <select cdsSelect [(ngModel)]="selectedHeavyConfigId" (ngModelChange)="onHeavyModelSelect()" style="flex: 1;">
-                <option value="">Manual Entry</option>
-                <option *ngFor="let config of heavyConfigs" [value]="config.id">
-                  {{ config.provider }} - {{ config.modelName }}
-                </option>
-              </select>
+              <cds-dropdown
+                placeholder="Manual Entry"
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedHeavyConfigId"
+                (selected)="onHeavyModelSelectDropdown($event)"
+                style="flex: 1; min-width: 250px;">
+                <cds-dropdown-list [items]="heavyModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
               <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedHeavyConfigId" />
             </div>
           </cds-label>
@@ -355,9 +365,13 @@
                   cdsIcon="information--filled" size="16"></svg></button>
               <p cdsToggletipContent>{{ tooltips['log_level'] }}</p>
             </cds-toggletip>
-            <select cdsSelect [(ngModel)]="runtimeConfig.log_level" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of logLevelOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="runtimeConfig.log_level"
+              (selected)="onLogLevelChange($event)">
+              <cds-dropdown-list [items]="logLevelOptions"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
       </div>
@@ -454,12 +468,15 @@
               <p cdsToggletipContent>{{ tooltips['expansion_model'] }}</p>
             </cds-toggletip>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <select cdsSelect [(ngModel)]="selectedExpansionConfigId" (ngModelChange)="onExpansionModelSelect()" style="flex: 1;">
-                <option value="">Manual Entry</option>
-                <option *ngFor="let config of expansionConfigs" [value]="config.id">
-                  {{ config.provider }} - {{ config.modelName }}
-                </option>
-              </select>
+              <cds-dropdown
+                placeholder="Manual Entry"
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedExpansionConfigId"
+                (selected)="onExpansionModelSelectDropdown($event)"
+                style="flex: 1; min-width: 250px;">
+                <cds-dropdown-list [items]="expansionModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
               <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.expansion_model"
                 (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedExpansionConfigId" />
             </div>
@@ -502,12 +519,15 @@
               <p cdsToggletipContent>{{ tooltips['heavy_model'] }}</p>
             </cds-toggletip>
             <div style="display: flex; gap: 0.5rem; align-items: center;">
-              <select cdsSelect [(ngModel)]="selectedHeavyConfigId" (ngModelChange)="onHeavyModelSelect()" style="flex: 1;">
-                <option value="">Manual Entry</option>
-                <option *ngFor="let config of heavyConfigs" [value]="config.id">
-                  {{ config.provider }} - {{ config.modelName }}
-                </option>
-              </select>
+              <cds-dropdown
+                placeholder="Manual Entry"
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedHeavyConfigId"
+                (selected)="onHeavyModelSelectDropdown($event)"
+                style="flex: 1; min-width: 250px;">
+                <cds-dropdown-list [items]="heavyModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
               <input cdsText type="text" [(ngModel)]="runtimeLLMConfig.heavy_model" (ngModelChange)="onConfigChange()" style="flex: 2;" [disabled]="selectedHeavyConfigId" />
             </div>
           </cds-label>
@@ -557,10 +577,15 @@
         <div class="console-input__body">
           <div style="margin-bottom: 1rem;" class="config-field">
             <cds-label>Routing Model
-              <select cdsSelect [(ngModel)]="selectedModel">
-                <option value="" disabled selected>Select an archived/trained model...</option>
-                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
-              </select>
+              <cds-dropdown
+                placeholder="Select an archived/trained model..."
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedModel"
+                (selected)="onRoutingModelChange($event)"
+                style="width: 100%; min-width: 300px;">
+                <cds-dropdown-list [items]="routingModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
             </cds-label>
           </div>
           <textarea cdsTextArea [(ngModel)]="queryInput" placeholder="Enter natural language query to route to tools..."
@@ -764,12 +789,16 @@
           <div class="config-field" style="flex: 1;">
             <cds-label>
               Select Agent Scenario
-              <select cdsSelect [(ngModel)]="selectedScenarioId" [disabled]="agentExecutionData.isExecuting">
-                <option value="" disabled>Choose a scenario...</option>
-                <option *ngFor="let scenario of agentScenarios" [value]="scenario.id">
-                  {{ scenario.name }} ({{ scenario.framework }})
-                </option>
-              </select>
+              <cds-dropdown
+                placeholder="Choose a scenario..."
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedScenarioId"
+                [disabled]="agentExecutionData.isExecuting"
+                (selected)="onScenarioChange($event)"
+                style="width: 100%; min-width: 300px;">
+                <cds-dropdown-list [items]="scenarioDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
             </cds-label>
           </div>
           <div class="config-field" style="flex: 1;">
@@ -781,10 +810,16 @@
                 </button>
                 <p cdsToggletipContent>Select a trained NeuralToolRouter model for intelligent tool selection. This demonstrates the advantage of using NeuralToolRouter for context-aware tool routing.</p>
               </cds-toggletip>
-              <select cdsSelect [(ngModel)]="selectedModel" [disabled]="agentExecutionData.isExecuting">
-                <option value="" disabled>Select routing model...</option>
-                <option *ngFor="let model of availableModels" [value]="model.path">{{ model.name }}</option>
-              </select>
+              <cds-dropdown
+                placeholder="Select routing model..."
+                [appendInline]="true"
+                size="md"
+                [(ngModel)]="selectedModel"
+                [disabled]="agentExecutionData.isExecuting"
+                (selected)="onRoutingModelChange($event)"
+                style="width: 100%; min-width: 300px;">
+                <cds-dropdown-list [items]="routingModelDropdownItems"></cds-dropdown-list>
+              </cds-dropdown>
             </cds-label>
           </div>
           <button 

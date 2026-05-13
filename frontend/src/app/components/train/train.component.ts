@@ -160,28 +160,32 @@ export class TrainComponent implements OnInit {
 
   /** Dropdown options */
   deviceOptions = [
-    { content: 'CPU', value: 'cpu' },
-    { content: 'CUDA (GPU)', value: 'cuda' },
-    { content: 'MPS (Apple Silicon)', value: 'mps' },
+    { content: 'CPU', value: 'cpu', selected: false },
+    { content: 'CUDA (GPU)', value: 'cuda', selected: false },
+    { content: 'MPS (Apple Silicon)', value: 'mps', selected: false },
   ];
 
   storeTypeOptions = [
-    { content: 'FAISS', value: 'faiss' },
-    { content: 'ChromaDB', value: 'chromadb' },
+    { content: 'FAISS', value: 'faiss', selected: false },
+    { content: 'ChromaDB', value: 'chromadb', selected: false },
   ];
 
   faissIndexOptions = [
-    { content: 'IndexFlatIP (Cosine Similarity)', value: 'IndexFlatIP' },
-    { content: 'IndexFlatL2 (Euclidean)', value: 'IndexFlatL2' },
-    { content: 'IndexIVFFlat', value: 'IndexIVFFlat' },
+    { content: 'IndexFlatIP (Cosine Similarity)', value: 'IndexFlatIP', selected: false },
+    { content: 'IndexFlatL2 (Euclidean)', value: 'IndexFlatL2', selected: false },
+    { content: 'IndexIVFFlat', value: 'IndexIVFFlat', selected: false },
   ];
 
   lossFunctionOptions = [
-    { content: 'MultipleNegativesRankingLoss', value: 'MultipleNegativesRankingLoss' },
-    { content: 'CosineSimilarityLoss', value: 'CosineSimilarityLoss' },
-    { content: 'ContrastiveLoss', value: 'ContrastiveLoss' },
-    { content: 'TripletLoss', value: 'TripletLoss' },
+    { content: 'MultipleNegativesRankingLoss', value: 'MultipleNegativesRankingLoss', selected: false },
+    { content: 'CosineSimilarityLoss', value: 'CosineSimilarityLoss', selected: false },
+    { content: 'ContrastiveLoss', value: 'ContrastiveLoss', selected: false },
+    { content: 'TripletLoss', value: 'TripletLoss', selected: false },
   ];
+
+  /** Additional dropdown items for Carbon components */
+  evaluationModelDropdownItems: any[] = [];
+  datasetDropdownItemsForTabs: any[] = [];
 
   /** Training progress */
   isLoading = false;
@@ -219,6 +223,36 @@ export class TrainComponent implements OnInit {
     { content: 'Default Dataset', id: '', selected: true }
   ];
   selectedDataset: string = '';
+
+  /** Event handlers for Carbon dropdowns */
+  onLossFunctionChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.trainingConfig.loss_function = value;
+    this.onConfigChange();
+  }
+
+  onStoreTypeChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.vectorStoreConfig.store_type = value;
+    this.onConfigChange();
+  }
+
+  onFaissIndexTypeChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.vectorStoreConfig.faiss_index_type = value;
+    this.onConfigChange();
+  }
+
+  onEvaluationModelChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.selectedEvaluationModel = value;
+  }
+
+  onDatasetSelectDropdown(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.selectedDataset = value;
+    this.onDatasetSelect();
+  }
 
   /** Chart Data */
   chartData: any[] = [];
@@ -282,6 +316,7 @@ export class TrainComponent implements OnInit {
           // Force update dropdown items after a brief delay to ensure Angular change detection
           setTimeout(() => {
             this.updateDatasetDropdownItems();
+            this.updateDatasetDropdownItemsForTabs();
           }, 0);
         }
       },
@@ -297,6 +332,17 @@ export class TrainComponent implements OnInit {
       ...this.availableDatasets.map(ds => ({
         content: `${ds.name} (v${ds.version})`,
         id: ds.name,
+        selected: ds.name === this.selectedDataset
+      }))
+    ];
+  }
+
+  updateDatasetDropdownItemsForTabs(): void {
+    this.datasetDropdownItemsForTabs = [
+      { content: 'Default Dataset', value: '', selected: !this.selectedDataset },
+      ...this.availableDatasets.map(ds => ({
+        content: ds.name,
+        value: ds.name,
         selected: ds.name === this.selectedDataset
       }))
     ];
@@ -355,6 +401,7 @@ export class TrainComponent implements OnInit {
           // Force update dropdown items after a brief delay to ensure Angular change detection
           setTimeout(() => {
             this.updateModelDropdownItems();
+            this.updateEvaluationModelDropdownItems();
           }, 0);
         }
       },
@@ -373,6 +420,14 @@ export class TrainComponent implements OnInit {
         selected: model.name === this.selectedTrainingModel
       }))
     ];
+  }
+
+  updateEvaluationModelDropdownItems(): void {
+    this.evaluationModelDropdownItems = this.availableModels.map(model => ({
+      content: model.name,
+      value: model.path,
+      selected: model.path === this.selectedEvaluationModel
+    }));
   }
 
   onModelSelectFromDropdown(event: any): void {

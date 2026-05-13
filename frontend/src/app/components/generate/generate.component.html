@@ -45,14 +45,15 @@
     <div class="config-section__header" style="cursor: default; background: var(--ibm-ui-01);">
       <div class="config-section__header-left" style="flex: 1;">
         <div style="display: flex; align-items: center; width: 100%; gap: 0.5rem;">
-          <div style="flex: 1; max-width: 400px;">
+          <div style="flex: 1; min-width: 300px; max-width: 500px;">
             <cds-dropdown
               label="Select Synthetic Dataset"
               placeholder="Select a dataset"
               [appendInline]="true"
               size="md"
               [(ngModel)]="selectedDataset"
-              (selected)="onDatasetSelectFromDropdown($event)">
+              (selected)="onDatasetSelectFromDropdown($event)"
+              style="width: 100%;">
               <cds-dropdown-list [items]="datasetDropdownItems"></cds-dropdown-list>
             </cds-dropdown>
           </div>
@@ -113,31 +114,6 @@
     </div>
 
     <div class="config-section__body" *ngIf="sections['mcp']">
-      <div class="config-row">
-        <div class="config-field">
-          <cds-label>
-            Connection Timeout (s)
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['connection_timeout'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="mcpConfig.connection_timeout" (ngModelChange)="onConfigChange()"
-              min="5" max="120" />
-          </cds-label>
-        </div>
-        <div class="config-field config-field--wide">
-          <cds-label>
-            Tool Cache Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['tool_cache_path'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="mcpConfig.tool_cache_path" (ngModelChange)="onConfigChange()" />
-          </cds-label>
-        </div>
-      </div>
-
-      <div class="config-section__divider"></div>
       <p class="ibm--type-label-01 config-subsection-label">
         MCP Servers
         <span class="config-subsection-hint">(add/remove servers interactively)</span>
@@ -147,11 +123,38 @@
         <div class="config-field config-field--wide">
           <cds-label>
             Add Pre-defined MCP Server Example
-            <select cdsSelect [(ngModel)]="selectedPredefinedMcp" (ngModelChange)="onPredefinedMcpSelect()">
-              <option *ngFor="let opt of predefinedMcpOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              placeholder="Select an example..."
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="selectedPredefinedMcp"
+              (selected)="onPredefinedMcpSelectDropdown($event)">
+              <cds-dropdown-list [items]="predefinedMcpDropdownItems"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
+      </div>
+
+      <!-- Add Server Row -->
+      <div class="mcp-add-row" style="margin-bottom: 1rem;">
+        <input cdsText type="text" [(ngModel)]="newServer.name" placeholder="Server name" class="mcp-add-field" />
+        <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)"
+          class="mcp-add-field" />
+        <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)"
+          class="mcp-add-field mcp-add-field--wide" />
+        <cds-dropdown
+          [appendInline]="true"
+          size="sm"
+          [(ngModel)]="newServer.transport"
+          (selected)="onNewServerTransportChange($event)"
+          class="mcp-add-field">
+          <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
+        </cds-dropdown>
+        <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()"
+          title="Add server">
+          <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
+          Add
+        </button>
       </div>
 
       <!-- MCP Servers Table -->
@@ -173,11 +176,13 @@
               <td><input cdsText type="text" [(ngModel)]="srv.args" (ngModelChange)="onServerChange()"
                   placeholder="space-separated" /></td>
               <td>
-                <select cdsSelect [(ngModel)]="srv.transport" (ngModelChange)="onServerChange()">
-                  <option value="stdio">stdio</option>
-                  <option value="sse">sse</option>
-                  <option value="streamable-http">streamable-http</option>
-                </select>
+                <cds-dropdown
+                  [appendInline]="true"
+                  size="sm"
+                  [(ngModel)]="srv.transport"
+                  (selected)="onTransportChange($event, i)">
+                  <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
+                </cds-dropdown>
               </td>
               <td>
                 <button cdsButton="danger--ghost" size="sm" (click)="removeServer(i)" title="Remove server">
@@ -190,24 +195,6 @@
             </tr>
           </tbody>
         </table>
-
-        <div class="mcp-add-row">
-          <input cdsText type="text" [(ngModel)]="newServer.name" placeholder="Server name" class="mcp-add-field" />
-          <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)"
-            class="mcp-add-field" />
-          <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)"
-            class="mcp-add-field mcp-add-field--wide" />
-          <select cdsSelect [(ngModel)]="newServer.transport" class="mcp-add-field">
-            <option value="stdio">stdio</option>
-            <option value="sse">sse</option>
-            <option value="streamable-http">streamable-http</option>
-          </select>
-          <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()"
-            title="Add server">
-            <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
-            Add
-          </button>
-        </div>
       </div>
     </div>
   </section>
@@ -400,31 +387,6 @@
     </cds-tab>
     <cds-tab [heading]="mcpTabHeading">
       <div class="config-section__body config-section__body--tabs">
-        <div class="config-row">
-        <div class="config-field">
-          <cds-label>
-            Connection Timeout (s)
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['connection_timeout'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="number" [(ngModel)]="mcpConfig.connection_timeout" (ngModelChange)="onConfigChange()"
-              min="5" max="120" />
-          </cds-label>
-        </div>
-        <div class="config-field config-field--wide">
-          <cds-label>
-            Tool Cache Path
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['tool_cache_path'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="mcpConfig.tool_cache_path" (ngModelChange)="onConfigChange()" />
-          </cds-label>
-        </div>
-      </div>
-
-      <div class="config-section__divider"></div>
       <p class="ibm--type-label-01 config-subsection-label">
         MCP Servers
         <span class="config-subsection-hint">(add/remove servers interactively)</span>
@@ -434,11 +396,38 @@
         <div class="config-field config-field--wide">
           <cds-label>
             Add Pre-defined MCP Server Example
-            <select cdsSelect [(ngModel)]="selectedPredefinedMcp" (ngModelChange)="onPredefinedMcpSelect()">
-              <option *ngFor="let opt of predefinedMcpOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
+            <cds-dropdown
+              placeholder="Select an example..."
+              [appendInline]="true"
+              size="md"
+              [(ngModel)]="selectedPredefinedMcp"
+              (selected)="onPredefinedMcpSelectDropdown($event)">
+              <cds-dropdown-list [items]="predefinedMcpDropdownItems"></cds-dropdown-list>
+            </cds-dropdown>
           </cds-label>
         </div>
+      </div>
+
+      <!-- Add Server Row -->
+      <div class="mcp-add-row" style="margin-bottom: 1rem;">
+        <input cdsText type="text" [(ngModel)]="newServer.name" placeholder="Server name" class="mcp-add-field" />
+        <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)"
+          class="mcp-add-field" />
+        <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)"
+          class="mcp-add-field mcp-add-field--wide" />
+        <cds-dropdown
+          [appendInline]="true"
+          size="sm"
+          [(ngModel)]="newServer.transport"
+          (selected)="onNewServerTransportChange($event)"
+          class="mcp-add-field">
+          <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
+        </cds-dropdown>
+        <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()"
+          title="Add server">
+          <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
+          Add
+        </button>
       </div>
 
       <!-- MCP Servers Table -->
@@ -460,11 +449,13 @@
               <td><input cdsText type="text" [(ngModel)]="srv.args" (ngModelChange)="onServerChange()"
                   placeholder="space-separated" /></td>
               <td>
-                <select cdsSelect [(ngModel)]="srv.transport" (ngModelChange)="onServerChange()">
-                  <option value="stdio">stdio</option>
-                  <option value="sse">sse</option>
-                  <option value="streamable-http">streamable-http</option>
-                </select>
+                <cds-dropdown
+                  [appendInline]="true"
+                  size="sm"
+                  [(ngModel)]="srv.transport"
+                  (selected)="onTransportChange($event, i)">
+                  <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
+                </cds-dropdown>
               </td>
               <td>
                 <button cdsButton="danger--ghost" size="sm" (click)="removeServer(i)" title="Remove server">
@@ -477,24 +468,6 @@
             </tr>
           </tbody>
         </table>
-
-        <div class="mcp-add-row">
-          <input cdsText type="text" [(ngModel)]="newServer.name" placeholder="Server name" class="mcp-add-field" />
-          <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)"
-            class="mcp-add-field" />
-          <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)"
-            class="mcp-add-field mcp-add-field--wide" />
-          <select cdsSelect [(ngModel)]="newServer.transport" class="mcp-add-field">
-            <option value="stdio">stdio</option>
-            <option value="sse">sse</option>
-            <option value="streamable-http">streamable-http</option>
-          </select>
-          <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()"
-            title="Add server">
-            <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
-            Add
-          </button>
-        </div>
       </div>
       </div>
     </cds-tab>
@@ -652,11 +625,14 @@
               </td>
               <td><cds-tag type="gray" size="sm">{{ item.query_type }}</cds-tag></td>
               <td>
-                <select cdsSelect [(ngModel)]="item.positive_tool_id" style="width: 100%; border: 1px solid #393939; background: #262626; color: #f4f4f4; padding: 0.5rem;">
-                  <option *ngFor="let t of cachedTools" [value]="t.id">{{ t.name || t.id }}</option>
-                  <!-- Fallback if current tool is not in cachedTools (e.g. if cache was cleared) -->
-                  <option *ngIf="!cachedTools.length" [value]="item.positive_tool_id">{{ item.positive_tool_id }}</option>
-                </select>
+                <cds-dropdown
+                  [appendInline]="true"
+                  size="sm"
+                  [(ngModel)]="item.positive_tool_id"
+                  (selected)="onToolChange($event, i)"
+                  style="width: 100%; min-width: 200px;">
+                  <cds-dropdown-list [items]="toolDropdownItems"></cds-dropdown-list>
+                </cds-dropdown>
               </td>
               <td>
                 <button cdsButton="danger--ghost" size="sm" (click)="syntheticData.splice((paginationModel.currentPage-1)*(paginationModel.pageLength || 20) + i, 1); paginationModel.totalDataLength = syntheticData.length" title="Remove query">

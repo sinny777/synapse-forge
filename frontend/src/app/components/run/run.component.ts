@@ -226,11 +226,17 @@ export class RunComponent implements OnInit {
 
   /** Dropdown options */
   logLevelOptions = [
-    { content: 'DEBUG', value: 'DEBUG' },
-    { content: 'INFO', value: 'INFO' },
-    { content: 'WARNING', value: 'WARNING' },
-    { content: 'ERROR', value: 'ERROR' },
+    { content: 'DEBUG', value: 'DEBUG', selected: false },
+    { content: 'INFO', value: 'INFO', selected: false },
+    { content: 'WARNING', value: 'WARNING', selected: false },
+    { content: 'ERROR', value: 'ERROR', selected: false },
   ];
+
+  /** Dropdown items for Carbon components */
+  expansionModelDropdownItems: any[] = [];
+  heavyModelDropdownItems: any[] = [];
+  routingModelDropdownItems: any[] = [];
+  scenarioDropdownItems: any[] = [];
 
   /** Query console state */
   queryInput = '';
@@ -251,6 +257,7 @@ export class RunComponent implements OnInit {
   selectedModel: string = '';
 
   /** LLM Config Integration */
+  llmConfigs: LLMModelConfig[] = [];
   expansionConfigs: LLMModelConfig[] = [];
   heavyConfigs: LLMModelConfig[] = [];
   selectedExpansionConfigId = '';
@@ -305,9 +312,57 @@ export class RunComponent implements OnInit {
 
   loadLLMConfigs(): void {
     this.llmConfigService.configurations$.subscribe(configs => {
+      this.llmConfigs = configs;
       this.expansionConfigs = configs.filter(c => c.role === 'expansion');
       this.heavyConfigs = configs.filter(c => c.role === 'heavy');
+      
+      // Update dropdown items
+      this.expansionModelDropdownItems = [
+        { content: 'Manual Entry', value: '', selected: this.selectedExpansionConfigId === '' },
+        ...this.expansionConfigs.map(cfg => ({
+          content: `${cfg.provider}/${cfg.modelName}`,
+          value: cfg.id,
+          selected: cfg.id === this.selectedExpansionConfigId
+        }))
+      ];
+      
+      this.heavyModelDropdownItems = [
+        { content: 'Manual Entry', value: '', selected: this.selectedHeavyConfigId === '' },
+        ...this.heavyConfigs.map(cfg => ({
+          content: `${cfg.provider}/${cfg.modelName}`,
+          value: cfg.id,
+          selected: cfg.id === this.selectedHeavyConfigId
+        }))
+      ];
     });
+  }
+
+  onLogLevelChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.runtimeConfig.log_level = value;
+    this.onConfigChange();
+  }
+
+  onExpansionModelSelectDropdown(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.selectedExpansionConfigId = value;
+    this.onExpansionModelSelect();
+  }
+
+  onHeavyModelSelectDropdown(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.selectedHeavyConfigId = value;
+    this.onHeavyModelSelect();
+  }
+
+  onRoutingModelChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.selectedModel = value;
+  }
+
+  onScenarioChange(event: any): void {
+    const value = event?.item?.value || event?.value || event;
+    this.selectedScenarioId = value;
   }
 
   onExpansionModelSelect(): void {
@@ -335,6 +390,13 @@ export class RunComponent implements OnInit {
       next: (res) => {
         if (res.status === 'success') {
           this.availableModels = res.models;
+          
+          // Update routing model dropdown items
+          this.routingModelDropdownItems = this.availableModels.map(m => ({
+            content: m.name,
+            value: m.name,
+            selected: m.name === this.selectedModel
+          }));
         }
       },
       error: (err) => {
@@ -499,6 +561,13 @@ export class RunComponent implements OnInit {
       next: (response) => {
         if (response.status === 'success') {
           this.agentScenarios = response.scenarios;
+          
+          // Update scenario dropdown items
+          this.scenarioDropdownItems = this.agentScenarios.map(s => ({
+            content: s.name,
+            value: s.id,
+            selected: s.id === this.selectedScenarioId
+          }));
         }
       },
       error: (err) => {
