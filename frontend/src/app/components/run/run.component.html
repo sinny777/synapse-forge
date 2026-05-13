@@ -916,6 +916,20 @@
               </div>
 
               <div class="agent-step__body" *ngIf="step.expanded">
+                <!-- Agent LLM Input -->
+                <div class="agent-step__section" *ngIf="step.input">
+                  <p class="ibm--type-label-01">
+                    <svg cdsIcon="document" size="16"></svg>
+                    Agent Input (LLM Prompt)
+                  </p>
+                  <details style="margin-top: 0.5rem;">
+                    <summary class="ibm--type-label-01" style="cursor: pointer; color: var(--ibm-link-primary);">View Full Prompt</summary>
+                    <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--ibm-layer-02); border-radius: 4px; border-left: 3px solid var(--ibm-border-interactive);">
+                      <pre class="ibm--type-code-01" style="white-space: pre-wrap; color: var(--ibm-text-primary); margin: 0;">{{ step.input }}</pre>
+                    </div>
+                  </details>
+                </div>
+
                 <!-- Agent Reasoning -->
                 <div class="agent-step__section" *ngIf="step.reasoning">
                   <p class="ibm--type-label-01">
@@ -935,8 +949,8 @@
                     <cds-tag type="blue" size="sm" *ngIf="step.status !== 'complete'">Live</cds-tag>
                   </p>
                   <div style="padding: 0.75rem; background: var(--ibm-layer-01); border-radius: 4px; border-left: 3px solid var(--ibm-border-interactive);">
-                    <div *ngFor="let update of step.updates; let idx = index" class="ibm--type-body-compact-01" style="margin-bottom: 0.5rem;">
-                      <strong>{{ idx + 1 }}.</strong> {{ update }}
+                    <div *ngFor="let update of step.updates" class="ibm--type-body-compact-01 markdown-content" style="margin-bottom: 0.75rem;">
+                      <div [innerHTML]="update | markdown"></div>
                     </div>
                   </div>
                 </div>
@@ -1020,20 +1034,6 @@
                       </div>
                     </div>
                   </div>
-                </div>
-
-                <!-- Agent LLM Input -->
-                <div class="agent-step__section" *ngIf="step.input">
-                  <p class="ibm--type-label-01">
-                    <svg cdsIcon="document" size="16"></svg>
-                    Agent Input (LLM Prompt)
-                  </p>
-                  <details style="margin-top: 0.5rem;">
-                    <summary class="ibm--type-label-01" style="cursor: pointer; color: var(--ibm-link-primary);">View Full Prompt</summary>
-                    <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--ibm-layer-02); border-radius: 4px; border-left: 3px solid var(--ibm-border-interactive);">
-                      <pre class="ibm--type-code-01" style="white-space: pre-wrap; color: var(--ibm-text-primary); margin: 0;">{{ step.input }}</pre>
-                    </div>
-                  </details>
                 </div>
 
                 <!-- Agent Response -->

@@ -675,6 +675,42 @@ export class RunComponent implements OnInit {
     }));
   }
 
+  private normalizeAgentUpdateText(statusLabel: string, chunkText: string): string {
+    const normalizedChunk = chunkText?.replace(/\r\n/g, '\n') || '';
+    const normalizedStatus = statusLabel?.trim() || '';
+
+    if (!normalizedChunk.trim() && !normalizedStatus) {
+      return '';
+    }
+
+    if (!normalizedStatus || normalizedStatus === 'Output') {
+      return normalizedChunk;
+    }
+
+    return normalizedChunk.trim() ? `${normalizedStatus}: ${normalizedChunk}` : normalizedStatus;
+  }
+
+  private pushAgentUpdate(step: AgentStep, updateText: string): void {
+    const normalized = updateText?.trim();
+    if (!normalized) {
+      return;
+    }
+
+    if (!step.updates) {
+      step.updates = [];
+    }
+
+    const condensed = normalized.replace(/\s+/g, ' ').trim();
+    const lastUpdate = step.updates[step.updates.length - 1];
+    const lastCondensed = lastUpdate?.replace(/\s+/g, ' ').trim();
+
+    if (lastCondensed === condensed) {
+      return;
+    }
+
+    step.updates = [normalized];
+  }
+
   /**
    * Handle agent execution events
    */
@@ -766,13 +802,8 @@ export class RunComponent implements OnInit {
           this.currentAgentStep.reasoning = event.data.reasoning;
           this.currentAgentStep.status = this.currentAgentStep.toolExecutions.length > 0 ? 'executing_tools' : 'thinking';
           this.currentAgentStep.input = this.extractAgentResponseText(event.data.input || this.currentAgentStep.input);
-          if (!this.currentAgentStep.updates) {
-            this.currentAgentStep.updates = [];
-          }
           const reasoningText = this.extractAgentResponseText(event.data.reasoning);
-          if (reasoningText) {
-            this.currentAgentStep.updates.push(reasoningText);
-          }
+          this.pushAgentUpdate(this.currentAgentStep, reasoningText);
         }
         break;
 
@@ -789,20 +820,16 @@ export class RunComponent implements OnInit {
           const chunkText = this.extractAgentResponseText(event.data.chunk);
           const accumulatedText = this.extractAgentResponseText(event.data.accumulated);
 
-          if (!this.currentAgentStep.updates) {
-            this.currentAgentStep.updates = [];
-          }
-
-          if (statusLabel || chunkText) {
-            const updateText = [statusLabel, chunkText].filter(Boolean).join(': ').trim();
-            if (updateText) {
-              this.currentAgentStep.updates.push(updateText);
-            }
-          }
-
           if (accumulatedText || chunkText) {
-            this.currentAgentStep.response = accumulatedText || chunkText;
+            const nextResponse = accumulatedText || chunkText;
+            this.currentAgentStep.response = nextResponse;
           }
+
+          const updateText = this.normalizeAgentUpdateText(
+            statusLabel,
+            accumulatedText || chunkText
+          );
+          this.pushAgentUpdate(this.currentAgentStep, updateText);
 
           // Trigger change detection
           this.ngZone.run(() => {});
