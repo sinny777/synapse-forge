@@ -1,0 +1,78 @@
+##############################################################################
+# NeuralToolRouter - Infrastructure Services
+# PostgreSQL (pgvector) + Redis
+#
+# USAGE:
+#   If you already have PostgreSQL & Redis running (e.g. orby-postgres,
+#   my-redis), just configure the connection in backend/.env — these
+#   services are behind a "infra" profile and WON'T start by default.
+#
+#   docker compose up -d                # Starts NOTHING (profile not active)
+#   docker compose --profile infra up -d  # Starts PG + Redis (fresh install)
+#   docker compose --profile infra down   # Stops only profiled services
+#   docker compose --profile infra down -v  # Stops + removes volumes (DESTRUCTIVE)
+#
+# EXISTING CONTAINERS:
+#   If you already have a PostgreSQL container, just ensure pgvector is
+#   enabled in your target database:
+#     docker exec <container> psql -U <user> -d <db> \
+#       -c "CREATE EXTENSION IF NOT EXISTS vector;"
+##############################################################################
+
+services:
+  # --------------------------------------------------------------------------
+  # PostgreSQL 16 with pgvector extension
+  # Only starts with: docker compose --profile infra up -d
+  # --------------------------------------------------------------------------
+  postgres:
+    profiles: ["infra"]
+    image: pgvector/pgvector:pg16
+    container_name: ntr_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-ntr_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ntr_secret_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-neural_tool_router}
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infra/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ntr_user} -d ${POSTGRES_DB:-neural_tool_router}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # --------------------------------------------------------------------------
+  # Redis 7 (Alpine) — Caching + LangGraph checkpointing
+  # Only starts with: docker compose --profile infra up -d
+  # --------------------------------------------------------------------------
+  redis:
+    profiles: ["infra"]
+    image: redis:7-alpine
+    container_name: ntr_redis
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --appendonly yes
+      --requirepass ${REDIS_PASSWORD:-ntr_redis_2026}
+    ports:
+      - "${REDIS_PORT:-6380}:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ntr_redis_2026}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  pgdata:
+    driver: local
+  redisdata:
+    driver: local

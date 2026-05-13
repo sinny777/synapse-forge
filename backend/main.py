@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Optional, Dict, Any
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,7 +19,52 @@ print(f"[Main] Loaded environment from: {env_path}")
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger("fastapi_app")
 
-app = FastAPI(title="Neural Tool Router API")
+
+# ---------------------------------------------------------------------------
+# FastAPI Lifespan — initialise & tear down DB + Redis connections
+# ---------------------------------------------------------------------------
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Application lifespan context manager.
+    - Startup:  connect to PostgreSQL (pgvector) and Redis.
+    - Shutdown: close all connections gracefully.
+    """
+    from db.engine import init_db, close_db
+    from db.redis_pool import init_redis, close_redis
+
+    logger.info("🚀 Starting NeuralToolRouter platform services...")
+
+    # --- Startup ---
+    try:
+        await init_db()
+        logger.info("✅ PostgreSQL (pgvector) connected")
+    except Exception as e:
+        logger.warning(f"⚠️  PostgreSQL not available (running without DB): {e}")
+
+    try:
+        await init_redis()
+        logger.info("✅ Redis connected")
+    except Exception as e:
+        logger.warning(f"⚠️  Redis not available (running without cache): {e}")
+
+    yield  # Application runs here
+
+    # --- Shutdown ---
+    logger.info("🛑 Shutting down platform services...")
+    try:
+        await close_redis()
+    except Exception:
+        pass
+    try:
+        await close_db()
+    except Exception:
+        pass
+    logger.info("👋 All connections closed.")
+
+
+app = FastAPI(title="Neural Tool Router API", lifespan=lifespan)
 
 # Add CORS middleware for Angular dev server
 app.add_middleware(
