@@ -1135,8 +1135,8 @@ svg:not(.rotated) {
   background-color: var(--cds-layer, #262626);
   border: 1px solid var(--cds-border-subtle, #393939);
   margin-bottom: 2rem;
-  min-height: 500px;
-  display: block;
+  min-height: 600px;
+  display: flex;
   overflow: hidden;
 
   ::ng-deep .cds--tabs-vertical,
@@ -1145,6 +1145,7 @@ svg:not(.rotated) {
     display: flex;
     margin: 0 !important;
     padding: 0 !important;
+    min-height: 600px;
   }
 
   ::ng-deep .cds--tabs-vertical__nav,
@@ -1155,6 +1156,8 @@ svg:not(.rotated) {
     background-color: var(--cds-layer, #262626);
     margin: 0 !important;
     padding: 0 !important;
+    height: 100%;
+    align-self: stretch;
   }
 
   ::ng-deep .cds--tabs-vertical__nav-item,
@@ -1200,13 +1203,23 @@ svg:not(.rotated) {
     background-color: var(--cds-ui-background, #161616);
     flex-grow: 1;
     margin: 0 !important;
+    display: flex;
+    flex-direction: column;
+  }
+
+  ::ng-deep .cds--tab-content,
+  ::ng-deep .bx--tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
   }
 }
 
 .config-section__body--tabs {
   border-top: none;
-  padding: 1.5rem;
+  padding: 2rem;
   animation: fadeIn 0.3s ease-out;
+  max-width: 1200px;
 }
 
 @keyframes fadeIn {

@@ -44,7 +44,7 @@
   <section class="config-section" style="margin-bottom: 0;">
     <div class="config-section__header" style="cursor: default; background: var(--ibm-ui-01);">
       <div class="config-section__header-left" style="flex: 1;">
-        <div style="display: flex; align-items: center; width: 100%;">
+        <div style="display: flex; align-items: center; width: 100%; gap: 0.5rem;">
           <div style="flex: 1; max-width: 400px;">
             <cds-dropdown
               label="Select Synthetic Dataset"
@@ -56,6 +56,9 @@
               <cds-dropdown-list [items]="datasetDropdownItems"></cds-dropdown-list>
             </cds-dropdown>
           </div>
+          <button cdsButton="danger--ghost" size="sm" (click)="deleteDataset(selectedDataset)" [disabled]="!selectedDataset" title="Delete Selected Dataset" style="margin-top: 1.5rem;">
+            <svg cdsIcon="trash-can" size="16"></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -393,24 +396,6 @@
           </div>
         </div>
 
-        <div class="config-section__divider"></div>
-        <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Manage Datasets</h3>
-        <div *ngIf="availableDatasets.length === 0" style="color: var(--ibm-text-secondary); padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
-          No archived datasets found. Generate and archive a dataset to see it here.
-        </div>
-        <div *ngIf="availableDatasets.length > 0" style="border: 1px solid var(--ibm-ui-03); border-radius: 4px; overflow: hidden;">
-          <div *ngFor="let ds of availableDatasets; let last = last" [style.border-bottom]="last ? 'none' : '1px solid var(--ibm-ui-03)'" style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--ibm-ui-01);">
-            <div>
-              <strong class="ibm--type-body-02">{{ ds.name }}</strong>
-              <div class="ibm--type-helper-text-01" style="margin-top: 0.25rem;">Version: {{ ds.version }}</div>
-            </div>
-            <div style="display: flex; gap: 0.5rem;">
-              <button cdsButton="danger--ghost" size="sm" (click)="deleteDataset(ds.name)" title="Delete Dataset">
-                <svg cdsIcon="trash-can" size="16"></svg>
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
     </cds-tab>
     <cds-tab [heading]="mcpTabHeading">
