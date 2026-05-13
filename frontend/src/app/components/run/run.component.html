@@ -927,6 +927,20 @@
                   </div>
                 </div>
 
+                <!-- Agent Updates / Streaming Status -->
+                <div class="agent-step__section" *ngIf="step.updates?.length">
+                  <p class="ibm--type-label-01" style="display: flex; align-items: center; gap: 0.5rem;">
+                    <svg cdsIcon="list" size="16"></svg>
+                    Agent Status / Updates
+                    <cds-tag type="blue" size="sm" *ngIf="step.status !== 'complete'">Live</cds-tag>
+                  </p>
+                  <div style="padding: 0.75rem; background: var(--ibm-layer-01); border-radius: 4px; border-left: 3px solid var(--ibm-border-interactive);">
+                    <div *ngFor="let update of step.updates; let idx = index" class="ibm--type-body-compact-01" style="margin-bottom: 0.5rem;">
+                      <strong>{{ idx + 1 }}.</strong> {{ update }}
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Tools Retrieved -->
                 <div class="agent-step__section" *ngIf="step.toolsRetrieved.length > 0">
                   <div class="collapsible-section-header" (click)="step.toolsExpanded = !step.toolsExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--ibm-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">

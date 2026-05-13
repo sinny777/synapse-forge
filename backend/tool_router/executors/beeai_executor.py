@@ -16,6 +16,35 @@ from ..common.models import AgentScenario
 logger = logging.getLogger(__name__)
 
 
+def _extract_text_from_beeai_message(message: Any) -> str:
+    """Extract readable text from BeeAI message/content objects."""
+    if message is None:
+        return ""
+
+    if isinstance(message, str):
+        return message
+
+    if isinstance(message, list):
+        parts = [_extract_text_from_beeai_message(item) for item in message]
+        return "\n\n".join(part for part in parts if part)
+
+    for attr in ("text", "content", "message", "result", "output", "response"):
+        if hasattr(message, attr):
+            value = getattr(message, attr)
+            extracted = _extract_text_from_beeai_message(value)
+            if extracted:
+                return extracted
+
+    if isinstance(message, dict):
+        parts = [_extract_text_from_beeai_message(value) for value in message.values()]
+        return "\n\n".join(part for part in parts if part) or json.dumps(message, indent=2, default=str)
+
+    try:
+        return json.dumps(message, indent=2, default=str)
+    except Exception:
+        return str(message)
+
+
 class BeeAIExecutor(BaseAgentExecutor):
     """
     BeeAI executor that implements real agent execution.
@@ -217,6 +246,33 @@ class BeeAIExecutor(BaseAgentExecutor):
                         ]
                     }
                 )
+
+                # Expose the effective agent prompt like LangGraph
+                enriched_query = agent_config["query"]
+                if context:
+                    enriched_query = f"{agent_config['query']}\n\nContext from previous agents:\n" + "\n".join(context)
+
+                yield AgentEvent(
+                    type=EventType.AGENT_REASONING,
+                    timestamp=time.time(),
+                    data={
+                        "agent_name": agent_config["name"],
+                        "reasoning": f"Preparing BeeAI RequirementAgent with {len(tools_mcp)} retrieved tools and prior agent context."
+                    }
+                )
+
+                # Emit a prompt preview so UI can show Agent Input during execution
+                yield AgentEvent(
+                    type=EventType.AGENT_RESPONSE_CHUNK,
+                    timestamp=time.time(),
+                    data={
+                        "agent_name": agent_config["name"],
+                        "chunk": "",
+                        "accumulated": "",
+                        "status_label": "Reasoning",
+                        "input": enriched_query
+                    }
+                )
                 
                 # Convert MCP tools to BeeAI tools
                 beeai_tools = []
@@ -235,38 +291,32 @@ class BeeAIExecutor(BaseAgentExecutor):
                     tools=beeai_tools
                 )
                 
-                # Build query with context from previous agents
-                enriched_query = agent_config["query"]
-                if context:
-                    enriched_query = f"{agent_config['query']}\n\nContext from previous agents:\n" + "\n".join(context)
-                
-                # Execute agent and capture tool calls
-                agent_start = time.time()
-                
-                # Run agent (this will internally call tools)
-                response_obj = await agent.run(enriched_query)
-                
-                # Extract string response from RequirementAgentOutput
-                # BeeAI's RequirementAgent returns a RequirementAgentOutput object
-                if hasattr(response_obj, 'result'):
-                    response = str(response_obj.result)
-                elif hasattr(response_obj, 'output'):
-                    response = str(response_obj.output)
-                else:
-                    response = str(response_obj)
-                
-                agent_time = time.time() - agent_start
-                
-                # Since BeeAI doesn't expose individual tool calls easily,
-                # we'll emit tool execution events for the tools we know were used
-                for idx, tool_mcp in enumerate(tools_mcp):
-                    self.tools_executed += 1
-                    tool_time = 0.3 + (idx * 0.15)
-                    
-                    # Generate realistic arguments
+                # Execute retrieved tools to surface real tool outputs and statuses in the UI
+                tool_execution_summaries = []
+                for tool_mcp in tools_mcp:
                     tool_args = self._generate_tool_args(tool_mcp.name, agent_config["name"])
+
+                    yield AgentEvent(
+                        type=EventType.AGENT_REASONING,
+                        timestamp=time.time(),
+                        data={
+                            "agent_name": agent_config["name"],
+                            "reasoning": f"Executing tool {tool_mcp.name} with generated arguments."
+                        }
+                    )
+
+                    tool_start = time.time()
+                    tool_result = await self.router.mcp_client.call_tool(tool_mcp.id, tool_args)
+                    tool_time = time.time() - tool_start
+                    self.tools_executed += 1
+
+                    tool_success = tool_result.get("success", False)
+                    tool_result_text = _extract_text_from_beeai_message(tool_result)
+
+                    tool_execution_summaries.append(
+                        f"Tool: {tool_mcp.name}\nArguments: {json.dumps(tool_args, indent=2)}\nResult: {tool_result_text}"
+                    )
                     
-                    # Emit tool execution (with simulated result since BeeAI doesn't expose this)
                     yield AgentEvent(
                         type=EventType.TOOL_EXECUTION,
                         timestamp=time.time(),
@@ -274,22 +324,47 @@ class BeeAIExecutor(BaseAgentExecutor):
                             "agent_name": agent_config["name"],
                             "tool_name": tool_mcp.name,
                             "tool_args": tool_args,
-                            "result": {"status": "executed", "note": "Tool executed by BeeAI agent"},
+                            "result": tool_result,
                             "execution_time": tool_time,
-                            "success": True
+                            "success": tool_success
+                        }
+                    )
+                
+                # Run agent after tool results are available for richer final response
+                agent_start = time.time()
+                response_obj = await agent.run(enriched_query)
+                response = _extract_text_from_beeai_message(response_obj)
+                agent_time = time.time() - agent_start
+
+                # Simulate streaming for BeeAI final response so UI matches LangGraph experience
+                accumulated_response = ""
+                for paragraph in [part.strip() for part in response.split("\n\n") if part.strip()]:
+                    accumulated_response = f"{accumulated_response}\n\n{paragraph}".strip() if accumulated_response else paragraph
+                    yield AgentEvent(
+                        type=EventType.AGENT_RESPONSE_CHUNK,
+                        timestamp=time.time(),
+                        data={
+                            "agent_name": agent_config["name"],
+                            "chunk": f"{paragraph}\n\n",
+                            "accumulated": accumulated_response,
+                            "status_label": "Output",
+                            "input": enriched_query
                         }
                     )
                 
                 # Add response to context for next agent
                 context.append(f"{agent_config['name']}: {response}")
                 
-                # Emit agent response
+                # Emit final agent response
                 yield AgentEvent(
                     type=EventType.AGENT_RESPONSE,
                     timestamp=time.time(),
                     data={
                         "agent_name": agent_config["name"],
-                        "response": response
+                        "input": enriched_query,
+                        "response": response,
+                        "execution_time": agent_time,
+                        "tool_execution_summary": tool_execution_summaries
                     }
                 )
                 
@@ -327,27 +402,24 @@ class BeeAIExecutor(BaseAgentExecutor):
             logger.error(f"Cleanup error: {e}")
     
     def _generate_tool_args(self, tool_name: str, agent_name: str) -> Dict[str, Any]:
-        """Generate realistic tool arguments based on tool name and agent"""
+        """Generate valid tool arguments based on the Mediclaim MCP tool schemas."""
         args_map = {
-            "get_policy_details": {"policy_id": "POL-999"},
+            "get_policy_details": {"policy_number": "POL-999"},
             "check_coverage_limits": {
-                "policy_id": "POL-999",
-                "procedure": "knee_replacement"
+                "policy_number": "POL-999",
+                "treatment_type": "knee_replacement"
             },
-            "get_discharge_summary": {"patient_id": "1024"},
-            "verify_hospital_bills": {
-                "patient_id": "1024",
-                "bill_id": "BILL-2024-1024"
+            "fetch_discharge_summary": {"patient_id": "1024"},
+            "verify_hospital_bills": {"patient_id": "1024"},
+            "calculate_claimable_amount": {
+                "total_bill_amount": 285000.0,
+                "coverage_limit": 300000.0,
+                "co_pay_percentage": 10.0
             },
-            "calculate_claim_amount": {
-                "policy_id": "POL-999",
+            "submit_mediclaim": {
+                "policy_number": "POL-999",
                 "patient_id": "1024",
-                "total_cost": 42000
-            },
-            "submit_claim": {
-                "policy_id": "POL-999",
-                "patient_id": "1024",
-                "claim_amount": 42000
+                "claim_amount": 256500.0
             }
         }
         

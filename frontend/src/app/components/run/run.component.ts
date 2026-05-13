@@ -122,6 +122,7 @@ interface AgentStep {
   reasoning: string;
   toolExecutions: Array<{tool: string, args: any, result: any, time: number, success: boolean, expanded?: boolean}>;
   input?: string;  // LLM prompt input
+  updates?: string[];
   response: string;
   timestamp: number;
   startTime?: number;
@@ -598,6 +599,82 @@ export class RunComponent implements OnInit {
     }
   }
 
+
+  private extractAgentResponseText(response: any): string {
+    if (response == null) {
+      return '';
+    }
+
+    if (typeof response === 'string') {
+      return response;
+    }
+
+    if (Array.isArray(response)) {
+      return response
+        .map((item) => this.extractAgentResponseText(item))
+        .filter(Boolean)
+        .join('\n\n');
+    }
+
+    if (typeof response === 'object') {
+      const prioritizedKeys = ['text', 'content', 'message', 'result', 'output', 'response'];
+      for (const key of prioritizedKeys) {
+        if (key in response) {
+          const extracted = this.extractAgentResponseText((response as any)[key]);
+          if (extracted) {
+            return extracted;
+          }
+        }
+      }
+
+      const values = Object.values(response as Record<string, unknown>)
+        .map((value) => this.extractAgentResponseText(value))
+        .filter(Boolean);
+
+      if (values.length > 0) {
+        return values.join('\n\n');
+      }
+
+      try {
+        return JSON.stringify(response, null, 2);
+      } catch {
+        return String(response);
+      }
+    }
+
+    return String(response);
+  }
+
+  private normalizeToolResult(result: any): any {
+    if (result == null) {
+      return 'Success';
+    }
+
+    if (typeof result === 'string') {
+      return result;
+    }
+
+    if (typeof result === 'object' && Array.isArray(result.content)) {
+      const textContent = result.content
+        .filter((item: any) => item?.type === 'text' && item?.text)
+        .map((item: any) => item.text)
+        .join('\n\n');
+
+      if (textContent) {
+        return textContent;
+      }
+    }
+
+    return result;
+  }
+
+  private normalizeToolList(tools: any[] = []): AgentStep['toolsRetrieved'] {
+    return tools.map((tool) => ({
+      ...tool,
+      score: typeof tool?.score === 'number' ? tool.score : Number(tool?.score || 0)
+    }));
+  }
+
   /**
    * Handle agent execution events
    */
@@ -631,6 +708,7 @@ export class RunComponent implements OnInit {
           toolsRetrieved: [],
           reasoning: '',
           toolExecutions: [],
+          updates: [],
           response: '',
           timestamp: event.timestamp,
           startTime: Date.now(),
@@ -655,7 +733,7 @@ export class RunComponent implements OnInit {
         // Tools retrieved by router
         if (this.currentAgentStep) {
           this.currentAgentStep.status = 'retrieving_tools';
-          this.currentAgentStep.toolsRetrieved = event.data.tools || [];
+          this.currentAgentStep.toolsRetrieved = this.normalizeToolList(event.data.tools || []);
         }
         // Update metrics
         if (this.agentExecutionData.metrics) {
@@ -670,7 +748,7 @@ export class RunComponent implements OnInit {
           this.currentAgentStep.toolExecutions.push({
             tool: event.data.tool_name,
             args: event.data.tool_args,
-            result: event.data.result || 'Success',
+            result: this.normalizeToolResult(event.data.result),
             time: event.data.execution_time,
             success: event.data.success,
             expanded: false // Start collapsed
@@ -686,15 +764,46 @@ export class RunComponent implements OnInit {
         // Agent reasoning/thought process
         if (this.currentAgentStep) {
           this.currentAgentStep.reasoning = event.data.reasoning;
+          this.currentAgentStep.status = this.currentAgentStep.toolExecutions.length > 0 ? 'executing_tools' : 'thinking';
+          this.currentAgentStep.input = this.extractAgentResponseText(event.data.input || this.currentAgentStep.input);
+          if (!this.currentAgentStep.updates) {
+            this.currentAgentStep.updates = [];
+          }
+          const reasoningText = this.extractAgentResponseText(event.data.reasoning);
+          if (reasoningText) {
+            this.currentAgentStep.updates.push(reasoningText);
+          }
         }
         break;
 
       case 'agent_response_chunk':
-        // Streaming response chunk
+        // Streaming response chunk / interim status
         if (this.currentAgentStep) {
           this.currentAgentStep.status = 'thinking';
-          // Append chunk to response (streaming)
-          this.currentAgentStep.response = event.data.accumulated || event.data.chunk;
+          const inputText = this.extractAgentResponseText(event.data.input);
+          if (inputText) {
+            this.currentAgentStep.input = inputText;
+          }
+
+          const statusLabel = this.extractAgentResponseText(event.data.status_label);
+          const chunkText = this.extractAgentResponseText(event.data.chunk);
+          const accumulatedText = this.extractAgentResponseText(event.data.accumulated);
+
+          if (!this.currentAgentStep.updates) {
+            this.currentAgentStep.updates = [];
+          }
+
+          if (statusLabel || chunkText) {
+            const updateText = [statusLabel, chunkText].filter(Boolean).join(': ').trim();
+            if (updateText) {
+              this.currentAgentStep.updates.push(updateText);
+            }
+          }
+
+          if (accumulatedText || chunkText) {
+            this.currentAgentStep.response = accumulatedText || chunkText;
+          }
+
           // Trigger change detection
           this.ngZone.run(() => {});
         }
@@ -704,8 +813,9 @@ export class RunComponent implements OnInit {
         // Agent final response (complete)
         if (this.currentAgentStep) {
           this.currentAgentStep.status = 'complete';
-          this.currentAgentStep.response = event.data.response;
-          this.currentAgentStep.input = event.data.input; // Store LLM input
+          const normalizedResponse = this.extractAgentResponseText(event.data.response);
+          this.currentAgentStep.response = normalizedResponse;
+          this.currentAgentStep.input = this.extractAgentResponseText(event.data.input); // Store LLM input
           this.currentAgentStep.endTime = Date.now();
           // Calculate execution time for this step
           if (this.currentAgentStep.startTime) {
@@ -715,7 +825,7 @@ export class RunComponent implements OnInit {
           this.currentAgentStep.expanded = false;
           // Store as final response (will be overwritten by each agent, keeping the last one)
           if (this.agentExecutionData) {
-            this.agentExecutionData.finalResponse = event.data.response;
+            this.agentExecutionData.finalResponse = normalizedResponse;
           }
         }
         // Update metrics

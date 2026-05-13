@@ -108,16 +108,11 @@ class MCPConfig:
     # MCP server configurations
     # Format: {"server_name": {"command": "...", "args": [...], "env": {...}}}
     servers: Dict[str, Dict[str, Any]] = field(default_factory=lambda: {
-        # "filesystem": {
-        #     "command": "npx",
-        #     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
-        #     "transport": "stdio"
-        # },
-        # "mediclaim": {
-        #     "command": "python",
-        #     "args": [str(Path(__file__).parent.parent.parent / "examples" / "beeai_mediclaim_processing" / "mock_fastmcp_server.py")],
-        #     "transport": "stdio"
-        # },
+        "mediclaim": {
+            "command": "python",
+            "args": [str(Path(__file__).parent.parent.parent / "examples" / "beeai_mediclaim_processing" / "mock_fastmcp_server.py")],
+            "transport": "stdio"
+        },
         "uhnwc_banking": {
             "command": "python",
             "args": [str(Path(__file__).parent.parent.parent / "examples" / "langgraph_UHNW_banking" / "mock_fastmcp_server.py")],
