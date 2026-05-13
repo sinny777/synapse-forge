@@ -75,7 +75,7 @@
 <ng-template #embeddingTabHeading>
   <div class="tab-header-content">
     <svg cdsIcon="machine-learning-model" size="16"></svg>
-    <span>Embedding Model</span>
+    <span>Embedding Configuration</span>
   </div>
 </ng-template>
 
@@ -266,24 +266,6 @@
     </div>
 
     <div class="config-section__body" *ngIf="sections['embedding']">
-      <!-- Model Selection for Retraining -->
-      <div class="config-row" style="margin-bottom: 1.5rem; padding: 1rem; background: #262626; border-radius: 4px;">
-        <div class="config-field config-field--wide">
-          <cds-label>
-            Select Model to Retrain (Optional)
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>Select an existing model to continue training, or leave empty to train from the base model.</p>
-            </cds-toggletip>
-            <select cdsSelect [(ngModel)]="selectedTrainingModel" (ngModelChange)="onTrainingModelSelect()">
-              <option value="">Train New Model from Base</option>
-              <option *ngFor="let model of availableModels" [value]="model.name">{{ model.name }} (v{{ model.version }})</option>
-            </select>
-          </cds-label>
-        </div>
-      </div>
-
-      <div class="config-section__divider"></div>
 
       <div class="config-row">
         <div class="config-field config-field--wide"
@@ -295,32 +277,6 @@
               <p cdsToggletipContent>{{ tooltips['base_model_name'] }}</p>
             </cds-toggletip>
             <input cdsText type="text" [(ngModel)]="embeddingConfig.base_model_name"
-              (ngModelChange)="onConfigChange()" />
-          </cds-label>
-        </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('embedding', 'device')">
-          <cds-label>
-            Device
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['device'] }}</p>
-            </cds-toggletip>
-            <select cdsSelect [(ngModel)]="embeddingConfig.device" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of deviceOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
-          </cds-label>
-        </div>
-      </div>
-      <div class="config-row">
-        <div class="config-field config-field--wide"
-          [class.config-field--modified]="isFieldModified('embedding', 'fine_tuned_model_dir')">
-          <cds-label>
-            Fine-tuned Model Directory
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['fine_tuned_model_dir'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="embeddingConfig.fine_tuned_model_dir"
               (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
@@ -337,61 +293,102 @@
         </div>
       </div>
 
-      <!-- Model Archive Section -->
       <div class="config-section__divider"></div>
-      <p class="ibm--type-label-01 config-subsection-label">Archive Trained Model</p>
-      
+      <p class="ibm--type-label-01 config-subsection-label">Vector Store Configuration</p>
+
       <div class="config-row">
-        <div class="config-field">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'store_type')">
           <cds-label>
-            Model Name
-            <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" />
+            Store Type
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['store_type'] }}</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="vectorStoreConfig.store_type" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of storeTypeOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
           </cds-label>
         </div>
-        <div class="config-field">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'top_k')">
           <cds-label>
-            Version
-            <input cdsText type="text" [(ngModel)]="archiveVersion" placeholder="1.0" />
+            Top-K Results
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['top_k'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.top_k" (ngModelChange)="onConfigChange()"
+              min="1" max="50" />
           </cds-label>
         </div>
-        <div class="config-field" style="display: flex; align-items: flex-end;">
-          <button cdsButton="primary" size="sm" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)"
-            [disabled]="isArchiving || !archiveName || !archiveVersion">
-            <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
-            {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
-          </button>
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('vectorStore', 'similarity_threshold')">
+          <cds-label>
+            Similarity Threshold
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['similarity_threshold'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.similarity_threshold"
+              (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
+          </cds-label>
         </div>
       </div>
 
-      <!-- Available Models List -->
       <div class="config-section__divider"></div>
-      <p class="ibm--type-label-01 config-subsection-label">Available Models</p>
-      
-      <div class="mcp-table-wrapper" *ngIf="availableModels.length > 0">
-        <table class="mcp-table">
-          <thead>
-            <tr>
-              <th>Model Name</th>
-              <th>Version</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let model of availableModels">
-              <td>{{ model.name }}</td>
-              <td><cds-tag type="gray" size="sm">v{{ model.version }}</cds-tag></td>
-              <td>
-                <button cdsButton="danger--ghost" size="sm" (click)="deleteModel(model.name)" title="Delete model">
-                  <svg cdsIcon="trash-can" size="16"></svg>
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+      <p class="ibm--type-label-01 config-subsection-label">FAISS Settings</p>
+      <div class="config-row">
+        <div class="config-field config-field--wide">
+          <cds-label>
+            FAISS Index Path
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['faiss_index_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.faiss_index_path"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field">
+          <cds-label>
+            FAISS Index Type
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['faiss_index_type'] }}</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="vectorStoreConfig.faiss_index_type" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of faissIndexOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
       </div>
-      <p *ngIf="availableModels.length === 0" class="ibm--type-body-compact-01" style="color: #8d8d8d; margin-top: 0.5rem;">
-        No archived models available. Train and archive a model to see it here.
-      </p>
+
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">ChromaDB Settings</p>
+      <div class="config-row">
+        <div class="config-field config-field--wide">
+          <cds-label>
+            ChromaDB Path
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['chromadb_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_path"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field">
+          <cds-label>
+            Collection Name
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['chromadb_collection_name'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_collection_name"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -645,62 +642,32 @@
     <cds-tab [heading]="modelManagementTabHeading" [cacheActive]="true">
       <div class="config-section__body config-section__body--tabs">
         
-        <!-- New Model: Name and Version Input -->
-        <div *ngIf="!selectedTrainingModel">
-          <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">New Model Configuration</h3>
-          <div class="config-row" style="margin-bottom: 1.5rem;">
-            <div class="config-field">
-              <cds-label>
-                Model Name
-                <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" />
-              </cds-label>
-            </div>
-            <div class="config-field">
-              <cds-label>
-                Version
-                <input cdsText type="text" [(ngModel)]="archiveVersion" placeholder="1.0" />
-              </cds-label>
-            </div>
-          </div>
-          <p class="ibm--type-helper-text-01" style="color: var(--ibm-text-secondary); margin-top: 0.5rem;">
-            Configure the training settings in other tabs and click "Start Training" to create this model.
+        <!-- Model Name and Version (Required for Training) -->
+        <div style="background: var(--ibm-ui-02); padding: 1rem; border-radius: 4px; border-left: 3px solid var(--ibm-interactive); margin-bottom: 1.5rem;">
+          <h3 class="ibm--type-heading-01" style="margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem;">
+            <svg cdsIcon="information--filled" size="16" style="fill: var(--ibm-interactive);"></svg>
+            {{ selectedTrainingModel ? 'Retrain Existing Model' : 'New Model Configuration' }}
+          </h3>
+          <p class="ibm--type-helper-text-01" style="color: var(--ibm-text-secondary); margin-bottom: 1rem;">
+            {{ selectedTrainingModel ? 'The model will be saved with an updated version after training.' : 'Provide a name and version for your new model. These are required before training.' }}
           </p>
-        </div>
-
-        <!-- Existing Model: Archive Options -->
-        <div *ngIf="selectedTrainingModel">
-          <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Archive Current Model</h3>
-          <div class="config-row" style="margin-bottom: 1.5rem;">
+          <div class="config-row">
             <div class="config-field">
               <cds-label>
-                Model Name
-                <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" />
+                Model Name <span style="color: var(--ibm-support-error);">*</span>
+                <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" [disabled]="!!selectedTrainingModel" />
               </cds-label>
             </div>
             <div class="config-field">
               <cds-label>
-                Version
+                Version <span style="color: var(--ibm-support-error);">*</span>
                 <input cdsText type="text" [(ngModel)]="archiveVersion" placeholder="1.0" />
               </cds-label>
             </div>
-            <div class="config-field" style="display: flex; align-items: flex-end; gap: 0.5rem;">
-              <button cdsButton="primary" size="sm" (click)="archiveModel(embeddingConfig.fine_tuned_model_dir)" [disabled]="isArchiving || !archiveName || !archiveVersion">
-                <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
-                {{ isArchiving ? 'Archiving...' : 'Archive Model' }}
-              </button>
-            </div>
           </div>
-
-          <div class="config-section__divider"></div>
-          <h3 class="ibm--type-heading-01" style="margin-bottom: 1rem;">Current Model Info</h3>
-          <div style="padding: 1rem; background: var(--ibm-ui-01); border-radius: 4px;">
-            <p class="ibm--type-body-01" style="margin-bottom: 0.5rem;">
-              <strong>Selected Model:</strong> {{ selectedTrainingModel }}
-            </p>
-            <p class="ibm--type-helper-text-01">
-              This model will be used as the base for retraining
-            </p>
-          </div>
+          <p class="ibm--type-helper-text-01" style="color: var(--ibm-text-secondary); margin-top: 0.5rem;" *ngIf="selectedTrainingModel">
+            <strong>Base Model:</strong> {{ selectedTrainingModel }} → <strong>New Version:</strong> v{{ archiveVersion }}
+          </p>
         </div>
 
         <div class="config-section__divider"></div>
@@ -860,32 +827,6 @@
               (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
-        <div class="config-field" [class.config-field--modified]="isFieldModified('embedding', 'device')">
-          <cds-label>
-            Device
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['device'] }}</p>
-            </cds-toggletip>
-            <select cdsSelect [(ngModel)]="embeddingConfig.device" (ngModelChange)="onConfigChange()">
-              <option *ngFor="let opt of deviceOptions" [value]="opt.value">{{ opt.content }}</option>
-            </select>
-          </cds-label>
-        </div>
-      </div>
-      <div class="config-row">
-        <div class="config-field config-field--wide"
-          [class.config-field--modified]="isFieldModified('embedding', 'fine_tuned_model_dir')">
-          <cds-label>
-            Fine-tuned Model Directory
-            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
-                  cdsIcon="information--filled" size="16"></svg></button>
-              <p cdsToggletipContent>{{ tooltips['fine_tuned_model_dir'] }}</p>
-            </cds-toggletip>
-            <input cdsText type="text" [(ngModel)]="embeddingConfig.fine_tuned_model_dir"
-              (ngModelChange)="onConfigChange()" />
-          </cds-label>
-        </div>
         <div class="config-field">
           <cds-label>
             Embedding Dimensions
@@ -895,6 +836,103 @@
             </cds-toggletip>
             <input cdsText type="number" [(ngModel)]="embeddingConfig.embedding_dim" (ngModelChange)="onConfigChange()"
               placeholder="Auto-detected" />
+          </cds-label>
+        </div>
+      </div>
+
+      <div class="config-section__divider"></div>
+      <p class="ibm--type-label-01 config-subsection-label">Vector Store Configuration</p>
+
+      <div class="config-row">
+        <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'store_type')">
+          <cds-label>
+            Store Type
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['store_type'] }}</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="vectorStoreConfig.store_type" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of storeTypeOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'top_k')">
+          <cds-label>
+            Top-K Results
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['top_k'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.top_k" (ngModelChange)="onConfigChange()"
+              min="1" max="50" />
+          </cds-label>
+        </div>
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('vectorStore', 'similarity_threshold')">
+          <cds-label>
+            Similarity Threshold
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['similarity_threshold'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="number" [(ngModel)]="vectorStoreConfig.similarity_threshold"
+              (ngModelChange)="onConfigChange()" step="0.05" min="0" max="1" />
+          </cds-label>
+        </div>
+      </div>
+
+      <!-- FAISS Settings -->
+      <div class="config-row" *ngIf="vectorStoreConfig.store_type === 'faiss'">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('vectorStore', 'faiss_index_path')">
+          <cds-label>
+            FAISS Index Path
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['faiss_index_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.faiss_index_path"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field" [class.config-field--modified]="isFieldModified('vectorStore', 'faiss_index_type')">
+          <cds-label>
+            FAISS Index Type
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['faiss_index_type'] }}</p>
+            </cds-toggletip>
+            <select cdsSelect [(ngModel)]="vectorStoreConfig.faiss_index_type" (ngModelChange)="onConfigChange()">
+              <option *ngFor="let opt of faissIndexOptions" [value]="opt.value">{{ opt.content }}</option>
+            </select>
+          </cds-label>
+        </div>
+      </div>
+
+      <!-- ChromaDB Settings -->
+      <div class="config-row" *ngIf="vectorStoreConfig.store_type === 'chromadb'">
+        <div class="config-field config-field--wide"
+          [class.config-field--modified]="isFieldModified('vectorStore', 'chromadb_path')">
+          <cds-label>
+            ChromaDB Path
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['chromadb_path'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_path"
+              (ngModelChange)="onConfigChange()" />
+          </cds-label>
+        </div>
+        <div class="config-field"
+          [class.config-field--modified]="isFieldModified('vectorStore', 'chromadb_collection_name')">
+          <cds-label>
+            Collection Name
+            <cds-toggletip align="bottom"><button cdsToggletipButton ariaLabel="Show info"><svg
+                  cdsIcon="information--filled" size="16"></svg></button>
+              <p cdsToggletipContent>{{ tooltips['chromadb_collection_name'] }}</p>
+            </cds-toggletip>
+            <input cdsText type="text" [(ngModel)]="vectorStoreConfig.chromadb_collection_name"
+              (ngModelChange)="onConfigChange()" />
           </cds-label>
         </div>
       </div>

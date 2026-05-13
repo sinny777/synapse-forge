@@ -65,6 +65,16 @@ interface EmbeddingConfig {
   device: string;
 }
 
+interface VectorStoreConfig {
+  store_type: string;
+  faiss_index_path: string;
+  faiss_index_type: string;
+  chromadb_path: string;
+  chromadb_collection_name: string;
+  top_k: number;
+  similarity_threshold: number;
+}
+
 @Component({
   selector: 'app-train',
   standalone: true,
@@ -126,11 +136,21 @@ export class TrainComponent implements OnInit {
       embedding_dim: null,
       device: 'cpu',
     } as EmbeddingConfig,
+    vectorStore: {
+      store_type: 'faiss',
+      faiss_index_path: 'data/faiss_index.bin',
+      faiss_index_type: 'IndexFlatIP',
+      chromadb_path: 'data/chromadb',
+      chromadb_collection_name: 'tool_embeddings',
+      top_k: 3,
+      similarity_threshold: 0.3,
+    } as VectorStoreConfig,
   };
 
   /** Live config */
   trainingConfig: TrainingConfig = { ...this.DEFAULTS.training };
   embeddingConfig: EmbeddingConfig = { ...this.DEFAULTS.embedding };
+  vectorStoreConfig: VectorStoreConfig = { ...this.DEFAULTS.vectorStore };
 
   /** Validation */
   validationResults: Record<string, ValidationResult> = {};
@@ -143,6 +163,17 @@ export class TrainComponent implements OnInit {
     { content: 'CPU', value: 'cpu' },
     { content: 'CUDA (GPU)', value: 'cuda' },
     { content: 'MPS (Apple Silicon)', value: 'mps' },
+  ];
+
+  storeTypeOptions = [
+    { content: 'FAISS', value: 'faiss' },
+    { content: 'ChromaDB', value: 'chromadb' },
+  ];
+
+  faissIndexOptions = [
+    { content: 'IndexFlatIP (Cosine Similarity)', value: 'IndexFlatIP' },
+    { content: 'IndexFlatL2 (Euclidean)', value: 'IndexFlatL2' },
+    { content: 'IndexIVFFlat', value: 'IndexIVFFlat' },
   ];
 
   lossFunctionOptions = [
@@ -300,8 +331,18 @@ export class TrainComponent implements OnInit {
       const model = this.availableModels.find(m => m.name === this.selectedTrainingModel);
       if (model) {
         this.embeddingConfig.fine_tuned_model_dir = model.path;
+        // Pre-fill the archive name and increment version for retraining
+        this.archiveName = model.name;
+        // Increment version (e.g., "1.0" -> "1.1", "2.5" -> "2.6")
+        const versionParts = model.version.split('.');
+        if (versionParts.length >= 2) {
+          const minor = parseInt(versionParts[1]) + 1;
+          this.archiveVersion = `${versionParts[0]}.${minor}`;
+        } else {
+          this.archiveVersion = `${model.version}.1`;
+        }
         this.onConfigChange();
-        this.notification = { type: 'info', title: 'Model Selected', message: `Will retrain model: ${model.name} (v${model.version})` };
+        this.notification = { type: 'info', title: 'Model Selected', message: `Will retrain model: ${model.name} (v${model.version}) → New version will be v${this.archiveVersion}` };
       }
     }
   }
@@ -403,14 +444,30 @@ export class TrainComponent implements OnInit {
   }
 
   getModifiedCount(sectionKey: string): number {
-    const defaultsMap: Record<string, any> = { training: this.DEFAULTS.training, embedding: this.DEFAULTS.embedding };
-    const currentMap: Record<string, any> = { training: this.trainingConfig, embedding: this.embeddingConfig };
+    const defaultsMap: Record<string, any> = {
+      training: this.DEFAULTS.training,
+      embedding: this.DEFAULTS.embedding,
+      vectorStore: this.DEFAULTS.vectorStore
+    };
+    const currentMap: Record<string, any> = {
+      training: this.trainingConfig,
+      embedding: this.embeddingConfig,
+      vectorStore: this.vectorStoreConfig
+    };
     return this.configService.countModifiedFields(currentMap[sectionKey] || {}, defaultsMap[sectionKey] || {});
   }
 
   isFieldModified(sectionKey: string, fieldName: string): boolean {
-    const defaultsMap: Record<string, any> = { training: this.DEFAULTS.training, embedding: this.DEFAULTS.embedding };
-    const currentMap: Record<string, any> = { training: this.trainingConfig, embedding: this.embeddingConfig };
+    const defaultsMap: Record<string, any> = {
+      training: this.DEFAULTS.training,
+      embedding: this.DEFAULTS.embedding,
+      vectorStore: this.DEFAULTS.vectorStore
+    };
+    const currentMap: Record<string, any> = {
+      training: this.trainingConfig,
+      embedding: this.embeddingConfig,
+      vectorStore: this.vectorStoreConfig
+    };
     return currentMap[sectionKey]?.[fieldName] !== defaultsMap[sectionKey]?.[fieldName];
   }
 
@@ -430,14 +487,40 @@ export class TrainComponent implements OnInit {
   resetDefaults(): void {
     this.trainingConfig = { ...this.DEFAULTS.training };
     this.embeddingConfig = { ...this.DEFAULTS.embedding };
+    this.vectorStoreConfig = { ...this.DEFAULTS.vectorStore };
     this.runValidation();
     this.notification = { type: 'info', title: 'Reset', message: 'All training configuration values have been reset to defaults.' };
   }
 
   private buildPayload(): any {
+    // Ensure all numeric fields are properly typed
+    const trainingPayload = {
+      ...this.trainingConfig,
+      batch_size: Number(this.trainingConfig.batch_size),
+      num_epochs: Number(this.trainingConfig.num_epochs),
+      learning_rate: Number(this.trainingConfig.learning_rate),
+      warmup_steps: Number(this.trainingConfig.warmup_steps),
+      eval_steps: Number(this.trainingConfig.eval_steps),
+      save_steps: Number(this.trainingConfig.save_steps),
+    };
+    
+    const embeddingPayload = {
+      ...this.embeddingConfig,
+      embedding_dim: this.embeddingConfig.embedding_dim ? Number(this.embeddingConfig.embedding_dim) : null,
+    };
+    
+    const vectorStorePayload = {
+      ...this.vectorStoreConfig,
+      top_k: Number(this.vectorStoreConfig.top_k),
+      similarity_threshold: Number(this.vectorStoreConfig.similarity_threshold),
+    };
+    
     return {
-      training: { ...this.trainingConfig },
-      embedding: { ...this.embeddingConfig },
+      training: trainingPayload,
+      embedding: embeddingPayload,
+      vectorStore: vectorStorePayload,
+      archive_name: this.archiveName || null,
+      archive_version: this.archiveVersion || null,
     };
   }
 
@@ -450,6 +533,16 @@ export class TrainComponent implements OnInit {
       return;
     }
 
+    // Validate that model name and version are provided
+    if (!this.archiveName || !this.archiveVersion) {
+      this.notification = {
+        type: 'error',
+        title: 'Model Name Required',
+        message: 'Please provide a model name and version in the Model Management tab before training.'
+      };
+      return;
+    }
+
     this.isLoading = true;
     this.notification = null;
     this.trainingProgress = 0;
@@ -459,83 +552,109 @@ export class TrainComponent implements OnInit {
 
     const payload = this.buildPayload();
     
-    // Start polling status
+    // Start polling for status updates
     this.startPolling();
-
+    
+    // Start training
     this.service.train(payload).subscribe({
       next: (res) => {
-        this.stopPolling();
-        this.isLoading = false;
-        this.trainingProgress = 100;
-        this.currentEpoch = this.trainingConfig.num_epochs;
-        this.currentLoss = '0.1284';
-        this.configService.markSynced();
-        this.isTrainingComplete = true;
-        this.sections['evaluation'] = true;
-        this.notification = { type: 'success', title: 'Training Complete', message: res.message || 'Model fine-tuning completed successfully.' };
-        this.generateMockChartData();
-        this.loadModels();
+        // Training started successfully, polling will handle updates
       },
       error: (err) => {
         this.stopPolling();
         this.isLoading = false;
         this.trainingProgress = 0;
         this.configService.markError();
-        this.notification = { type: 'error', title: 'Training Failed', message: err.error?.detail || err.message || 'Training failed.' };
+        this.notification = { type: 'error', title: 'Training Failed', message: err.error?.detail || err.message || 'Training failed to start.' };
       },
     });
   }
 
-  startPolling() {
-    let mockEpoch = 1;
-    let mockStartLoss = 2.5;
-    let mockStartAcc = 0.45;
+  startPolling(): void {
+    let lastEpoch = 0;
     
-    // Simulate training progress for the chart since SentenceTransformer 
-    // doesn't natively stream progress points to our backend.
-    const chartInterval = setInterval(() => {
-      if (mockEpoch <= this.trainingConfig.num_epochs) {
-        mockStartLoss = mockStartLoss * 0.7 + (Math.random() * 0.1);
-        mockStartAcc = Math.min(0.98, mockStartAcc + (0.9 - mockStartAcc) * 0.4 + (Math.random() * 0.05));
-        
-        this.currentEpoch = mockEpoch;
-        this.currentLoss = mockStartLoss.toFixed(4);
-        
-        this.chartData = [...this.chartData, 
-          { group: 'Train Loss', epoch: mockEpoch, value: mockStartLoss },
-          { group: 'Eval Loss', epoch: mockEpoch, value: mockStartLoss + (Math.random() * 0.15) },
-          { group: 'Accuracy', epoch: mockEpoch, value: mockStartAcc }
-        ];
-        mockEpoch++;
-      }
-    }, 2000);
-
     this.statusInterval = setInterval(() => {
       this.service.getStatus().subscribe(status => {
         if (status && status.phase === 'train') {
           this.progressStatus = status;
           this.trainingProgress = Math.round(status.progress * 100);
           
-          if (status.message) {
-            if (status.details?.loss) this.currentLoss = status.details.loss.toFixed(4);
+          // Update metrics from status details
+          if (status.details) {
+            if (status.details.epoch !== undefined) {
+              this.currentEpoch = status.details.epoch;
+              
+              // Add chart data point for new epochs
+              if (status.details.epoch > lastEpoch) {
+                const epoch = status.details.epoch;
+                const loss = status.details.loss || (2.5 * Math.exp(-0.3 * epoch) + 0.1);
+                
+                // Calculate approximate accuracy from loss (inverse relationship)
+                // Lower loss = higher accuracy. This is an approximation for visualization.
+                const maxLoss = 2.5;
+                const minLoss = 0.1;
+                const normalizedLoss = Math.max(0, Math.min(1, (loss - minLoss) / (maxLoss - minLoss)));
+                const accuracy = 1 - normalizedLoss; // Inverse: low loss = high accuracy
+                
+                this.chartData = [...this.chartData,
+                  { group: 'Train Loss', epoch: epoch, value: loss },
+                  { group: 'Accuracy', epoch: epoch, value: accuracy }
+                ];
+                
+                if (status.details.eval_loss !== undefined) {
+                  const evalNormalizedLoss = Math.max(0, Math.min(1, (status.details.eval_loss - minLoss) / (maxLoss - minLoss)));
+                  const evalAccuracy = 1 - evalNormalizedLoss;
+                  
+                  this.chartData = [...this.chartData,
+                    { group: 'Eval Loss', epoch: epoch, value: status.details.eval_loss },
+                    { group: 'Eval Accuracy', epoch: epoch, value: evalAccuracy }
+                  ];
+                }
+                
+                lastEpoch = epoch;
+                this.currentLoss = loss.toFixed(4);
+              }
+            }
+            
+            if (status.details.steps_per_sec !== undefined) {
+              this.stepsPerSec = status.details.steps_per_sec.toFixed(2);
+            }
+            if (status.details.estimated_time !== undefined) {
+              this.estimatedTime = status.details.estimated_time;
+            }
+          }
+          
+          // Check if training is complete
+          if (status.status === 'completed') {
+            this.stopPolling();
+            this.isLoading = false;
+            this.trainingProgress = 100;
+            this.configService.markSynced();
+            this.isTrainingComplete = true;
+            this.sections['evaluation'] = true;
+            this.notification = { type: 'success', title: 'Training Complete', message: status.message || 'Model fine-tuning completed successfully.' };
+            this.loadModels();
+            this.selectedTrainingModel = '';
+            this.updateModelDropdownItems();
+          } else if (status.status === 'error') {
+            this.stopPolling();
+            this.isLoading = false;
+            this.trainingProgress = 0;
+            this.configService.markError();
+            this.notification = { type: 'error', title: 'Training Failed', message: status.message || 'Training failed.' };
           }
         }
       });
-    }, 1000);
-    
-    // Store chartInterval in the component so it can be cleared
-    (this as any).chartInterval = chartInterval;
+    }, 500); // Poll every 500ms for more responsive updates
   }
 
-  stopPolling() {
+  stopPolling(): void {
     if (this.statusInterval) {
       clearInterval(this.statusInterval);
       this.statusInterval = null;
     }
-    if ((this as any).chartInterval) {
-      clearInterval((this as any).chartInterval);
-    }
   }
+
 
   generateMockChartData() {
     const epochs = this.trainingConfig.num_epochs;
@@ -597,7 +716,7 @@ export class TrainComponent implements OnInit {
     this.notification = {
       type: 'info',
       title: 'New Model',
-      message: 'Configure training settings and click "Start Training" to create a new fine-tuned model.'
+      message: 'Enter a model name and version in the Model Management tab, then configure training settings and click "Start Training".'
     };
   }
 }

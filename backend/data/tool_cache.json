@@ -1,6 +1,272 @@
 {
   "tools": [
     {
+      "id": "mediclaim.get_policy_details",
+      "name": "get_policy_details",
+      "description": "Retrieve insurance policy details for a given policy number.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_number": {
+            "type": "string",
+            "description": "The policy number to look up (e.g., \"POL-999\")"
+          }
+        },
+        "required": [
+          "policy_number"
+        ],
+        "type": "object"
+      },
+      "server_name": "mediclaim",
+      "raw_schema": {
+        "name": "get_policy_details",
+        "description": "Retrieve insurance policy details for a given policy number.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "policy_number": {
+              "type": "string",
+              "description": "The policy number to look up (e.g., \"POL-999\")"
+            }
+          },
+          "required": [
+            "policy_number"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "mediclaim.check_coverage_limits",
+      "name": "check_coverage_limits",
+      "description": "Check if a specific treatment type is covered and retrieve coverage limits.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_number": {
+            "type": "string",
+            "description": "The policy number (e.g., \"POL-999\")"
+          },
+          "treatment_type": {
+            "type": "string",
+            "description": "Type of treatment (e.g., \"knee_replacement\", \"cardiac_surgery\")"
+          }
+        },
+        "required": [
+          "policy_number",
+          "treatment_type"
+        ],
+        "type": "object"
+      },
+      "server_name": "mediclaim",
+      "raw_schema": {
+        "name": "check_coverage_limits",
+        "description": "Check if a specific treatment type is covered and retrieve coverage limits.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "policy_number": {
+              "type": "string",
+              "description": "The policy number (e.g., \"POL-999\")"
+            },
+            "treatment_type": {
+              "type": "string",
+              "description": "Type of treatment (e.g., \"knee_replacement\", \"cardiac_surgery\")"
+            }
+          },
+          "required": [
+            "policy_number",
+            "treatment_type"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "mediclaim.fetch_discharge_summary",
+      "name": "fetch_discharge_summary",
+      "description": "Fetch the hospital discharge summary for a patient.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "description": "The patient ID (e.g., \"1024\")"
+          }
+        },
+        "required": [
+          "patient_id"
+        ],
+        "type": "object"
+      },
+      "server_name": "mediclaim",
+      "raw_schema": {
+        "name": "fetch_discharge_summary",
+        "description": "Fetch the hospital discharge summary for a patient.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "patient_id": {
+              "type": "string",
+              "description": "The patient ID (e.g., \"1024\")"
+            }
+          },
+          "required": [
+            "patient_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "mediclaim.verify_hospital_bills",
+      "name": "verify_hospital_bills",
+      "description": "Verify and retrieve itemized hospital bills for a patient.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "patient_id": {
+            "type": "string",
+            "description": "The patient ID (e.g., \"1024\")"
+          }
+        },
+        "required": [
+          "patient_id"
+        ],
+        "type": "object"
+      },
+      "server_name": "mediclaim",
+      "raw_schema": {
+        "name": "verify_hospital_bills",
+        "description": "Verify and retrieve itemized hospital bills for a patient.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "patient_id": {
+              "type": "string",
+              "description": "The patient ID (e.g., \"1024\")"
+            }
+          },
+          "required": [
+            "patient_id"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "mediclaim.calculate_claimable_amount",
+      "name": "calculate_claimable_amount",
+      "description": "Calculate the final claimable amount after applying coverage limits and co-pay.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "total_bill_amount": {
+            "type": "number",
+            "description": "Total hospital bill amount"
+          },
+          "coverage_limit": {
+            "type": "number",
+            "description": "Maximum coverage limit for the treatment"
+          },
+          "co_pay_percentage": {
+            "type": "number",
+            "description": "Co-payment percentage (e.g., 10 for 10%)"
+          }
+        },
+        "required": [
+          "total_bill_amount",
+          "coverage_limit",
+          "co_pay_percentage"
+        ],
+        "type": "object"
+      },
+      "server_name": "mediclaim",
+      "raw_schema": {
+        "name": "calculate_claimable_amount",
+        "description": "Calculate the final claimable amount after applying coverage limits and co-pay.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "total_bill_amount": {
+              "type": "number",
+              "description": "Total hospital bill amount"
+            },
+            "coverage_limit": {
+              "type": "number",
+              "description": "Maximum coverage limit for the treatment"
+            },
+            "co_pay_percentage": {
+              "type": "number",
+              "description": "Co-payment percentage (e.g., 10 for 10%)"
+            }
+          },
+          "required": [
+            "total_bill_amount",
+            "coverage_limit",
+            "co_pay_percentage"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "id": "mediclaim.submit_mediclaim",
+      "name": "submit_mediclaim",
+      "description": "Submit the final mediclaim for processing.",
+      "parameters": {
+        "additionalProperties": false,
+        "properties": {
+          "policy_number": {
+            "type": "string",
+            "description": "The policy number (e.g., \"POL-999\")"
+          },
+          "patient_id": {
+            "type": "string",
+            "description": "The patient ID (e.g., \"1024\")"
+          },
+          "claim_amount": {
+            "type": "number",
+            "description": "The final claimable amount"
+          }
+        },
+        "required": [
+          "policy_number",
+          "patient_id",
+          "claim_amount"
+        ],
+        "type": "object"
+      },
+      "server_name": "mediclaim",
+      "raw_schema": {
+        "name": "submit_mediclaim",
+        "description": "Submit the final mediclaim for processing.",
+        "inputSchema": {
+          "additionalProperties": false,
+          "properties": {
+            "policy_number": {
+              "type": "string",
+              "description": "The policy number (e.g., \"POL-999\")"
+            },
+            "patient_id": {
+              "type": "string",
+              "description": "The patient ID (e.g., \"1024\")"
+            },
+            "claim_amount": {
+              "type": "number",
+              "description": "The final claimable amount"
+            }
+          },
+          "required": [
+            "policy_number",
+            "patient_id",
+            "claim_amount"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
       "id": "uhnwc_banking.get_portfolio_summary",
       "name": "get_portfolio_summary",
       "description": "Retrieve portfolio summary including holdings, asset allocation, and YTD performance.",
@@ -472,6 +738,14 @@
     }
   ],
   "server_tools": {
+    "mediclaim": [
+      "mediclaim.get_policy_details",
+      "mediclaim.check_coverage_limits",
+      "mediclaim.fetch_discharge_summary",
+      "mediclaim.verify_hospital_bills",
+      "mediclaim.calculate_claimable_amount",
+      "mediclaim.submit_mediclaim"
+    ],
     "uhnwc_banking": [
       "uhnwc_banking.get_portfolio_summary",
       "uhnwc_banking.get_unrealized_gains_losses",

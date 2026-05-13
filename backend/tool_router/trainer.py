@@ -129,6 +129,8 @@ class ToolEmbeddingTrainer:
         Args:
             dataset: Training dataset
         """
+        from sentence_transformers.evaluation import SentenceEvaluator
+        
         logger.info("Starting model fine-tuning...")
         update_status(progress=0.3, message="Starting fine-tuning with MultipleNegativesRankingLoss...")
         
@@ -145,6 +147,7 @@ class ToolEmbeddingTrainer:
         
         # Calculate training steps
         num_train_steps = len(train_dataloader) * self.training_config.num_epochs
+        steps_per_epoch = len(train_dataloader)
         
         logger.info(f"Training configuration:")
         logger.info(f"  Batch size: {self.training_config.batch_size}")
@@ -152,8 +155,37 @@ class ToolEmbeddingTrainer:
         logger.info(f"  Learning rate: {self.training_config.learning_rate}")
         logger.info(f"  Total steps: {num_train_steps}")
         logger.info(f"  Warmup steps: {self.training_config.warmup_steps}")
+        logger.info(f"  Steps per epoch: {steps_per_epoch}")
         
-        # Train the model
+        # Create a custom callback for progress updates
+        class ProgressCallback(SentenceEvaluator):
+            def __init__(self, epochs, steps_per_epoch):
+                self.epochs = epochs
+                self.steps_per_epoch = steps_per_epoch
+                self.current_epoch = 0
+                self.last_loss = None
+                
+            def __call__(self, model, output_path, epoch, steps):
+                self.current_epoch = epoch
+                # Calculate progress (0.3 to 0.7 for training phase)
+                progress = 0.3 + (0.4 * (epoch / self.epochs))
+                
+                # Update status with epoch info
+                update_status(
+                    progress=progress,
+                    message=f"Training epoch {epoch}/{self.epochs}...",
+                    details={
+                        'epoch': epoch,
+                        'total_epochs': self.epochs,
+                        'steps': steps
+                    }
+                )
+                logger.info(f"Completed epoch {epoch}/{self.epochs}")
+                return 0  # Return value doesn't matter for this callback
+        
+        callback = ProgressCallback(self.training_config.num_epochs, steps_per_epoch)
+        
+        # Train the model with callback
         self.model.fit(
             train_objectives=[(train_dataloader, train_loss)],
             epochs=self.training_config.num_epochs,
@@ -161,10 +193,13 @@ class ToolEmbeddingTrainer:
             output_path=str(self.embedding_config.fine_tuned_model_dir),
             show_progress_bar=True,
             save_best_model=True,
-            optimizer_params={'lr': self.training_config.learning_rate}
+            optimizer_params={'lr': self.training_config.learning_rate},
+            evaluator=callback,
+            evaluation_steps=steps_per_epoch  # Evaluate after each epoch
         )
         
         logger.info("Training complete!")
+        update_status(progress=0.7, message="Training complete, saving model...")
     
     def save_model(self):
         """Save the fine-tuned model."""

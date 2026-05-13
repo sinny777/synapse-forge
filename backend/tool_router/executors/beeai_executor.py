@@ -244,7 +244,16 @@ class BeeAIExecutor(BaseAgentExecutor):
                 agent_start = time.time()
                 
                 # Run agent (this will internally call tools)
-                response = await agent.run(enriched_query)
+                response_obj = await agent.run(enriched_query)
+                
+                # Extract string response from RequirementAgentOutput
+                # BeeAI's RequirementAgent returns a RequirementAgentOutput object
+                if hasattr(response_obj, 'result'):
+                    response = str(response_obj.result)
+                elif hasattr(response_obj, 'output'):
+                    response = str(response_obj.output)
+                else:
+                    response = str(response_obj)
                 
                 agent_time = time.time() - agent_start
                 
@@ -299,10 +308,17 @@ class BeeAIExecutor(BaseAgentExecutor):
         """Cleanup BeeAI resources"""
         try:
             if self.router:
-                await self.router.close()
-                self.router = None
+                try:
+                    await self.router.close()
+                except Exception as e:
+                    logger.warning(f"Error closing router: {e}")
+                finally:
+                    self.router = None
             
-            await self._stop_mcp_server()
+            try:
+                await self._stop_mcp_server()
+            except Exception as e:
+                logger.warning(f"Error stopping MCP server: {e}")
             
             self.initialized = False
             logger.info("✓ BeeAI executor cleaned up")

@@ -40,9 +40,11 @@ class GenerateConfig(BaseModel):
     data_generation: Optional[dict] = None
 
 class TrainConfig(BaseModel):
-    batch_size: int = 16
-    num_epochs: int = 3
-    learning_rate: float = 2e-5
+    training: Optional[dict] = None
+    embedding: Optional[dict] = None
+    vectorStore: Optional[dict] = None
+    archive_name: Optional[str] = None
+    archive_version: Optional[str] = None
 
 class RunConfig(BaseModel):
     query: str
@@ -63,6 +65,15 @@ def _apply_dict_to_obj(config_dict, obj):
             orig_val = getattr(obj, k)
             if isinstance(orig_val, Path) and isinstance(v, str):
                 setattr(obj, k, Path(v))
+            elif isinstance(orig_val, (int, float)) and isinstance(v, str):
+                # Convert string to appropriate numeric type
+                try:
+                    if isinstance(orig_val, int):
+                        setattr(obj, k, int(v))
+                    else:
+                        setattr(obj, k, float(v))
+                except (ValueError, TypeError):
+                    setattr(obj, k, v)
             else:
                 setattr(obj, k, v)
 
@@ -84,9 +95,9 @@ def _update_global_config(config_data, phase):
             if 'servers' in config_data.mcp:
                 config.mcp.servers = config_data.mcp['servers']
     elif phase == "train":
-        config.training.batch_size = config_data.batch_size
-        config.training.num_epochs = config_data.num_epochs
-        config.training.learning_rate = config_data.learning_rate
+        _apply_dict_to_obj(config_data.training, config.training)
+        _apply_dict_to_obj(config_data.embedding, config.embedding)
+        _apply_dict_to_obj(config_data.vectorStore, config.vector_store)
     elif phase == "run":
         config.runtime.enable_query_expansion = config_data.enable_query_expansion
         config.runtime.max_tool_calls = config_data.max_tool_calls
@@ -113,22 +124,113 @@ async def generate_phase(config_data: GenerateConfig):
         logger.error(f"Generate phase failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/train/stream")
+async def train_stream():
+    """Server-Sent Events endpoint for real-time training progress."""
+    from fastapi.responses import StreamingResponse
+    from tool_router.status_tracker import add_listener, remove_listener, get_status
+    import asyncio
+    import json
+    
+    async def event_generator():
+        queue = asyncio.Queue()
+        
+        def status_callback(status_data):
+            """Callback to push status updates to the queue."""
+            try:
+                asyncio.create_task(queue.put(status_data))
+            except:
+                pass
+        
+        add_listener(status_callback)
+        
+        try:
+            # Send initial status
+            initial_status = get_status().model_dump()
+            yield f"data: {json.dumps(initial_status)}\n\n"
+            
+            # Stream updates
+            while True:
+                try:
+                    status_data = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {json.dumps(status_data)}\n\n"
+                    
+                    # Stop streaming if training is completed or errored
+                    if status_data.get('status') in ['completed', 'error']:
+                        break
+                except asyncio.TimeoutError:
+                    # Send keepalive
+                    yield f": keepalive\n\n"
+        finally:
+            remove_listener(status_callback)
+    
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"
+        }
+    )
+
 @app.post("/api/train")
 def train_phase(config_data: TrainConfig):
     from tool_router.status_tracker import update_status, reset_status
+    from tool_router.config import config
+    from datetime import datetime
+    import shutil
+    import threading
+    
     reset_status()
     update_status(phase="train", status="running", progress=0.0, message="Initializing training phase...")
-    try:
-        _update_global_config(config_data, "train")
-        from tool_router.trainer import main as phase2_main
-        # Run training phase directly
-        phase2_main()
-        update_status(status="completed", progress=1.0, message="Training phase completed successfully.")
-        return {"status": "success", "message": "Training phase completed."}
-    except Exception as e:
-        update_status(status="error", message=f"Training failed: {str(e)}")
-        logger.error(f"Train phase failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    
+    def run_training():
+        try:
+            _update_global_config(config_data, "train")
+            from tool_router.trainer import main as phase2_main
+            # Run training phase directly
+            phase2_main()
+        
+            # Auto-archive the trained model
+            source_path = config.embedding.fine_tuned_model_dir
+            if source_path.exists():
+                # Use provided archive name/version or generate defaults
+                if config_data.archive_name and config_data.archive_version:
+                    model_name = config_data.archive_name
+                    version = config_data.archive_version
+                else:
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    model_name = f"tool_router_{timestamp}"
+                    version = "1.0"
+                
+                target_name = f"{model_name}_v{version}"
+                target_path = config.models_dir / target_name
+                
+                try:
+                    model_existed = target_path.exists()
+                    if model_existed:
+                        shutil.rmtree(target_path)
+                    shutil.copytree(source_path, target_path)
+                    
+                    action = "updated" if model_existed else "archived"
+                    logger.info(f"Model {action} as {target_name}")
+                    update_status(status="completed", progress=1.0, message=f"Training completed. Model {action} as {target_name}")
+                except Exception as archive_error:
+                    logger.warning(f"Training completed but archiving failed: {archive_error}")
+                    update_status(status="completed", progress=1.0, message="Training completed but auto-archiving failed.")
+            else:
+                update_status(status="completed", progress=1.0, message="Training phase completed successfully.")
+                
+        except Exception as e:
+            update_status(status="error", message=f"Training failed: {str(e)}")
+            logger.error(f"Train phase failed: {e}")
+    
+    # Start training in background thread
+    training_thread = threading.Thread(target=run_training, daemon=True)
+    training_thread.start()
+    
+    return {"status": "success", "message": "Training started. Use /api/train/stream for real-time updates."}
 
 @app.post("/api/run")
 async def run_phase(config_data: RunConfig):
@@ -475,6 +577,15 @@ async def archive_dataset(req: ArchiveDatasetRequest):
     target_path = datasets_dir / target_name
     
     try:
+        # Check if source and target are the same file
+        if source_path.resolve() == target_path.resolve():
+            return {
+                "status": "success",
+                "message": f"Dataset already archived as {target_name}",
+                "dataset_name": req.name,
+                "dataset_path": str(target_path)
+            }
+        
         shutil.copy2(source_path, target_path)
         return {
             "status": "success",

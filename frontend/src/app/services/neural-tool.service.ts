@@ -18,6 +18,54 @@ export class NeuralToolService {
     return this.http.post(`${this.apiUrl}/train`, config);
   }
 
+  /**
+   * Stream training progress using Server-Sent Events
+   * @param onEvent - Callback for each progress event
+   */
+  async streamTrainingProgress(onEvent: (event: any) => void): Promise<void> {
+    const response = await fetch(`${this.apiUrl}/train/stream`, {
+      method: 'GET',
+      headers: { 'Accept': 'text/event-stream' }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to connect to training stream');
+    }
+
+    if (!response.body) {
+      throw new Error('ReadableStream not supported');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Process SSE format: "data: {...}\n\n"
+      const lines = buffer.split('\n\n');
+      buffer = lines.pop() || '';
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const jsonStr = line.substring(6); // Remove "data: " prefix
+          if (jsonStr.trim()) {
+            try {
+              const event = JSON.parse(jsonStr);
+              onEvent(event);
+            } catch (e) {
+              console.error('Failed to parse SSE event:', e, jsonStr);
+            }
+          }
+        }
+      }
+    }
+  }
+
   run(config: any): Observable<any> {
     return this.http.post(`${this.apiUrl}/run`, config);
   }

@@ -53,10 +53,18 @@ class ToolRouterForBeeAI:
         """Initialize all components."""
         print("Initializing ToolRouter...")
         
-        # Load embedding model
-        print("  Loading fine-tuned embedding model...")
+        # Load embedding model (fine-tuned if available, otherwise base model)
+        fine_tuned_path = config.embedding.fine_tuned_model_dir
+        if fine_tuned_path.exists():
+            print(f"  Loading fine-tuned embedding model from {fine_tuned_path}...")
+            model_path = str(fine_tuned_path)
+        else:
+            print(f"  Fine-tuned model not found at {fine_tuned_path}")
+            print(f"  Loading base embedding model: {config.embedding.base_model_name}...")
+            model_path = config.embedding.base_model_name
+        
         self.embedding_model = SentenceTransformer(
-            str(config.embedding.fine_tuned_model_dir),
+            model_path,
             device=config.embedding.device
         )
         
@@ -263,8 +271,16 @@ async def run_policy_agent(
     print("\nAgent working...")
     
     start_time = time.time()
-    response = await agent.run(user_query)
+    response_obj = await agent.run(user_query)
     latency = time.time() - start_time
+    
+    # Extract string response from RequirementAgentOutput
+    if hasattr(response_obj, 'result'):
+        response = str(response_obj.result)
+    elif hasattr(response_obj, 'output'):
+        response = str(response_obj.output)
+    else:
+        response = str(response_obj)
     
     print(f"\nPolicy Agent Response (completed in {latency:.2f}s):\n{response}")
     print("=" * 70)
@@ -316,8 +332,16 @@ async def run_billing_agent(
     print("\nAgent working...")
     
     start_time = time.time()
-    response = await agent.run(user_query)
+    response_obj = await agent.run(user_query)
     latency = time.time() - start_time
+    
+    # Extract string response from RequirementAgentOutput
+    if hasattr(response_obj, 'result'):
+        response = str(response_obj.result)
+    elif hasattr(response_obj, 'output'):
+        response = str(response_obj.output)
+    else:
+        response = str(response_obj)
     
     print(f"\nBilling Agent Response (completed in {latency:.2f}s):\n{response}")
     print("=" * 70)
@@ -384,8 +408,16 @@ Please calculate the final claimable amount and submit the mediclaim."""
     print("\nAgent working...")
     
     start_time = time.time()
-    response = await agent.run(enriched_query)
+    response_obj = await agent.run(enriched_query)
     latency = time.time() - start_time
+    
+    # Extract string response from RequirementAgentOutput
+    if hasattr(response_obj, 'result'):
+        response = str(response_obj.result)
+    elif hasattr(response_obj, 'output'):
+        response = str(response_obj.output)
+    else:
+        response = str(response_obj)
     
     print(f"\nClaim Processing Agent Response (completed in {latency:.2f}s):\n{response}")
     print("=" * 70)

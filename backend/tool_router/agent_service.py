@@ -264,7 +264,7 @@ class AgentOrchestrator:
                 try:
                     await executor.cleanup()
                 except Exception as e:
-                    logger.error(f"Cleanup error: {e}")
+                    logger.error(f"Error closing contexts: {e}")
     
     def _calculate_context_reduction(self, scenario: AgentScenario) -> int:
         """Calculate context reduction percentage"""
