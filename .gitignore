@@ -85,6 +85,9 @@ tmp/
 temp/
 *.tmp
 
+data/
+datasets/
+
 # ChromaDB
 chroma_db/
 *.chroma
