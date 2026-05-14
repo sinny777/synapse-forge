@@ -7,13 +7,15 @@ CRUD operations for agent definitions within a workspace.
 import uuid
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.engine import AsyncSessionDep
 from db.models import Agent, Workspace
 from db.schemas import AgentCreate, AgentUpdate, AgentRead
+from api.auth import get_current_user
+from api.dependencies import require_workspace_access
 
 logger = logging.getLogger("ntr.api.agents")
 
@@ -58,10 +60,11 @@ async def list_agents(workspace_id: uuid.UUID, session: AsyncSessionDep):
 
 @router.post("", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
 async def create_agent(
-    workspace_id: uuid.UUID, body: AgentCreate, session: AsyncSessionDep
+    workspace_id: uuid.UUID, body: AgentCreate, session: AsyncSessionDep, user: dict = Depends(get_current_user)
 ):
     """Create a new agent definition in the workspace."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
+    email = user.get("email")
 
     agent = Agent(
         workspace_id=workspace_id,
@@ -70,6 +73,8 @@ async def create_agent(
         llm_provider=body.llm_provider,
         llm_model=body.llm_model,
         attached_tool_ids=body.attached_tool_ids,
+        created_by=email,
+        updated_by=email,
     )
     session.add(agent)
     await session.flush()
@@ -104,9 +109,10 @@ async def update_agent(
     agent_id: uuid.UUID,
     body: AgentUpdate,
     session: AsyncSessionDep,
+    user: dict = Depends(get_current_user)
 ):
     """Update an agent definition (partial update)."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
     agent = await session.get(Agent, agent_id)
     if agent is None or agent.workspace_id != workspace_id:
         raise HTTPException(status_code=404, detail="Agent not found")
@@ -114,6 +120,8 @@ async def update_agent(
     update_data = body.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(agent, field, value)
+        
+    agent.updated_by = user.get("email")
 
     await session.flush()
     await session.refresh(agent)
@@ -127,10 +135,10 @@ async def update_agent(
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_agent(
-    workspace_id: uuid.UUID, agent_id: uuid.UUID, session: AsyncSessionDep
+    workspace_id: uuid.UUID, agent_id: uuid.UUID, session: AsyncSessionDep, user: dict = Depends(get_current_user)
 ):
     """Delete an agent from the workspace."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
     agent = await session.get(Agent, agent_id)
     if agent is None or agent.workspace_id != workspace_id:
         raise HTTPException(status_code=404, detail="Agent not found")

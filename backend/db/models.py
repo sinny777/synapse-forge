@@ -40,6 +40,21 @@ class Base(DeclarativeBase):
     pass
 
 
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class AuditMixin:
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
+    )
+    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    updated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+
 # ---------------------------------------------------------------------------
 # Enums
 # ---------------------------------------------------------------------------
@@ -79,18 +94,10 @@ class ArchitectureType(str, enum.Enum):
 
 
 # ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
-
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-# ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
 
-class Workspace(Base):
+class Workspace(Base, AuditMixin):
     """
     Multi-tenant workspace.
 
@@ -118,13 +125,8 @@ class Workspace(Base):
     embedding_dim: Mapped[int] = mapped_column(
         Integer, nullable=False, default=384, server_default="384"
     )
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
-    )
+    
+    shared_with: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
 
     # Relationships
     tools = relationship("Tool", back_populates="workspace", cascade="all, delete-orphan")
@@ -137,7 +139,7 @@ class Workspace(Base):
         return f"<Workspace id={self.id!s} name={self.name!r}>"
 
 
-class Tool(Base):
+class Tool(Base, AuditMixin):
     """
     A unified tool registry entry.
     
@@ -197,13 +199,6 @@ class Tool(Base):
     # pgvector embedding
     embedding = Column(Vector(), nullable=True)
 
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
-    )
-
     # Relationships
     workspace = relationship("Workspace", back_populates="tools")
     parent = relationship("Tool", remote_side=[id], back_populates="children")
@@ -221,7 +216,7 @@ class Tool(Base):
         return f"<Tool id={self.id!s} name={self.name!r} type={self.type.value}>"
 
 
-class Agent(Base):
+class Agent(Base, AuditMixin):
     """
     An LLM agent definition bound to a workspace.
 
@@ -244,12 +239,6 @@ class Agent(Base):
     attached_tool_ids: Mapped[list[str] | None] = mapped_column(
         ARRAY(UUID(as_uuid=True)), nullable=True
     )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
-    )
 
     # Relationships
     workspace = relationship("Workspace", back_populates="agents")
@@ -262,7 +251,7 @@ class Agent(Base):
         return f"<Agent id={self.id!s} name={self.name!r}>"
 
 
-class Orchestration(Base):
+class Orchestration(Base, AuditMixin):
     """
     A multi-agent orchestration / workflow definition.
 
@@ -290,12 +279,6 @@ class Orchestration(Base):
         default=ArchitectureType.REACT,
     )
     config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
-    )
 
     # Relationships
     workspace = relationship("Workspace", back_populates="orchestrations")

@@ -7,7 +7,7 @@ CRUD operations for multi-agent orchestration definitions within a workspace.
 import uuid
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +18,8 @@ from db.schemas import (
     OrchestrationUpdate,
     OrchestrationRead,
 )
+from api.auth import get_current_user
+from api.dependencies import require_workspace_access
 
 logger = logging.getLogger("ntr.api.orchestrations")
 
@@ -62,10 +64,11 @@ async def list_orchestrations(workspace_id: uuid.UUID, session: AsyncSessionDep)
 
 @router.post("", response_model=OrchestrationRead, status_code=status.HTTP_201_CREATED)
 async def create_orchestration(
-    workspace_id: uuid.UUID, body: OrchestrationCreate, session: AsyncSessionDep
+    workspace_id: uuid.UUID, body: OrchestrationCreate, session: AsyncSessionDep, user: dict = Depends(get_current_user)
 ):
     """Create a new orchestration definition in the workspace."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
+    email = user.get("email")
 
     orch = Orchestration(
         workspace_id=workspace_id,
@@ -73,6 +76,8 @@ async def create_orchestration(
         framework=body.framework,
         architecture_type=body.architecture_type,
         config=body.config,
+        created_by=email,
+        updated_by=email,
     )
     session.add(orch)
     await session.flush()
@@ -112,9 +117,10 @@ async def update_orchestration(
     orchestration_id: uuid.UUID,
     body: OrchestrationUpdate,
     session: AsyncSessionDep,
+    user: dict = Depends(get_current_user)
 ):
     """Update an orchestration definition (partial update)."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
     orch = await session.get(Orchestration, orchestration_id)
     if orch is None or orch.workspace_id != workspace_id:
         raise HTTPException(status_code=404, detail="Orchestration not found")
@@ -122,6 +128,8 @@ async def update_orchestration(
     update_data = body.model_dump(exclude_unset=True)
     for field, value in update_data.items():
         setattr(orch, field, value)
+        
+    orch.updated_by = user.get("email")
 
     await session.flush()
     await session.refresh(orch)
@@ -138,9 +146,10 @@ async def delete_orchestration(
     workspace_id: uuid.UUID,
     orchestration_id: uuid.UUID,
     session: AsyncSessionDep,
+    user: dict = Depends(get_current_user)
 ):
     """Delete an orchestration from the workspace."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
     orch = await session.get(Orchestration, orchestration_id)
     if orch is None or orch.workspace_id != workspace_id:
         raise HTTPException(status_code=404, detail="Orchestration not found")

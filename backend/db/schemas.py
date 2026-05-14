@@ -83,6 +83,9 @@ class WorkspaceRead(BaseModel):
     embedding_dim: int
     created_at: datetime
     updated_at: datetime
+    created_by: str | None = None
+    updated_by: str | None = None
+    shared_with: list[str] | None = None
 
 
 # ========================== TOOL ===========================================
@@ -174,6 +177,8 @@ class ToolRead(BaseModel):
     parent_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
+    created_by: str | None = None
+    updated_by: str | None = None
 
 
 
@@ -209,6 +214,8 @@ class AgentRead(BaseModel):
     attached_tool_ids: list[uuid.UUID] | None = None
     created_at: datetime
     updated_at: datetime
+    created_by: str | None = None
+    updated_by: str | None = None
 
 
 # ========================== ORCHESTRATION ==================================
@@ -245,6 +252,8 @@ class OrchestrationRead(BaseModel):
     config: dict[str, Any] | None = None
     created_at: datetime
     updated_at: datetime
+    created_by: str | None = None
+    updated_by: str | None = None
 
 
 # ========================== ROUTER PREDICT =================================

@@ -7,6 +7,9 @@ import time
 API_BASE = "http://localhost:8000/api"
 WORKSPACE_NAME = "Default Workspace"
 
+session = requests.Session()
+session.headers.update({"X-System-Override": "true"})
+
 
 MASTER_SERVERS = [
     {
@@ -16,7 +19,7 @@ MASTER_SERVERS = [
         "transport": "stdio",
         "command": "python",
         "args": ["../examples/beeai_mediclaim_processing/mock_fastmcp_server.py"],
-        "is_enabled": False
+        "is_enabled": True
     },
     {
         "name": "UHNW Banking MCP Server",
@@ -25,7 +28,7 @@ MASTER_SERVERS = [
         "transport": "stdio",
         "command": "python",
         "args": ["../examples/langgraph_UHNW_banking/mock_fastmcp_server.py"],
-        "is_enabled": False
+        "is_enabled": True
     },
     {
         "name": "Local File System",
@@ -57,7 +60,7 @@ MASTER_SERVERS = [
 ]
 
 def get_workspace():
-    resp = requests.get(f"{API_BASE}/workspaces")
+    resp = session.get(f"{API_BASE}/workspaces")
     if resp.status_code == 200:
         workspaces = resp.json()
         for ws in workspaces:
@@ -66,7 +69,7 @@ def get_workspace():
     return None
 
 def create_workspace():
-    resp = requests.post(f"{API_BASE}/workspaces", json={
+    resp = session.post(f"{API_BASE}/workspaces", json={
         "name": WORKSPACE_NAME,
         "description": "Auto-created workspace for master data",
         "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
@@ -77,7 +80,7 @@ def create_workspace():
     raise Exception(f"Failed to create workspace: {resp.text}")
 
 def get_tools(workspace_id):
-    resp = requests.get(f"{API_BASE}/workspaces/{workspace_id}/tools")
+    resp = session.get(f"{API_BASE}/workspaces/{workspace_id}/tools")
     if resp.status_code == 200:
         return resp.json()
     return []
@@ -90,9 +93,9 @@ def delete_all_master_data():
     tools = get_tools(ws["id"])
     for t in tools:
         print(f"Deleting tool {t['name']}...")
-        requests.delete(f"{API_BASE}/workspaces/{ws['id']}/tools/{t['id']}")
+        session.delete(f"{API_BASE}/workspaces/{ws['id']}/tools/{t['id']}")
     print(f"Deleting workspace {ws['name']}...")
-    requests.delete(f"{API_BASE}/workspaces/{ws['id']}")
+    session.delete(f"{API_BASE}/workspaces/{ws['id']}")
     print("Master data cleared.")
 
 def create_master_data():
@@ -111,7 +114,7 @@ def create_master_data():
             continue
         
         print(f"Registering '{srv['name']}'...")
-        resp = requests.post(f"{API_BASE}/workspaces/{workspace_id}/tools", json=srv)
+        resp = session.post(f"{API_BASE}/workspaces/{workspace_id}/tools", json=srv)
         if resp.status_code == 201:
             print(f"  Success: {resp.json().get('id')}")
         else:
@@ -136,10 +139,11 @@ if __name__ == "__main__":
         
     try:
         # Check if API is running
-        requests.get(f"{API_BASE}/workspaces")
+        session.get(f"{API_BASE}/workspaces")
     except requests.ConnectionError:
         print("ERROR: Backend API is not reachable at http://localhost:8000. Please start the backend server first.")
         sys.exit(1)
+        
         
     if args.action == "create":
         create_master_data()

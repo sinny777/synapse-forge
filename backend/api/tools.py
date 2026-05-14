@@ -10,7 +10,7 @@ in the pgvector ``embedding`` column for semantic search.
 import uuid
 import logging
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from db.engine import AsyncSessionDep
@@ -18,6 +18,8 @@ from db.models import Tool, Workspace, ToolType, MCPServerStatus
 from db.schemas import ToolCreate, ToolUpdate, ToolRead
 from services.embedding_service import embedding_service
 from services.mcp_service import MCPService
+from api.auth import get_current_user
+from api.dependencies import require_workspace_access
 
 logger = logging.getLogger("ntr.api.tools")
 
@@ -86,14 +88,15 @@ async def list_tools(workspace_id: uuid.UUID, session: AsyncSessionDep):
 
 @router.post("", response_model=ToolRead, status_code=status.HTTP_201_CREATED)
 async def create_tool(
-    workspace_id: uuid.UUID, body: ToolCreate, session: AsyncSessionDep
+    workspace_id: uuid.UUID, body: ToolCreate, session: AsyncSessionDep, user: dict = Depends(get_current_user)
 ):
     """
     Register a new tool or MCP server.
 
     If creating an MCP_SERVER, discovery will be triggered automatically.
     """
-    ws = await _get_workspace_or_404(session, workspace_id)
+    ws = await require_workspace_access(workspace_id, session, user, require_write=True)
+    email = user.get("email")
 
     # Generate embedding for REST or individual tools
     # MCP Servers (providers) might not need semantic embedding themselves,
@@ -118,6 +121,8 @@ async def create_tool(
         status=body.status,
         parent_id=body.parent_id,
         embedding=vec,
+        created_by=email,
+        updated_by=email,
     )
     
     session.add(tool)
@@ -161,9 +166,10 @@ async def update_tool(
     tool_id: uuid.UUID,
     body: ToolUpdate,
     session: AsyncSessionDep,
+    user: dict = Depends(get_current_user)
 ):
     """Update a tool or MCP server configuration."""
-    ws = await _get_workspace_or_404(session, workspace_id)
+    ws = await require_workspace_access(workspace_id, session, user, require_write=True)
     tool = await session.get(Tool, tool_id)
     if tool is None or tool.workspace_id != workspace_id:
         raise HTTPException(status_code=404, detail="Tool not found")
@@ -180,6 +186,8 @@ async def update_tool(
 
     for field, value in update_data.items():
         setattr(tool, field, value)
+        
+    tool.updated_by = user.get("email")
 
     # Automatically enable/disable child tools if the parent MCP server is toggled
     if "is_enabled" in update_data and tool.type == ToolType.MCP_SERVER:
@@ -211,10 +219,10 @@ async def update_tool(
 
 @router.delete("/{tool_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_tool(
-    workspace_id: uuid.UUID, tool_id: uuid.UUID, session: AsyncSessionDep
+    workspace_id: uuid.UUID, tool_id: uuid.UUID, session: AsyncSessionDep, user: dict = Depends(get_current_user)
 ):
     """Delete a tool (cascades to children for MCP servers)."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
     tool = await session.get(Tool, tool_id)
     if tool is None or tool.workspace_id != workspace_id:
         raise HTTPException(status_code=404, detail="Tool not found")
@@ -229,10 +237,10 @@ async def delete_tool(
 
 @router.post("/{tool_id}/test")
 async def test_tool_connection(
-    workspace_id: uuid.UUID, tool_id: uuid.UUID, session: AsyncSessionDep
+    workspace_id: uuid.UUID, tool_id: uuid.UUID, session: AsyncSessionDep, user: dict = Depends(get_current_user)
 ):
     """Test connectivity for an MCP_SERVER tool."""
-    await _get_workspace_or_404(session, workspace_id)
+    await require_workspace_access(workspace_id, session, user, require_write=True)
     tool = await session.get(Tool, tool_id)
     if not tool or tool.type != ToolType.MCP_SERVER:
         raise HTTPException(status_code=400, detail="Not an MCP server")
@@ -260,15 +268,18 @@ async def test_tool_connection(
             await client.close_all()
             tool.status = MCPServerStatus.ACTIVE
             tool.last_error = None
+            tool.updated_by = user.get("email")
             await session.flush()
             return {"success": True, "tools_count": len(tools)}
         else:
             tool.status = MCPServerStatus.ERROR
             tool.last_error = "Failed to connect"
+            tool.updated_by = user.get("email")
             await session.flush()
             return {"success": False, "error": "Connection failed"}
     except Exception as e:
         tool.status = MCPServerStatus.ERROR
         tool.last_error = str(e)
+        tool.updated_by = user.get("email")
         await session.flush()
         return {"success": False, "error": str(e)}
