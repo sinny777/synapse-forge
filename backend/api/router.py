@@ -21,7 +21,7 @@ from services.router_service import RouterService
 
 logger = logging.getLogger("ntr.api.router")
 
-router = APIRouter(prefix="/api/router", tags=["Router"])
+router = APIRouter(prefix="/api/router", tags=["NeuralToolRouter"])
 
 
 # ---------------------------------------------------------------------------

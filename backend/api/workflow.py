@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger("ntr.api.workflow")
 
-router = APIRouter(prefix="/api", tags=["Workflow"])
+router = APIRouter(prefix="/api", tags=["NeuralToolRouter_Workflow"])
 
 
 # ---------------------------------------------------------------------------
