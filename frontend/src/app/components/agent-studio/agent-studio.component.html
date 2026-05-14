@@ -1,0 +1,162 @@
+<div class="studio-container">
+  <!-- Header -->
+  <div class="studio-header">
+    <div class="header-left">
+      <h2 class="page-title">Agent Studio</h2>
+      <p class="page-subtitle" *ngIf="activeWorkspace">
+        Designing agents for <strong>{{ activeWorkspace.name }}</strong>
+      </p>
+    </div>
+    <div class="header-actions">
+      <button class="cds--btn cds--btn--ghost cds--btn--sm" (click)="loadAgents()" title="Refresh">
+        <svg cdsIcon="renew" size="16" class="cds--btn__icon"></svg>
+        Refresh
+      </button>
+      <button class="cds--btn cds--btn--primary cds--btn--sm" (click)="openCreateModal()">
+        <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
+        Create Agent
+      </button>
+    </div>
+  </div>
+
+  <!-- Notification -->
+  <div *ngIf="notification" class="notification-wrapper">
+    <cds-inline-notification [notificationObj]="{
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        lowContrast: true
+      }" (close)="dismissNotification()">
+    </cds-inline-notification>
+  </div>
+
+  <!-- No workspace -->
+  <div *ngIf="!activeWorkspace" class="empty-state">
+    <h3>No Workspace Selected</h3>
+    <p>Select a workspace from the header to manage agents.</p>
+  </div>
+
+  <!-- Agent List -->
+  <div *ngIf="activeWorkspace && !loading" class="agent-grid">
+    <div *ngIf="agents.length === 0" class="empty-state">
+      <svg cdsIcon="bot" size="32" class="empty-icon"></svg>
+      <h3>No Agents Yet</h3>
+      <p>Create your first AI agent to get started.</p>
+      <button class="cds--btn cds--btn--tertiary cds--btn--sm" (click)="openCreateModal()">Create Agent</button>
+    </div>
+
+    <div *ngFor="let agent of agents" class="agent-card glass-card">
+      <div class="agent-card__header">
+        <div class="agent-card__avatar">
+          <svg cdsIcon="bot" size="16"></svg>
+        </div>
+        <div class="agent-card__info">
+          <h4 class="agent-card__name">{{ agent.name }}</h4>
+          <div class="agent-card__llm">
+            <cds-tag type="teal" size="sm">{{ agent.llm_provider || 'N/A' }}</cds-tag>
+            <span class="model-name">{{ agent.llm_model || 'N/A' }}</span>
+          </div>
+        </div>
+        <div class="agent-card__actions">
+          <button class="cds--btn cds--btn--ghost cds--btn--sm cds--btn--icon-only" (click)="openEditModal(agent)" title="Edit">
+            <svg cdsIcon="edit" size="16"></svg>
+          </button>
+          <button class="cds--btn cds--btn--danger--ghost cds--btn--sm cds--btn--icon-only" (click)="deleteAgent(agent)" title="Delete">
+            <svg cdsIcon="trash-can" size="16"></svg>
+          </button>
+        </div>
+      </div>
+
+      <p class="agent-card__prompt">{{ agent.system_prompt || 'No system prompt' }}</p>
+
+      <div class="agent-card__tools" *ngIf="agent.attached_tool_ids?.length">
+        <span class="tools-label">
+          <svg cdsIcon="link" size="16"></svg>
+          Attached Tools:
+        </span>
+        <div class="tools-tags">
+          <cds-tag *ngFor="let tid of agent.attached_tool_ids" type="cool-gray" size="sm">
+            {{ getToolName(tid) }}
+          </cds-tag>
+        </div>
+      </div>
+      <div class="agent-card__tools" *ngIf="!agent.attached_tool_ids?.length">
+        <span class="tools-label muted">No tools attached</span>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="loading" class="loading-state">
+    <div class="cds--loading cds--loading--small">
+      <svg class="cds--loading__svg" viewBox="0 0 100 100"><circle class="cds--loading__stroke" cx="50" cy="50" r="44"></circle></svg>
+    </div>
+    <p>Loading agents...</p>
+  </div>
+</div>
+
+<!-- Create/Edit Modal -->
+<cds-modal [open]="showModal" (overlaySelected)="closeModal()" size="lg">
+  <cds-modal-header (closeSelect)="closeModal()">
+    <h3 cdsModalHeaderHeading>{{ editingAgent ? 'Edit Agent' : 'Create Agent' }}</h3>
+  </cds-modal-header>
+
+  <section cdsModalBody>
+    <div class="modal-form">
+      <!-- Name -->
+      <div class="cds--form-item">
+        <label class="cds--label">Agent Name *</label>
+        <input class="cds--text-input" type="text" [(ngModel)]="formData.name" placeholder="e.g. Banking Assistant" />
+      </div>
+
+      <!-- System Prompt -->
+      <div class="cds--form-item">
+        <label class="cds--label">System Prompt</label>
+        <textarea class="cds--text-area" rows="4" [(ngModel)]="formData.system_prompt"
+          placeholder="You are a helpful AI assistant..."></textarea>
+      </div>
+
+      <!-- LLM Provider -->
+      <div class="form-row">
+        <div class="cds--form-item form-half">
+          <label class="cds--label">LLM Provider</label>
+          <select class="cds--select-input" [(ngModel)]="formData.llm_provider" (change)="onProviderChange({item: {id: formData.llm_provider}})">
+            <option *ngFor="let p of llmProviders" [value]="p.id">{{ p.content }}</option>
+          </select>
+        </div>
+        <div class="cds--form-item form-half">
+          <label class="cds--label">LLM Model</label>
+          <select class="cds--select-input" [(ngModel)]="formData.llm_model">
+            <option *ngFor="let m of getAvailableModels()" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Tool Attachment -->
+      <div class="cds--form-item">
+        <label class="cds--label">Attach Tools ({{ selectedToolIds.size }} selected)</label>
+        <div class="tool-selector" *ngIf="tools.length > 0; else noToolsMsg">
+          <div *ngFor="let tool of tools"
+               class="tool-option"
+               [class.selected]="isToolSelected(tool.id)"
+               (click)="toggleTool(tool.id)">
+            <span class="tool-option__check">{{ isToolSelected(tool.id) ? '✓' : '' }}</span>
+            <span class="tool-option__name">{{ tool.name }}</span>
+            <cds-tag [type]="tool.type === 'MCP_SERVER' ? 'purple' : 'blue'" size="sm">
+              {{ tool.type === 'MCP_SERVER' ? 'MCP' : 'REST' }}
+            </cds-tag>
+          </div>
+        </div>
+        <ng-template #noToolsMsg>
+          <p class="no-tools-hint">No tools registered in this workspace yet. Register tools first.</p>
+        </ng-template>
+      </div>
+    </div>
+  </section>
+
+  <cds-modal-footer>
+    <button class="cds--btn cds--btn--secondary" (click)="closeModal()">Cancel</button>
+    <button class="cds--btn cds--btn--primary" (click)="saveAgent()" [disabled]="!formData.name">
+      {{ editingAgent ? 'Update Agent' : 'Create Agent' }}
+    </button>
+  </cds-modal-footer>
+</cds-modal>

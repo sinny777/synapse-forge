@@ -1,0 +1,192 @@
+.registry-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.registry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 300;
+  color: var(--cds-text-primary, #f4f4f4);
+  margin: 0 0 0.25rem;
+}
+
+.page-subtitle {
+  font-size: 0.875rem;
+  color: var(--cds-text-secondary, #c6c6c6);
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.notification-wrapper {
+  margin-bottom: 1rem;
+}
+
+// ─── Search ──────────────────────────────────────────────────────
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+
+  .cds--search {
+    flex: 1;
+    max-width: 400px;
+  }
+
+  .tool-count {
+    font-size: 0.8125rem;
+    color: var(--cds-text-secondary, #a8a8a8);
+  }
+}
+
+// ─── Tool Cards ──────────────────────────────────────────────────
+.tool-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.tool-card {
+  background: rgba(38, 38, 38, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.25rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    border-color: rgba(15, 98, 254, 0.3);
+  }
+}
+
+.tool-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.tool-card__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(15, 98, 254, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cds-interactive, #0f62fe);
+  flex-shrink: 0;
+}
+
+.tool-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-card__name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 0.25rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-card__type {
+  display: inline-flex;
+}
+
+.tool-card__actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+
+  .tool-card:hover & {
+    opacity: 1;
+  }
+}
+
+.tool-card__description {
+  font-size: 0.875rem;
+  color: var(--cds-text-secondary, #c6c6c6);
+  line-height: 1.4;
+  margin: 0 0 0.75rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tool-card__meta {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  .meta-item {
+    font-size: 0.75rem;
+    color: var(--cds-text-helper, #6f6f6f);
+  }
+}
+
+// ─── Empty / Loading States ──────────────────────────────────────
+.empty-state, .empty-tools, .loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--cds-text-secondary, #c6c6c6);
+}
+
+.empty-icon {
+  color: var(--cds-text-helper, #6f6f6f);
+  margin-bottom: 1rem;
+}
+
+.empty-state h3, .empty-tools p {
+  margin-bottom: 1rem;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+// ─── Modal Form ──────────────────────────────────────────────────
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 0;
+
+  .cds--form-item {
+    margin-bottom: 0;
+  }
+
+  .cds--label {
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: var(--cds-text-primary, #f4f4f4);
+  }
+}
+
+.code-textarea {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 0.8125rem !important;
+}

@@ -1,13 +1,24 @@
 import { Component, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { WorkflowComponent } from './components/workflow/workflow.component';
 import { LLMConfigComponent } from './components/llm-config/llm-config.component';
+import { ToolRegistryComponent } from './components/tool-registry/tool-registry.component';
+import { AgentStudioComponent } from './components/agent-studio/agent-studio.component';
+import { OrchestratorBuilderComponent } from './components/orchestrator-builder/orchestrator-builder.component';
+import { PlaygroundComponent } from './components/playground/playground.component';
 import {
   UIShellModule,
-  PlaceholderModule
+  PlaceholderModule,
+  ModalModule,
+  InputModule,
+  NotificationModule,
 } from 'carbon-components-angular';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
 import { ChartsModule } from '@carbon/charts-angular';
+import { WorkspaceService } from './services/workspace.service';
+import { Workspace, WorkspaceCreate } from './models/platform.model';
+
 import Dashboard16 from '@carbon/icons/es/dashboard/16';
 import Settings16 from '@carbon/icons/es/settings/16';
 import Help20 from '@carbon/icons/es/help/20';
@@ -35,26 +46,48 @@ import CurrencyDollar16 from '@carbon/icons/es/currency--dollar/16';
 import ArrowRight16 from '@carbon/icons/es/arrow--right/16';
 import LogoGithub16 from '@carbon/icons/es/logo--github/16';
 import Copy16 from '@carbon/icons/es/copy/16';
+// Phase 5–7 additional icons
+import Switcher16 from '@carbon/icons/es/switcher/16';
+import Add16 from '@carbon/icons/es/add/16';
+import Bot16 from '@carbon/icons/es/bot/16';
+import Play16 from '@carbon/icons/es/play/16';
+import PlugFilled16 from '@carbon/icons/es/plug--filled/16';
+
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     WorkflowComponent,
     LLMConfigComponent,
+    ToolRegistryComponent,
+    AgentStudioComponent,
+    OrchestratorBuilderComponent,
+    PlaygroundComponent,
     UIShellModule,
     PlaceholderModule,
+    ModalModule,
+    InputModule,
+    NotificationModule,
     IconModule,
-    ChartsModule
+    ChartsModule,
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
   encapsulation: ViewEncapsulation.None
 })
 export class AppComponent implements OnInit {
-  activePhase: 'workflow' | 'dashboard' | 'settings' = 'dashboard';
+  activePhase: 'workflow' | 'dashboard' | 'settings' | 'tools' | 'agents' | 'orchestrator' | 'playground' = 'dashboard';
   sidenavExpanded = false;
   isDark = true;
+
+  // Workspace state
+  workspaces: Workspace[] = [];
+  activeWorkspace: Workspace | null = null;
+  showWorkspaceModal = false;
+  newWorkspaceName = '';
+  newWorkspaceDesc = '';
 
   // Chart Data
   meterData = [
@@ -121,7 +154,10 @@ export class AppComponent implements OnInit {
     theme: 'g100'
   };
 
-  constructor(protected iconService: IconService) {
+  constructor(
+    protected iconService: IconService,
+    public workspaceService: WorkspaceService,
+  ) {
     this.iconService.registerAll([
       Dashboard16,
       Settings16,
@@ -148,7 +184,13 @@ export class AppComponent implements OnInit {
       CurrencyDollar16,
       ArrowRight16,
       LogoGithub16,
-      Copy16
+      Copy16,
+      // Phase 5–7
+      Switcher16,
+      Add16,
+      Bot16,
+      Play16,
+      PlugFilled16,
     ]);
   }
 
@@ -162,6 +204,11 @@ export class AppComponent implements OnInit {
     window.addEventListener('navigate-to-settings', () => {
       this.setActivePhase('settings');
     });
+
+    // Load workspaces from backend
+    this.workspaceService.loadWorkspaces();
+    this.workspaceService.workspaces$.subscribe((ws) => this.workspaces = ws);
+    this.workspaceService.activeWorkspace$.subscribe((ws) => this.activeWorkspace = ws);
   }
 
   toggleSidenav(): void {
@@ -172,7 +219,7 @@ export class AppComponent implements OnInit {
     this.sidenavExpanded = false;
   }
 
-  setActivePhase(phase: 'workflow' | 'dashboard' | 'settings'): void {
+  setActivePhase(phase: typeof this.activePhase): void {
     this.activePhase = phase;
   }
 
@@ -192,5 +239,37 @@ export class AppComponent implements OnInit {
       document.body.classList.add('cds--white');
       document.documentElement.setAttribute('data-carbon-theme', 'white');
     }
+  }
+
+  // ─── Workspace Management ──────────────────────────────────────
+
+  selectWorkspace(ws: Workspace): void {
+    this.workspaceService.setActiveWorkspace(ws);
+  }
+
+  openNewWorkspaceModal(): void {
+    this.newWorkspaceName = '';
+    this.newWorkspaceDesc = '';
+    this.showWorkspaceModal = true;
+  }
+
+  closeWorkspaceModal(): void {
+    this.showWorkspaceModal = false;
+  }
+
+  createWorkspace(): void {
+    if (!this.newWorkspaceName.trim()) return;
+    const body: WorkspaceCreate = {
+      name: this.newWorkspaceName.trim(),
+      description: this.newWorkspaceDesc.trim() || undefined,
+    };
+    this.workspaceService.createWorkspace(body).subscribe({
+      next: () => {
+        this.closeWorkspaceModal();
+      },
+      error: (err) => {
+        console.error('Failed to create workspace:', err);
+      },
+    });
   }
 }

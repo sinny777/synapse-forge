@@ -107,6 +107,7 @@ from api.models import router as models_router
 from api.datasets import router as datasets_router
 from api.env_config import router as env_config_router
 from api.scenarios import router as scenarios_router
+from api.execute import router as execute_router
 
 # Platform routes
 app.include_router(workspaces_router)
@@ -122,6 +123,7 @@ app.include_router(models_router)
 app.include_router(datasets_router)
 app.include_router(env_config_router)
 app.include_router(scenarios_router)
+app.include_router(execute_router)
 
 
 # ---------------------------------------------------------------------------

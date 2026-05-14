@@ -4,12 +4,20 @@
 
   <!-- Navigation area -->
   <cds-header-navigation>
-    <!-- <cds-header-item (click)="setActivePhase('workflow'); closeSidenav()">
-      Workflow
-    </cds-header-item> -->
+    <!-- Workspace Switcher in Header -->
+    <cds-header-item *ngIf="activeWorkspace" style="cursor: default; pointer-events: none;">
+      <span style="font-size: 0.75rem; color: var(--cds-text-secondary, #a8a8a8);">Workspace:</span>
+      &nbsp;
+      <strong style="color: var(--cds-text-primary, #f4f4f4);">{{ activeWorkspace.name }}</strong>
+    </cds-header-item>
   </cds-header-navigation>
 
   <cds-header-global>
+    <!-- Workspace Switcher Dropdown -->
+    <cds-header-action title="Switch Workspace" class="ws-switcher">
+      <svg cdsIcon="switcher" size="16"></svg>
+    </cds-header-action>
+
     <!-- Help button -->
     <cds-header-action title="Help">
       <svg cdsIcon="help" size="20"></svg>
@@ -22,12 +30,40 @@
   </cds-header-global>
 </cds-header>
 
+<!-- Header Panel for Workspace Switcher -->
+
+
 <!-- IBM Carbon Sidenav -->
 <cds-sidenav [expanded]="sidenavExpanded" [rail]="true">
 
   <cds-sidenav-item (click)="setActivePhase('dashboard'); closeSidenav()" [active]="activePhase === 'dashboard'">
     <svg icon cdsIcon="dashboard" size="16"></svg>
     Dashboard
+  </cds-sidenav-item>
+
+  <div class="cds--side-nav__divider"></div>
+  <h2 class="cds--side-nav__heading"
+    style="padding-left: 1rem; padding-top: 1rem; padding-bottom: 0.5rem; font-size: 0.75rem; text-transform: uppercase; color: var(--cds-text-secondary, #a8a8a8); letter-spacing: 0.08rem;">
+    Workspace</h2>
+
+  <cds-sidenav-item (click)="setActivePhase('tools'); closeSidenav()" [active]="activePhase === 'tools'">
+    <svg icon cdsIcon="api" size="16"></svg>
+    Tool Registry
+  </cds-sidenav-item>
+
+  <cds-sidenav-item (click)="setActivePhase('agents'); closeSidenav()" [active]="activePhase === 'agents'">
+    <svg icon cdsIcon="bot" size="16"></svg>
+    Agent Studio
+  </cds-sidenav-item>
+
+  <cds-sidenav-item (click)="setActivePhase('orchestrator'); closeSidenav()" [active]="activePhase === 'orchestrator'">
+    <svg icon cdsIcon="flow--data" size="16"></svg>
+    Orchestrator
+  </cds-sidenav-item>
+
+  <cds-sidenav-item (click)="setActivePhase('playground'); closeSidenav()" [active]="activePhase === 'playground'">
+    <svg icon cdsIcon="play" size="16"></svg>
+    Playground
   </cds-sidenav-item>
 
   <div class="cds--side-nav__divider"></div>
@@ -50,6 +86,27 @@
     Settings
   </cds-sidenav-item>
 
+  <!-- Workspace Section at Bottom -->
+  <div class="cds--side-nav__divider" style="margin-top: auto;"></div>
+  <div class="ws-quick-switch" *ngIf="sidenavExpanded">
+    <h2 class="cds--side-nav__heading"
+      style="padding-left: 1rem; padding-top: 0.75rem; padding-bottom: 0.25rem; font-size: 0.6875rem; text-transform: uppercase; color: var(--cds-text-helper, #6f6f6f); letter-spacing: 0.08rem;">
+      Workspaces</h2>
+    <div class="ws-list">
+      <div *ngFor="let ws of workspaces"
+           class="ws-item"
+           [class.active]="activeWorkspace?.id === ws.id"
+           (click)="selectWorkspace(ws)">
+        <span class="ws-dot" [class.active]="activeWorkspace?.id === ws.id"></span>
+        <span class="ws-name">{{ ws.name }}</span>
+      </div>
+      <div class="ws-item ws-add" (click)="openNewWorkspaceModal()">
+        <svg cdsIcon="add" size="16"></svg>
+        <span>New Workspace</span>
+      </div>
+    </div>
+  </div>
+
 </cds-sidenav>
 
 <!-- Overlay to close side panel when clicking outside -->
@@ -60,6 +117,10 @@
   <ng-container [ngSwitch]="activePhase">
     <app-workflow *ngSwitchCase="'workflow'"></app-workflow>
     <app-llm-config *ngSwitchCase="'settings'"></app-llm-config>
+    <app-tool-registry *ngSwitchCase="'tools'"></app-tool-registry>
+    <app-agent-studio *ngSwitchCase="'agents'"></app-agent-studio>
+    <app-orchestrator-builder *ngSwitchCase="'orchestrator'"></app-orchestrator-builder>
+    <app-playground *ngSwitchCase="'playground'"></app-playground>
     <div *ngSwitchDefault class="dashboard-content">
       <!-- Header/Hero -->
       <div class="hero-section">
@@ -314,3 +375,26 @@
 
 <!-- Placeholder for Carbon modals -->
 <ibm-placeholder></ibm-placeholder>
+
+<!-- New Workspace Modal -->
+<cds-modal [open]="showWorkspaceModal" (overlaySelected)="closeWorkspaceModal()" size="sm">
+  <cds-modal-header (closeSelect)="closeWorkspaceModal()">
+    <h3 cdsModalHeaderHeading>Create Workspace</h3>
+  </cds-modal-header>
+  <section cdsModalBody>
+    <div style="display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem 0;">
+      <div class="cds--form-item">
+        <label class="cds--label">Workspace Name *</label>
+        <input class="cds--text-input" type="text" [(ngModel)]="newWorkspaceName" placeholder="e.g. Banking Agents" />
+      </div>
+      <div class="cds--form-item">
+        <label class="cds--label">Description</label>
+        <textarea class="cds--text-area" rows="3" [(ngModel)]="newWorkspaceDesc" placeholder="Optional description..."></textarea>
+      </div>
+    </div>
+  </section>
+  <cds-modal-footer>
+    <button class="cds--btn cds--btn--secondary" (click)="closeWorkspaceModal()">Cancel</button>
+    <button class="cds--btn cds--btn--primary" (click)="createWorkspace()" [disabled]="!newWorkspaceName.trim()">Create</button>
+  </cds-modal-footer>
+</cds-modal>

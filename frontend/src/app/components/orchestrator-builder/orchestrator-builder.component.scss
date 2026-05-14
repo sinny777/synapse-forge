@@ -1,0 +1,272 @@
+.builder-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+}
+
+.page-title {
+  font-size: 1.75rem;
+  font-weight: 300;
+  color: var(--cds-text-primary, #f4f4f4);
+  margin: 0 0 0.25rem;
+}
+
+.page-subtitle {
+  font-size: 0.875rem;
+  color: var(--cds-text-secondary, #c6c6c6);
+  margin: 0;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.notification-wrapper {
+  margin-bottom: 1rem;
+}
+
+// ─── Orchestration Grid ──────────────────────────────────────────
+.orch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 1.25rem;
+}
+
+.orch-card {
+  background: rgba(38, 38, 38, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    border-color: rgba(138, 63, 252, 0.3);
+  }
+}
+
+.orch-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.orch-card__icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(138, 63, 252, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.fw-emoji {
+  font-size: 1.25rem;
+}
+
+.orch-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.orch-card__name {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: #fff;
+  margin: 0 0 0.25rem;
+}
+
+.orch-card__tags {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.orch-card__actions {
+  display: flex;
+  gap: 0.25rem;
+  opacity: 0.4;
+  transition: opacity 0.15s ease;
+
+  .orch-card:hover & {
+    opacity: 1;
+  }
+}
+
+.orch-card__config {
+  margin-bottom: 0.75rem;
+}
+
+.config-label {
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--cds-text-helper, #6f6f6f);
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.config-preview {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--cds-text-secondary, #a8a8a8);
+  max-height: 80px;
+  overflow: hidden;
+  white-space: pre-wrap;
+  margin: 0;
+}
+
+.orch-card__meta {
+  font-size: 0.75rem;
+  color: var(--cds-text-helper, #6f6f6f);
+}
+
+// ─── Empty / Loading ─────────────────────────────────────────────
+.empty-state, .loading-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--cds-text-secondary, #c6c6c6);
+  grid-column: 1 / -1;
+}
+
+.empty-icon {
+  color: var(--cds-text-helper, #6f6f6f);
+  margin-bottom: 1rem;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+// ─── Modal Form ──────────────────────────────────────────────────
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 0;
+}
+
+// ─── Framework Selector ──────────────────────────────────────────
+.framework-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.fw-option {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  &.selected {
+    background: rgba(138, 63, 252, 0.1);
+    border-color: rgba(138, 63, 252, 0.4);
+    box-shadow: 0 0 0 1px rgba(138, 63, 252, 0.2);
+  }
+}
+
+.fw-option__icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.fw-option__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+
+  strong {
+    color: var(--cds-text-primary, #f4f4f4);
+    font-size: 0.9375rem;
+  }
+
+  small {
+    color: var(--cds-text-secondary, #a8a8a8);
+    font-size: 0.75rem;
+  }
+}
+
+// ─── Architecture Selector ───────────────────────────────────────
+.arch-selector {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.arch-option {
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  &.selected {
+    background: rgba(0, 157, 224, 0.1);
+    border-color: rgba(0, 157, 224, 0.4);
+  }
+
+  strong {
+    color: var(--cds-text-primary, #f4f4f4);
+    font-size: 0.875rem;
+  }
+
+  small {
+    color: var(--cds-text-secondary, #a8a8a8);
+    font-size: 0.6875rem;
+    line-height: 1.3;
+  }
+}
+
+.config-hint {
+  font-size: 0.75rem;
+  color: var(--cds-text-helper, #6f6f6f);
+  margin-top: 0.25rem;
+  font-style: italic;
+}
+
+.code-textarea {
+  font-family: 'IBM Plex Mono', monospace !important;
+  font-size: 0.8125rem !important;
+}
+
+// Responsive
+@media (max-width: 768px) {
+  .arch-selector {
+    grid-template-columns: 1fr;
+  }
+}
