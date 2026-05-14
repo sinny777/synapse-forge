@@ -42,29 +42,44 @@ class ToolRouterForBeeAI:
     Provides Top-K tool retrieval for dynamic tool injection.
     """
     
-    def __init__(self):
+    def __init__(self, model_path: str = None):
         """Initialize the tool router."""
         self.embedding_model: SentenceTransformer = None
         self.semantic_router: SemanticRouter = None
         self.mcp_client: MCPClient = None
         self.all_tools: Dict[str, ToolSchema] = {}
+        self._model_path = model_path
     
     async def initialize(self):
         """Initialize all components."""
         print("Initializing ToolRouter...")
         
-        # Load embedding model (fine-tuned if available, otherwise base model)
-        fine_tuned_path = config.embedding.fine_tuned_model_dir
-        if fine_tuned_path.exists():
-            print(f"  Loading fine-tuned embedding model from {fine_tuned_path}...")
-            model_path = str(fine_tuned_path)
+        # Resolve embedding model path:
+        #   1. Explicit model_path from UI selection
+        #   2. Default fine_tuned_model_dir from config
+        #   3. Fallback to base model name
+        if self._model_path:
+            resolved_path = Path(self._model_path)
+            if not resolved_path.is_absolute():
+                resolved_path = Path(__file__).parent.parent.parent / "backend" / "models" / self._model_path
+            if resolved_path.exists():
+                model_path_str = str(resolved_path)
+                print(f"  Using UI-selected model: {model_path_str}")
+            else:
+                print(f"  ⚠ UI-selected model not found at {resolved_path}, falling back to base model")
+                model_path_str = config.embedding.base_model_name
         else:
-            print(f"  Fine-tuned model not found at {fine_tuned_path}")
-            print(f"  Loading base embedding model: {config.embedding.base_model_name}...")
-            model_path = config.embedding.base_model_name
+            fine_tuned_path = config.embedding.fine_tuned_model_dir
+            if fine_tuned_path.exists():
+                print(f"  Loading fine-tuned embedding model from {fine_tuned_path}...")
+                model_path_str = str(fine_tuned_path)
+            else:
+                print(f"  Fine-tuned model not found at {fine_tuned_path}")
+                print(f"  Loading base embedding model: {config.embedding.base_model_name}...")
+                model_path_str = config.embedding.base_model_name
         
         self.embedding_model = SentenceTransformer(
-            model_path,
+            model_path_str,
             device=config.embedding.device
         )
         

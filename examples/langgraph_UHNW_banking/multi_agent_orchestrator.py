@@ -45,17 +45,41 @@ class ToolRouterForLangChain:
     Provides Top-K tool retrieval for dynamic tool injection.
     """
     
-    def __init__(self):
+    def __init__(self, model_path: str = None):
         self.embedding_model: SentenceTransformer = None
         self.semantic_router: SemanticRouter = None
         self.mcp_client: MCPClient = None
         self.all_tools: Dict[str, ToolSchema] = {}
+        self._model_path = model_path
     
     async def initialize(self):
         print("Initializing ToolRouter...")
         
+        # Resolve embedding model path:
+        #   1. Explicit model_path from UI selection
+        #   2. Default fine_tuned_model_dir from config
+        #   3. Fallback to base model name
+        if self._model_path:
+            resolved_path = Path(self._model_path)
+            if not resolved_path.is_absolute():
+                resolved_path = Path(__file__).parent.parent.parent / "backend" / "models" / self._model_path
+            if resolved_path.exists():
+                model_to_load = str(resolved_path)
+                print(f"  Using UI-selected model: {model_to_load}")
+            else:
+                print(f"  ⚠ UI-selected model not found at {resolved_path}, falling back to base model")
+                model_to_load = config.embedding.base_model_name
+        else:
+            fine_tuned_path = config.embedding.fine_tuned_model_dir
+            if fine_tuned_path.exists():
+                model_to_load = str(fine_tuned_path)
+                print(f"  Using fine-tuned model: {model_to_load}")
+            else:
+                print(f"  ⚠ Fine-tuned model not found at {fine_tuned_path}, using base model")
+                model_to_load = config.embedding.base_model_name
+        
         self.embedding_model = SentenceTransformer(
-            str(config.embedding.fine_tuned_model_dir),
+            model_to_load,
             device=config.embedding.device
         )
         self.semantic_router = SemanticRouter(self.embedding_model, config.vector_store)

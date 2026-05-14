@@ -53,13 +53,14 @@ class BeeAIExecutor(BaseAgentExecutor):
     for dynamic tool selection.
     """
     
-    def __init__(self, scenario: AgentScenario, examples_dir: Path):
+    def __init__(self, scenario: AgentScenario, examples_dir: Path, model_path: str = None):
         """Initialize BeeAI executor"""
         super().__init__(scenario, examples_dir)
         self.router = None
         self.tools_retrieved = 0
         self.tools_executed = 0
         self.agents_executed = 0
+        self.model_path = model_path
         
         # Map scenario IDs to example directories (must match mcp_manager.py)
         scenario_map = {
@@ -99,7 +100,7 @@ class BeeAIExecutor(BaseAgentExecutor):
             else:
                 raise RuntimeError(f"Could not load module from {module_path}")
             
-            self.router = ToolRouterForBeeAI()
+            self.router = ToolRouterForBeeAI(model_path=self.model_path)
             await self.router.initialize()
             
             self.initialized = True

@@ -316,24 +316,26 @@ export class RunComponent implements OnInit {
       this.expansionConfigs = configs.filter(c => c.role === 'expansion');
       this.heavyConfigs = configs.filter(c => c.role === 'heavy');
       
-      // Update dropdown items
-      this.expansionModelDropdownItems = [
-        { content: 'Manual Entry', value: '', selected: this.selectedExpansionConfigId === '' },
-        ...this.expansionConfigs.map(cfg => ({
-          content: `${cfg.provider}/${cfg.modelName}`,
-          value: cfg.id,
-          selected: cfg.id === this.selectedExpansionConfigId
-        }))
-      ];
-      
-      this.heavyModelDropdownItems = [
-        { content: 'Manual Entry', value: '', selected: this.selectedHeavyConfigId === '' },
-        ...this.heavyConfigs.map(cfg => ({
-          content: `${cfg.provider}/${cfg.modelName}`,
-          value: cfg.id,
-          selected: cfg.id === this.selectedHeavyConfigId
-        }))
-      ];
+      // Update dropdown items - use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+      setTimeout(() => {
+        this.expansionModelDropdownItems = [
+          { content: 'Manual Entry', value: '', selected: this.selectedExpansionConfigId === '' },
+          ...this.expansionConfigs.map(cfg => ({
+            content: `${cfg.provider}/${cfg.modelName}`,
+            value: cfg.id,
+            selected: cfg.id === this.selectedExpansionConfigId
+          }))
+        ];
+        
+        this.heavyModelDropdownItems = [
+          { content: 'Manual Entry', value: '', selected: this.selectedHeavyConfigId === '' },
+          ...this.heavyConfigs.map(cfg => ({
+            content: `${cfg.provider}/${cfg.modelName}`,
+            value: cfg.id,
+            selected: cfg.id === this.selectedHeavyConfigId
+          }))
+        ];
+      }, 0);
     });
   }
 
@@ -345,24 +347,60 @@ export class RunComponent implements OnInit {
 
   onExpansionModelSelectDropdown(event: any): void {
     const value = event?.item?.value || event?.value || event;
-    this.selectedExpansionConfigId = value;
-    this.onExpansionModelSelect();
+    if (value !== this.selectedExpansionConfigId) {
+      this.selectedExpansionConfigId = value;
+      this.onExpansionModelSelect();
+      // Update dropdown items to reflect selection
+      setTimeout(() => {
+        this.expansionModelDropdownItems = this.expansionModelDropdownItems.map(item => ({
+          ...item,
+          selected: item.value === value
+        }));
+      }, 0);
+    }
   }
 
   onHeavyModelSelectDropdown(event: any): void {
     const value = event?.item?.value || event?.value || event;
-    this.selectedHeavyConfigId = value;
-    this.onHeavyModelSelect();
+    if (value !== this.selectedHeavyConfigId) {
+      this.selectedHeavyConfigId = value;
+      this.onHeavyModelSelect();
+      // Update dropdown items to reflect selection
+      setTimeout(() => {
+        this.heavyModelDropdownItems = this.heavyModelDropdownItems.map(item => ({
+          ...item,
+          selected: item.value === value
+        }));
+      }, 0);
+    }
   }
 
   onRoutingModelChange(event: any): void {
     const value = event?.item?.value || event?.value || event;
-    this.selectedModel = value;
+    if (value !== this.selectedModel) {
+      this.selectedModel = value;
+      // Update dropdown items to reflect selection
+      setTimeout(() => {
+        this.routingModelDropdownItems = this.routingModelDropdownItems.map(item => ({
+          ...item,
+          selected: item.value === value
+        }));
+      }, 0);
+    }
   }
 
   onScenarioChange(event: any): void {
     const value = event?.item?.value || event?.value || event;
-    this.selectedScenarioId = value;
+    if (value !== this.selectedScenarioId) {
+      this.selectedScenarioId = value;
+      // Update dropdown items to reflect selection
+      setTimeout(() => {
+        this.scenarioDropdownItems = this.scenarioDropdownItems.map(item => ({
+          ...item,
+          selected: item.value === value
+        }));
+      }, 0);
+    }
   }
 
   onExpansionModelSelect(): void {
@@ -391,12 +429,14 @@ export class RunComponent implements OnInit {
         if (res.status === 'success') {
           this.availableModels = res.models;
           
-          // Update routing model dropdown items
-          this.routingModelDropdownItems = this.availableModels.map(m => ({
-            content: m.name,
-            value: m.name,
-            selected: m.name === this.selectedModel
-          }));
+          // Update routing model dropdown items - use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+          setTimeout(() => {
+            this.routingModelDropdownItems = this.availableModels.map(m => ({
+              content: m.name,
+              value: m.name,
+              selected: m.name === this.selectedModel
+            }));
+          }, 0);
         }
       },
       error: (err) => {
@@ -562,12 +602,14 @@ export class RunComponent implements OnInit {
         if (response.status === 'success') {
           this.agentScenarios = response.scenarios;
           
-          // Update scenario dropdown items
-          this.scenarioDropdownItems = this.agentScenarios.map(s => ({
-            content: s.name,
-            value: s.id,
-            selected: s.id === this.selectedScenarioId
-          }));
+          // Update scenario dropdown items - use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
+          setTimeout(() => {
+            this.scenarioDropdownItems = this.agentScenarios.map(s => ({
+              content: s.name,
+              value: s.id,
+              selected: s.id === this.selectedScenarioId
+            }));
+          }, 0);
         }
       },
       error: (err) => {
@@ -636,7 +678,7 @@ export class RunComponent implements OnInit {
       await this.service.executeAgentScenario(
         this.selectedScenarioId,
         this.runtimeLLMConfig,
-        this.runtimeConfig,
+        { ...this.runtimeConfig, model_path: this.selectedModel || null },
         (event) => {
           this.ngZone.run(() => {
             this.handleAgentEvent(event);

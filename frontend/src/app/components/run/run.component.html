@@ -853,21 +853,21 @@
               <p class="ibm--type-body-compact-01" style="margin: 0.5rem 0 1rem 0;">{{ scenario.description }}</p>
               
               <div class="scenario-details__meta">
-                <div class="meta-item">
+                <div class="meta-item" *ngIf="scenario.agents && scenario.agents.length">
                   <svg cdsIcon="collaborate" size="16"></svg>
                   <span>{{ scenario.agents.length }} Agents</span>
                 </div>
-                <div class="meta-item">
+                <div class="meta-item" *ngIf="scenario.total_tools">
                   <svg cdsIcon="data-vis--4" size="16"></svg>
                   <span>{{ scenario.total_tools }} Tools</span>
                 </div>
-                <div class="meta-item">
+                <div class="meta-item" *ngIf="scenario.estimated_duration">
                   <svg cdsIcon="time" size="16"></svg>
                   <span>~{{ scenario.estimated_duration }}s</span>
                 </div>
               </div>
 
-              <div class="scenario-details__benefits">
+              <div class="scenario-details__benefits" *ngIf="scenario.benefits && scenario.benefits.length">
                 <p class="ibm--type-label-01">Key Benefits:</p>
                 <ul class="ibm--type-body-compact-01">
                   <li *ngFor="let benefit of scenario.benefits">{{ benefit }}</li>

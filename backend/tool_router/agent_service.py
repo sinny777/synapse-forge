@@ -199,12 +199,27 @@ class AgentOrchestrator:
         try:
             logger.info(f"Creating executor for {scenario_id} in {self.execution_mode} mode")
             
+            # Extract model_path from runtime_config (sent by frontend)
+            model_path = None
+            if runtime_config:
+                model_name = runtime_config.get("model_path") or runtime_config.get("selectedModel")
+                if model_name:
+                    # Resolve to absolute path under models directory
+                    from tool_router.config import config
+                    resolved = config.models_dir / model_name
+                    if resolved.exists():
+                        model_path = str(resolved)
+                        logger.info(f"Using UI-selected model: {model_path}")
+                    else:
+                        logger.warning(f"UI-selected model not found at {resolved}, will use fallback")
+                        model_path = model_name  # Let the orchestrator try to resolve it
+            
             if self.execution_mode == "mock":
                 executor = MockExecutor(scenario, EXAMPLES_DIR)
             elif scenario.framework == AgentFramework.BEEAI:
-                executor = BeeAIExecutor(scenario, EXAMPLES_DIR)
+                executor = BeeAIExecutor(scenario, EXAMPLES_DIR, model_path=model_path)
             elif scenario.framework == AgentFramework.LANGGRAPH:
-                executor = LangGraphExecutor(scenario, EXAMPLES_DIR)
+                executor = LangGraphExecutor(scenario, EXAMPLES_DIR, model_path=model_path)
             else:
                 raise ValueError(f"Unknown framework: {scenario.framework}")
             

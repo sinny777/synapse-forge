@@ -24,13 +24,14 @@ class LangGraphExecutor(BaseAgentExecutor):
     with NeuralToolRouter for dynamic tool selection.
     """
     
-    def __init__(self, scenario: AgentScenario, examples_dir: Path):
+    def __init__(self, scenario: AgentScenario, examples_dir: Path, model_path: str = None):
         """Initialize LangGraph executor"""
         super().__init__(scenario, examples_dir)
         self.router = None
         self.tools_retrieved = 0
         self.tools_executed = 0
         self.agents_executed = 0
+        self.model_path = model_path
         
         # Map scenario IDs to example directories (must match mcp_manager.py)
         scenario_map = {
@@ -68,7 +69,7 @@ class LangGraphExecutor(BaseAgentExecutor):
             
             ToolRouterForLangChain = orchestrator_module.ToolRouterForLangChain
             
-            self.router = ToolRouterForLangChain()
+            self.router = ToolRouterForLangChain(model_path=self.model_path)
             await self.router.initialize()
             
             self.initialized = True
