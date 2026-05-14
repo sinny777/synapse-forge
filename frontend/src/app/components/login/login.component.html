@@ -1,0 +1,26 @@
+<div class="login-container">
+  <div class="login-box glass-panel">
+    <div class="login-header">
+      <h1 class="login-title">NeuralToolRouter</h1>
+      <p class="login-subtitle">Sign in to access your workspaces</p>
+    </div>
+
+    <div class="login-actions">
+      <button class="cds--btn cds--btn--primary login-btn" (click)="loginWithGoogle()">
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="cds--btn__icon">
+          <path d="M8.159 6.856v2.744h4.537c-.183 1.177-1.359 3.45-4.537 3.45-2.73 0-4.959-2.261-4.959-5.05s2.23-5.05 4.959-5.05c1.554 0 2.594.661 3.189 1.235l2.164-2.091C12.126.69 10.339 0 8.159 0 3.653 0 0 3.653 0 8.159s3.653 8.159 8.159 8.159c4.71 0 7.84-3.313 7.84-7.985 0-.534-.057-1.045-.14-1.477H8.159z"/>
+        </svg>
+        Continue with Google
+      </button>
+
+      <button class="cds--btn cds--btn--tertiary login-btn" (click)="loginWithGithub()">
+        <svg cdsIcon="logo--github" size="16" class="cds--btn__icon"></svg>
+        Continue with GitHub
+      </button>
+    </div>
+
+    <div class="login-footer">
+      <p>By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</p>
+    </div>
+  </div>
+</div>

@@ -48,3 +48,6 @@ mypy>=1.5.0
 fastapi
 uvicorn
 pydantic
+authlib>=1.3.0
+itsdangerous>=2.1.2
+httpx>=0.25.0

@@ -1,5 +1,5 @@
 <!-- Carbon UI Shell: Top Header -->
-<cds-header name="NeuralToolRouter" [brand]="''">
+<cds-header name="NeuralToolRouter" [brand]="''" *ngIf="activePhase !== 'login'">
   <cds-hamburger [active]="sidenavExpanded" (selected)="toggleSidenav()"></cds-hamburger>
 
   <!-- Navigation area -->
@@ -18,6 +18,24 @@
       <svg cdsIcon="switcher" size="16"></svg>
     </cds-header-action>
 
+    <!-- User Profile Dropdown -->
+    <div *ngIf="authService.authState$ | async as auth" class="header-user-menu" style="position: relative; display: flex;">
+      <button *ngIf="auth.isAuthenticated" class="user-profile-btn" title="User Profile" (click)="toggleProfileMenu()">
+        <img *ngIf="auth.user?.avatar" [src]="auth.user?.avatar" class="profile-img" />
+        <svg *ngIf="!auth.user?.avatar" cdsIcon="user--avatar" size="20" class="profile-svg"></svg>
+      </button>
+      <div *ngIf="isProfileMenuOpen && auth.isAuthenticated" class="profile-dropdown">
+        <div class="profile-info">
+          <p class="profile-name">{{ auth.user?.name }}</p>
+          <p class="profile-email">{{ auth.user?.email }}</p>
+        </div>
+        <div class="dropdown-divider"></div>
+        <button class="logout-btn" (click)="logout()">
+          Logout
+        </button>
+      </div>
+    </div>
+
     <!-- Help button -->
     <cds-header-action title="Help">
       <svg cdsIcon="help" size="20"></svg>
@@ -34,7 +52,7 @@
 
 
 <!-- IBM Carbon Sidenav -->
-<cds-sidenav [expanded]="sidenavExpanded" [rail]="true">
+<cds-sidenav [expanded]="sidenavExpanded" [rail]="true" *ngIf="activePhase !== 'login'">
 
   <cds-sidenav-item (click)="setActivePhase('dashboard'); closeSidenav()" [active]="activePhase === 'dashboard'">
     <svg icon cdsIcon="dashboard" size="16"></svg>
@@ -115,6 +133,7 @@
 <!-- Main Content Area -->
 <div class="cds--content" style="height: 100vh; overflow-y: auto;">
   <ng-container [ngSwitch]="activePhase">
+    <app-login *ngSwitchCase="'login'"></app-login>
     <app-workflow *ngSwitchCase="'workflow'"></app-workflow>
     <app-llm-config *ngSwitchCase="'settings'"></app-llm-config>
     <app-tool-registry *ngSwitchCase="'tools'"></app-tool-registry>

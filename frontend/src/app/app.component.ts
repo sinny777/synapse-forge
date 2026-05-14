@@ -7,6 +7,8 @@ import { ToolRegistryComponent } from './components/tool-registry/tool-registry.
 import { AgentStudioComponent } from './components/agent-studio/agent-studio.component';
 import { OrchestratorBuilderComponent } from './components/orchestrator-builder/orchestrator-builder.component';
 import { PlaygroundComponent } from './components/playground/playground.component';
+import { LoginComponent } from './components/login/login.component';
+import { AuthService } from './services/auth.service';
 import {
   UIShellModule,
   PlaceholderModule,
@@ -52,6 +54,7 @@ import Add16 from '@carbon/icons/es/add/16';
 import Bot16 from '@carbon/icons/es/bot/16';
 import Play16 from '@carbon/icons/es/play/16';
 import PlugFilled16 from '@carbon/icons/es/plug--filled/16';
+import UserAvatar20 from '@carbon/icons/es/user--avatar/20';
 
 @Component({
   selector: 'app-root',
@@ -65,6 +68,7 @@ import PlugFilled16 from '@carbon/icons/es/plug--filled/16';
     AgentStudioComponent,
     OrchestratorBuilderComponent,
     PlaygroundComponent,
+    LoginComponent,
     UIShellModule,
     PlaceholderModule,
     ModalModule,
@@ -78,8 +82,9 @@ import PlugFilled16 from '@carbon/icons/es/plug--filled/16';
   encapsulation: ViewEncapsulation.None
 })
 export class AppComponent implements OnInit {
-  activePhase: 'workflow' | 'dashboard' | 'settings' | 'tools' | 'agents' | 'orchestrator' | 'playground' = 'dashboard';
+  activePhase: 'workflow' | 'dashboard' | 'settings' | 'tools' | 'agents' | 'orchestrator' | 'playground' | 'login' = 'dashboard';
   sidenavExpanded = false;
+  isProfileMenuOpen = false;
   isDark = true;
 
   // Workspace state
@@ -157,6 +162,7 @@ export class AppComponent implements OnInit {
   constructor(
     protected iconService: IconService,
     public workspaceService: WorkspaceService,
+    public authService: AuthService,
   ) {
     this.iconService.registerAll([
       Dashboard16,
@@ -191,6 +197,7 @@ export class AppComponent implements OnInit {
       Bot16,
       Play16,
       PlugFilled16,
+      UserAvatar20,
     ]);
   }
 
@@ -209,6 +216,15 @@ export class AppComponent implements OnInit {
     this.workspaceService.loadWorkspaces();
     this.workspaceService.workspaces$.subscribe((ws) => this.workspaces = ws);
     this.workspaceService.activeWorkspace$.subscribe((ws) => this.activeWorkspace = ws);
+
+    // Authentication check
+    this.authService.checkAuth().subscribe(user => {
+      if (!user) {
+        this.setActivePhase('login');
+      } else if (this.activePhase === 'login') {
+        this.setActivePhase('dashboard');
+      }
+    });
   }
 
   toggleSidenav(): void {
@@ -217,6 +233,17 @@ export class AppComponent implements OnInit {
 
   closeSidenav(): void {
     this.sidenavExpanded = false;
+  }
+
+  toggleProfileMenu(): void {
+    this.isProfileMenuOpen = !this.isProfileMenuOpen;
+  }
+
+  logout(): void {
+    this.authService.logout().subscribe(() => {
+      this.isProfileMenuOpen = false;
+      this.setActivePhase('login');
+    });
   }
 
   setActivePhase(phase: typeof this.activePhase): void {

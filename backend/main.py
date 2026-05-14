@@ -16,6 +16,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 from dotenv import load_dotenv
 
 # ---------------------------------------------------------------------------
@@ -80,6 +81,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Neural Tool Router API", lifespan=lifespan)
 
+import os
+secret_key = os.environ.get("SECRET_KEY", "super-secret-key-for-dev")
+app.add_middleware(SessionMiddleware, secret_key=secret_key)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:4200"],
@@ -92,6 +97,9 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Mount all API routers
 # ---------------------------------------------------------------------------
+
+# --- Auth ---
+from api.auth import router as auth_router
 
 # --- Platform CRUD (Phase 3 & 4) ---
 from api.workspaces import router as workspaces_router
@@ -110,6 +118,7 @@ from api.scenarios import router as scenarios_router
 from api.execute import router as execute_router
 
 # Platform routes
+app.include_router(auth_router)
 app.include_router(workspaces_router)
 app.include_router(tools_router)
 app.include_router(agents_router)

@@ -671,3 +671,100 @@ cds-hamburger,
   resize: vertical !important;
   box-sizing: border-box !important;
 }
+
+/* ─────────────────────────────────────────────────────────
+   USER PROFILE DROPDOWN & BUTTON
+   ───────────────────────────────────────────────────────── */
+.user-profile-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  width: 3rem; /* Match IBM Carbon header action size */
+  height: 3rem; /* 48px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.11s;
+}
+
+.user-profile-btn:hover {
+  background-color: var(--cds-background-hover, #353535);
+}
+
+.profile-img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  pointer-events: none;
+  object-fit: cover;
+}
+
+.profile-svg {
+  pointer-events: none;
+  fill: var(--cds-icon-primary, #f4f4f4);
+}
+
+.profile-dropdown {
+  position: absolute;
+  top: 3rem; /* 48px exactly below the header */
+  right: 0;
+  width: 240px;
+  background-color: var(--cds-layer-01, #262626);
+  border: 1px solid var(--cds-border-subtle-01, #393939);
+  border-top: none;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-info {
+  padding: 1rem;
+  background-color: var(--cds-layer-02, #393939);
+}
+
+.profile-name {
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+  color: var(--cds-text-primary, #f4f4f4);
+  margin: 0 0 0.25rem 0 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-email {
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
+  color: var(--cds-text-secondary, #c6c6c6);
+  margin: 0 !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--cds-border-subtle-01, #393939);
+  width: 100%;
+}
+
+.logout-btn {
+  width: 100%;
+  justify-content: flex-start;
+  max-width: 100%;
+  border: none;
+  background-color: transparent;
+  color: var(--cds-text-error, #ff8389);
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-align: left;
+  transition: background-color 0.11s;
+}
+
+.logout-btn:hover {
+  background-color: var(--cds-layer-02, #393939);
+}
