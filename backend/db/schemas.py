@@ -10,7 +10,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -20,6 +20,18 @@ from pydantic import BaseModel, ConfigDict, Field
 class ToolTypeEnum(str, Enum):
     REST = "REST"
     MCP_SERVER = "MCP_SERVER"
+    MCP_TOOL = "MCP_TOOL"
+
+
+class MCPTransportEnum(str, Enum):
+    STDIO = "stdio"
+    SSE = "sse"
+
+
+class MCPServerStatusEnum(str, Enum):
+    ACTIVE = "active"
+    DISABLED = "disabled"
+    ERROR = "error"
 
 
 class FrameworkEnum(str, Enum):
@@ -75,10 +87,14 @@ class WorkspaceRead(BaseModel):
 
 # ========================== TOOL ===========================================
 
+
 class ToolCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, examples=["get_balance"])
     description: str | None = Field(default=None, examples=["Retrieve current account balance"])
     type: ToolTypeEnum = ToolTypeEnum.REST
+    is_enabled: bool = Field(default=False, description="Whether the tool is active for the agent")
+    
+    # REST / MCP Tool config
     connection_config: dict[str, Any] | None = Field(
         default=None,
         examples=[{"url": "https://api.bank.com/balance", "method": "GET"}],
@@ -87,14 +103,54 @@ class ToolCreate(BaseModel):
         default=None,
         description="OpenAPI / Function-calling schema for this tool",
     )
+    
+    # MCP Server Config (for type=MCP_SERVER)
+    transport: MCPTransportEnum | None = Field(
+        default=None,
+        description="Transport protocol (required for MCP_SERVER)",
+    )
+    command: str | None = Field(default=None, max_length=500)
+    args: list[str] | None = None
+    env: dict[str, str] | None = None
+    url: str | None = Field(default=None, max_length=500)
+    
+    # Status and Hierarchy
+    status: MCPServerStatusEnum = Field(default=MCPServerStatusEnum.ACTIVE)
+    parent_id: uuid.UUID | None = Field(
+        default=None,
+        description="ID of the parent provider/server",
+    )
+
+    @field_validator("command")
+    @classmethod
+    def validate_stdio_command(cls, v: str | None, info) -> str | None:
+        if info.data.get("type") == ToolTypeEnum.MCP_SERVER and info.data.get("transport") == MCPTransportEnum.STDIO and not v:
+            raise ValueError("command is required when transport is 'stdio'")
+        return v
+
+    @field_validator("url")
+    @classmethod
+    def validate_sse_url(cls, v: str | None, info) -> str | None:
+        if info.data.get("type") == ToolTypeEnum.MCP_SERVER and info.data.get("transport") == MCPTransportEnum.SSE and not v:
+            raise ValueError("url is required when transport is 'sse'")
+        return v
 
 
 class ToolUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     type: ToolTypeEnum | None = None
+    is_enabled: bool | None = None
     connection_config: dict[str, Any] | None = None
     schema_def: dict[str, Any] | None = None
+    transport: MCPTransportEnum | None = None
+    command: str | None = None
+    args: list[str] | None = None
+    env: dict[str, str] | None = None
+    url: str | None = None
+    status: MCPServerStatusEnum | None = None
+    last_error: str | None = None
+    parent_id: uuid.UUID | None = None
 
 
 class ToolRead(BaseModel):
@@ -105,11 +161,20 @@ class ToolRead(BaseModel):
     name: str
     description: str | None = None
     type: ToolTypeEnum
+    is_enabled: bool
     connection_config: dict[str, Any] | None = None
     schema_def: dict[str, Any] | None = None
-    # NOTE: embedding intentionally excluded — it's a large float array
+    transport: MCPTransportEnum | None = None
+    command: str | None = None
+    args: list[str] | None = None
+    env: dict[str, str] | None = None
+    url: str | None = None
+    status: MCPServerStatusEnum
+    last_error: str | None = None
+    parent_id: uuid.UUID | None = None
     created_at: datetime
     updated_at: datetime
+
 
 
 # ========================== AGENT ==========================================
@@ -196,3 +261,5 @@ class RouterPredictResponse(BaseModel):
     tools: list[ToolRead]
     cached: bool = False
     latency_ms: float
+
+# Made with Bob

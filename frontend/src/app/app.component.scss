@@ -662,3 +662,12 @@ cds-hamburger,
     grid-template-columns: 1fr;
   }
 }
+
+// Workspace Modal Textarea Styling
+.workspace-description-textarea {
+  width: 100% !important;
+  min-height: 120px !important;
+  max-width: 100% !important;
+  resize: vertical !important;
+  box-sizing: border-box !important;
+}

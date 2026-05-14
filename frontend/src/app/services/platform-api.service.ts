@@ -69,6 +69,17 @@ export class PlatformApiService {
     );
   }
 
+  testToolConnection(
+    workspaceId: string,
+    toolId: string
+  ): Observable<any> {
+    return this.http.post<any>(
+      `${API_BASE}/workspaces/${workspaceId}/tools/${toolId}/test`,
+      {}
+    );
+  }
+
+
   // ========================== AGENTS ======================================
 
   listAgents(workspaceId: string): Observable<Agent[]> {

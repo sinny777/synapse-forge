@@ -381,7 +381,7 @@
   <cds-modal-header (closeSelect)="closeWorkspaceModal()">
     <h3 cdsModalHeaderHeading>Create Workspace</h3>
   </cds-modal-header>
-  <section cdsModalBody>
+  <section cdsModalContent>
     <div style="display: flex; flex-direction: column; gap: 1rem; padding: 0.5rem 0;">
       <div class="cds--form-item">
         <label class="cds--label">Workspace Name *</label>
@@ -389,7 +389,7 @@
       </div>
       <div class="cds--form-item">
         <label class="cds--label">Description</label>
-        <textarea class="cds--text-area" rows="3" [(ngModel)]="newWorkspaceDesc" placeholder="Optional description..."></textarea>
+        <textarea class="cds--text-area workspace-description-textarea" rows="6" [(ngModel)]="newWorkspaceDesc" placeholder="Optional description..."></textarea>
       </div>
     </div>
   </section>

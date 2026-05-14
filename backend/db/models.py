@@ -1,11 +1,12 @@
 """
 NeuralToolRouter — SQLAlchemy ORM Models
 
-Defines the four core tables from the Platform Requirements:
+Defines the core tables from the Platform Requirements:
   • Workspace   — multi-tenant container
   • Tool        — registered tools (REST / MCP) with pgvector embedding
   • Agent       — LLM agent definitions
   • Orchestration — workflow definitions (LangGraph, CrewAI, AutoGen)
+  • MCPServer   — MCP server configurations (stdio/sse)
 
 All tables use UUID primary keys and carry a workspace_id foreign key
 (except Workspace itself) for strict multi-tenant isolation.
@@ -47,6 +48,20 @@ class ToolType(str, enum.Enum):
     """Transport type used to connect to the tool."""
     REST = "REST"
     MCP_SERVER = "MCP_SERVER"
+    MCP_TOOL = "MCP_TOOL"
+
+
+class MCPTransportType(str, enum.Enum):
+    """MCP server transport protocol."""
+    STDIO = "stdio"
+    SSE = "sse"
+
+
+class MCPServerStatus(str, enum.Enum):
+    """MCP server connection status."""
+    ACTIVE = "active"
+    DISABLED = "disabled"
+    ERROR = "error"
 
 
 class OrchestrationFramework(str, enum.Enum):
@@ -124,11 +139,12 @@ class Workspace(Base):
 
 class Tool(Base):
     """
-    A registered tool (REST endpoint or MCP server action).
-
-    The ``embedding`` column stores a dense vector produced by
-    NeuralToolRouter so the platform can perform pgvector similarity
-    search to find the top-K most relevant tools for a given prompt.
+    A unified tool registry entry.
+    
+    Can represent:
+    1. A standalone REST tool.
+    2. An MCP Server configuration (provider).
+    3. An individual tool discovered from an MCP Server.
     """
     __tablename__ = "tools"
 
@@ -138,6 +154,8 @@ class Tool(Base):
     workspace_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
+    
+    # Common fields
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     type: Mapped[ToolType] = mapped_column(
@@ -145,15 +163,38 @@ class Tool(Base):
         nullable=False,
         default=ToolType.REST,
     )
+    is_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
+    
+    # REST / MCP Tool specific
     connection_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     schema_def: Mapped[dict | None] = mapped_column(
         "schema", JSONB, nullable=True
     )
 
-    # pgvector embedding — UNTYPED vector (no fixed dimension).
-    # Each workspace defines its own embedding_model + embedding_dim.
-    # Since queries always filter by workspace_id, dimension consistency
-    # is guaranteed.  Untyped vectors accept any dimension (384, 768, 1536…).
+    # MCP Server specific (for type=MCP_SERVER)
+    transport: Mapped[MCPTransportType | None] = mapped_column(
+        Enum(MCPTransportType, name="mcp_transport_type", create_constraint=True),
+        nullable=True,
+    )
+    command: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    args: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
+    env: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    
+    # Status and Discovery
+    status: Mapped[MCPServerStatus] = mapped_column(
+        Enum(MCPServerStatus, name="mcp_server_status", create_constraint=True),
+        nullable=False,
+        default=MCPServerStatus.ACTIVE,
+    )
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Hierarchical link (MCP_TOOL -> MCP_SERVER)
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tools.id", ondelete="CASCADE"), nullable=True
+    )
+    
+    # pgvector embedding
     embedding = Column(Vector(), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
@@ -165,11 +206,15 @@ class Tool(Base):
 
     # Relationships
     workspace = relationship("Workspace", back_populates="tools")
+    parent = relationship("Tool", remote_side=[id], back_populates="children")
+    children = relationship("Tool", back_populates="parent", cascade="all, delete-orphan")
 
     # Indexes
     __table_args__ = (
         Index("ix_tools_workspace_id", "workspace_id"),
         Index("ix_tools_name", "name"),
+        Index("ix_tools_type", "type"),
+        Index("ix_tools_parent_id", "parent_id"),
     )
 
     def __repr__(self) -> str:
@@ -261,3 +306,5 @@ class Orchestration(Base):
 
     def __repr__(self) -> str:
         return f"<Orchestration id={self.id!s} name={self.name!r} framework={self.framework.value}>"
+
+# Made with Bob

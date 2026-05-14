@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import {
   ButtonModule, NotificationModule, IconModule,
   TagModule, ModalModule, InputModule, DropdownModule,
+  LoadingModule,
 } from 'carbon-components-angular';
 import { IconService } from 'carbon-components-angular/icon';
 import { Subscription } from 'rxjs';
@@ -35,6 +36,7 @@ import Play16 from '@carbon/icons/es/play/16';
     CommonModule, FormsModule,
     ButtonModule, NotificationModule, IconModule,
     TagModule, ModalModule, InputModule, DropdownModule,
+    LoadingModule,
   ],
   templateUrl: './orchestrator-builder.component.html',
   styleUrls: ['./orchestrator-builder.component.scss'],

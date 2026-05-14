@@ -8,11 +8,11 @@
       </p>
     </div>
     <div class="header-actions">
-      <button class="cds--btn cds--btn--ghost cds--btn--sm" (click)="loadTools()" title="Refresh">
+      <button cdsButton="ghost" size="sm" (click)="loadTools()" title="Refresh">
         <svg cdsIcon="renew" size="16" class="cds--btn__icon"></svg>
         Refresh
       </button>
-      <button class="cds--btn cds--btn--primary cds--btn--sm" (click)="openCreateModal()">
+      <button cdsButton="primary" size="sm" (click)="openCreateModal()">
         <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
         Register Tool
       </button>
@@ -20,12 +20,13 @@
   </div>
 
   <!-- Notification -->
-  <div *ngIf="notification" class="notification-wrapper">
+  <div class="notification-area" *ngIf="notification">
     <cds-inline-notification [notificationObj]="{
         type: notification.type,
         title: notification.title,
         message: notification.message,
-        lowContrast: true
+        lowContrast: true,
+        showClose: true
       }" (close)="dismissNotification()">
     </cds-inline-notification>
   </div>
@@ -40,122 +41,175 @@
   <!-- Tool Registry Content -->
   <ng-container *ngIf="activeWorkspace">
     <!-- Search Bar -->
-    <div class="search-bar">
-      <div class="cds--search cds--search--sm">
-        <svg cdsIcon="search" size="16" class="cds--search__icon"></svg>
-        <input
-          class="cds--search-input"
-          type="text"
-          placeholder="Search tools..."
-          [(ngModel)]="searchQuery"
-          (input)="onSearch()"
-        />
+    <div class="search-bar" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+      <div style="display: flex; gap: 1rem; align-items: center;">
+        <cds-checkbox [(ngModel)]="filterState.MCP_SERVER" (ngModelChange)="filterTools()">MCP Servers</cds-checkbox>
+        <cds-checkbox [(ngModel)]="filterState.MCP_TOOL" (ngModelChange)="filterTools()">MCP Tools</cds-checkbox>
+        <cds-checkbox [(ngModel)]="filterState.REST" (ngModelChange)="filterTools()">REST Tools</cds-checkbox>
       </div>
-      <span class="tool-count">{{ filteredTools.length }} tool{{ filteredTools.length !== 1 ? 's' : '' }}</span>
+      <cds-search
+        style="flex: 1;"
+        size="sm"
+        placeholder="Search by name, description or type..."
+        [value]="searchQuery"
+        (valueChange)="onSearchChange($event)"
+        (clear)="onSearchClear()">
+      </cds-search>
+      <span class="tool-count">{{ filteredTools.length }} tool{{ filteredTools.length !== 1 ? 's' : '' }} registered</span>
     </div>
 
-    <!-- Tabs: Custom Tools / MCP Servers -->
-    <cds-tabs (selected)="onTabSelected($event)">
-      <cds-tab heading="Custom Tools (REST)">
-        <ng-container *ngTemplateOutlet="toolList"></ng-container>
-      </cds-tab>
-      <cds-tab heading="MCP Servers">
-        <ng-container *ngTemplateOutlet="toolList"></ng-container>
-      </cds-tab>
-    </cds-tabs>
+    <!-- Unified Tool List -->
+    <div class="tool-list" *ngIf="!loading; else loadingSpinner">
+      <div *ngIf="filteredTools.length === 0" class="empty-tools">
+        <svg cdsIcon="api" size="32" class="empty-icon"></svg>
+        <p>No tools found matching your search.</p>
+        <button cdsButton="tertiary" size="sm" (click)="openCreateModal()">
+          Register a new tool
+        </button>
+      </div>
+
+      <div *ngFor="let tool of filteredTools" class="tool-card" [class.mcp-server-card]="tool.type === 'MCP_SERVER'" [class.disabled]="!tool.is_enabled">
+        <div class="tool-card__header">
+          <div class="tool-card__icon" [class.mcp]="tool.type !== 'REST'">
+            <svg *ngIf="tool.type === 'REST'" cdsIcon="api" size="16"></svg>
+            <svg *ngIf="tool.type !== 'REST'" cdsIcon="logo--model-context-protocol" size="16"></svg>
+          </div>
+          <div class="tool-card__info">
+            <h4 class="tool-card__name">{{ tool.name }}</h4>
+            <div class="tool-card__tags">
+              <cds-tag [type]="tool.type === 'REST' ? 'blue' : (tool.type === 'MCP_SERVER' ? 'purple' : 'teal')" size="sm">
+                {{ getToolTypeLabel(tool.type) }}
+              </cds-tag>
+              <cds-tag *ngIf="tool.type === 'MCP_SERVER'" [type]="getStatusColor(tool.status)" size="sm">
+                {{ tool.status }}
+              </cds-tag>
+              <cds-tag [type]="tool.is_enabled ? 'green' : 'gray'" size="sm">
+                {{ tool.is_enabled ? 'Enabled' : 'Disabled' }}
+              </cds-tag>
+            </div>
+          </div>
+          <div class="tool-card__actions" *ngIf="tool.type !== 'MCP_TOOL'">
+            <cds-toggle
+              size="sm"
+              [checked]="!!tool.is_enabled"
+              (checkedChange)="setToolStatus(tool, $event)"
+              [onText]="'On'"
+              [offText]="'Off'">
+            </cds-toggle>
+          </div>
+        </div>
+
+        <p class="tool-card__description" [class.mcp-description]="tool.type !== 'REST'">
+          {{ truncateWords(tool.description) }}
+        </p>
+        
+        <!-- Detailed Info for MCP Servers -->
+        <div class="mcp-server-details" *ngIf="tool.type === 'MCP_SERVER' && (tool.url || tool.last_error)">
+          <p *ngIf="tool.transport === 'sse' && tool.url" class="server-url">
+            <strong>URL:</strong> {{ tool.url }}
+          </p>
+          <p *ngIf="tool.last_error" class="server-error">
+            <svg cdsIcon="warning--alt" size="16"></svg>
+            {{ tool.last_error }}
+          </p>
+        </div>
+
+        <div class="tool-card__footer-container" style="display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid var(--cds-border-subtle); padding-top: 0.75rem; margin-top: auto;">
+          <div class="tool-card__meta" style="border: none; padding: 0;">
+            <span class="meta-item">Created: {{ tool.created_at | date:'short' }}</span>
+            <span class="meta-item" *ngIf="tool.type === 'REST' && tool.connection_config && tool.connection_config['url']">
+              {{ tool.connection_config['method'] || 'GET' }} {{ tool.connection_config['url'] }}
+            </span>
+            <span class="meta-item" *ngIf="tool.parent_id">
+              Server: {{ getParentServerName(tool.parent_id) }}
+            </span>
+          </div>
+
+          <!-- Secondary Actions in Footer -->
+          <div class="tool-card__footer-actions" style="display: flex; gap: 0.25rem;">
+            <button *ngIf="tool.type === 'MCP_SERVER'" cdsButton="ghost" size="sm" class="cds--btn--icon-only" (click)="testConnection(tool)" title="Test Connection">
+              <svg cdsIcon="renew" size="16"></svg>
+            </button>
+            <button *ngIf="tool.type !== 'MCP_TOOL'" cdsButton="ghost" size="sm" class="cds--btn--icon-only" (click)="openEditModal(tool)" title="Edit">
+              <svg cdsIcon="edit" size="16"></svg>
+            </button>
+            <button cdsButton="danger--ghost" size="sm" class="cds--btn--icon-only" (click)="deleteTool(tool)" title="Delete">
+              <svg cdsIcon="trash-can" size="16"></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </ng-container>
 </div>
 
-<!-- Tool List Template -->
-<ng-template #toolList>
-  <div class="tool-list" *ngIf="!loading; else loadingSpinner">
-    <div *ngIf="filteredTools.length === 0" class="empty-tools">
-      <p>No {{ activeTab === 0 ? 'REST' : 'MCP' }} tools registered yet.</p>
-      <button class="cds--btn cds--btn--tertiary cds--btn--sm" (click)="openCreateModal()">
-        Register your first tool
-      </button>
-    </div>
-
-    <div *ngFor="let tool of filteredTools" class="tool-card glass-card">
-      <div class="tool-card__header">
-        <div class="tool-card__icon">
-          <svg [attr.cdsIcon]="tool.type === 'MCP_SERVER' ? 'plug--connected' : 'api'" size="16"></svg>
-        </div>
-        <div class="tool-card__info">
-          <h4 class="tool-card__name">{{ tool.name }}</h4>
-          <span class="tool-card__type">
-            <cds-tag [type]="tool.type === 'MCP_SERVER' ? 'purple' : 'blue'" size="sm">
-              {{ getToolTypeLabel(tool.type) }}
-            </cds-tag>
-          </span>
-        </div>
-        <div class="tool-card__actions">
-          <button class="cds--btn cds--btn--ghost cds--btn--sm cds--btn--icon-only" (click)="openEditModal(tool)" title="Edit">
-            <svg cdsIcon="edit" size="16"></svg>
-          </button>
-          <button class="cds--btn cds--btn--danger--ghost cds--btn--sm cds--btn--icon-only" (click)="deleteTool(tool)" title="Delete">
-            <svg cdsIcon="trash-can" size="16"></svg>
-          </button>
-        </div>
-      </div>
-      <p class="tool-card__description">{{ tool.description || 'No description' }}</p>
-      <div class="tool-card__meta">
-        <span class="meta-item">Created: {{ tool.created_at | date:'short' }}</span>
-        <span class="meta-item" *ngIf="tool.connection_config">
-          {{ tool.connection_config['method'] || '' }} {{ tool.connection_config['url'] ? tool.connection_config['url'].substring(0, 40) : '' }}
-        </span>
-      </div>
-    </div>
-  </div>
-</ng-template>
-
 <ng-template #loadingSpinner>
   <div class="loading-state">
-    <div class="cds--loading cds--loading--small">
-      <svg class="cds--loading__svg" viewBox="0 0 100 100"><circle class="cds--loading__stroke" cx="50" cy="50" r="44"></circle></svg>
-    </div>
-    <p>Loading tools...</p>
+    <cds-loading size="sm"></cds-loading>
+    <p>Loading registry...</p>
   </div>
 </ng-template>
 
-<!-- Create/Edit Modal -->
+<!-- Unified Create/Edit Modal -->
 <cds-modal [open]="showModal" (overlaySelected)="closeModal()" size="lg">
   <cds-modal-header (closeSelect)="closeModal()">
-    <h3 cdsModalHeaderHeading>{{ editingTool ? 'Edit Tool' : 'Register New Tool' }}</h3>
-    <p cdsModalHeaderLabel>{{ activeTab === 0 ? 'Custom REST Tool' : 'MCP Server' }}</p>
+    <p cdsModalHeaderLabel>Registry Management</p>
+    <h3 cdsModalHeaderHeading>{{ editingTool ? 'Edit Tool Configuration' : 'Register New Tool' }}</h3>
   </cds-modal-header>
 
-  <section cdsModalBody>
+  <section cdsModalContent>
     <div class="modal-form">
-      <div class="cds--form-item">
-        <label class="cds--label">Tool Name *</label>
-        <input class="cds--text-input" type="text" [(ngModel)]="formData.name" placeholder="e.g. get_balance" />
+      <!-- Type Selection (only for new tools) -->
+      <div class="cds--form-item" *ngIf="!editingTool">
+        <cds-label>Tool Type</cds-label>
+        <cds-select
+          [(ngModel)]="selectedType"
+          [helperText]="'Select the type of tool to register'">
+          <option value="REST">REST API Tool</option>
+          <option value="MCP_SERVER">MCP Server</option>
+        </cds-select>
       </div>
 
-      <div class="cds--form-item">
-        <label class="cds--label">Description</label>
-        <textarea class="cds--text-area" rows="3" [(ngModel)]="formData.description"
-          placeholder="Describe what this tool does..."></textarea>
-      </div>
+      <!-- REST Tool Form -->
+      <ng-container *ngIf="selectedType === 'REST'">
+        <div class="cds--form-item">
+          <cds-label>Tool Name <span class="required">*</span></cds-label>
+          <input cdsText [(ngModel)]="formData.name" placeholder="e.g. get_balance" />
+        </div>
 
-      <div class="cds--form-item">
-        <label class="cds--label">Connection Config (JSON)</label>
-        <textarea class="cds--text-area code-textarea" rows="5" [(ngModel)]="connectionConfigJson"
-          placeholder='{"url": "https://api.example.com", "method": "GET"}'></textarea>
-      </div>
+        <div class="cds--form-item">
+          <cds-label>Description</cds-label>
+          <textarea cdsTextArea rows="3" [(ngModel)]="formData.description" placeholder="Describe what this tool does..."></textarea>
+        </div>
 
-      <div class="cds--form-item">
-        <label class="cds--label">Schema Definition (JSON)</label>
-        <textarea class="cds--text-area code-textarea" rows="8" [(ngModel)]="schemaDefJson"
-          placeholder='{"type": "function", "function": {"name": "...", "parameters": {...}}}'></textarea>
-      </div>
+        <div class="cds--form-item">
+          <cds-label>Connection Config (JSON)</cds-label>
+          <textarea cdsTextArea class="code-textarea" rows="5" [(ngModel)]="connectionConfigJson" placeholder='{"url": "...", "method": "GET"}'></textarea>
+        </div>
+
+        <div class="cds--form-item">
+          <cds-label>Schema Definition (JSON)</cds-label>
+          <textarea cdsTextArea class="code-textarea" rows="8" [(ngModel)]="schemaDefJson" placeholder='{"type": "function", ...}'></textarea>
+        </div>
+      </ng-container>
+
+      <!-- MCP Server Form -->
+      <ng-container *ngIf="selectedType === 'MCP_SERVER'">
+        <app-mcp-server-form
+          [server]="editingTool"
+          [isEditMode]="!!editingTool"
+          [childTools]="editingTool ? getChildTools(editingTool.id) : []"
+          (formDataChange)="onMCPFormDataChange($event)"
+          (validationChange)="onMCPFormValidationChange($event)">
+        </app-mcp-server-form>
+      </ng-container>
     </div>
   </section>
 
   <cds-modal-footer>
-    <button class="cds--btn cds--btn--secondary" (click)="closeModal()">Cancel</button>
-    <button class="cds--btn cds--btn--primary" (click)="saveTool()" [disabled]="!formData.name">
-      {{ editingTool ? 'Update Tool' : 'Register & Embed' }}
+    <button cdsButton="secondary" (click)="closeModal()">Cancel</button>
+    <button cdsButton="primary" (click)="saveTool()" [disabled]="(selectedType === 'REST' && !formData.name) || (selectedType === 'MCP_SERVER' && !mcpFormValid)">
+      {{ editingTool ? 'Update Tool' : 'Register Tool' }}
     </button>
   </cds-modal-footer>
 </cds-modal>

@@ -144,6 +144,8 @@ class RouterService:
                 (1 - (embedding <=> :vec ::vector)) AS similarity
             FROM tools
             WHERE workspace_id = :ws_id
+              AND is_enabled = true
+              AND type != 'MCP_SERVER'
               AND embedding IS NOT NULL
             ORDER BY embedding <=> :vec ::vector
             LIMIT :k

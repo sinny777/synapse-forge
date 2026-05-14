@@ -11,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import {
   ButtonModule, NotificationModule, IconModule,
   TagModule, ModalModule, InputModule, DropdownModule, TabsModule,
+  LoadingModule,
 } from 'carbon-components-angular';
 import { IconService } from 'carbon-components-angular/icon';
 import { Subscription } from 'rxjs';
@@ -32,6 +33,7 @@ import Link16 from '@carbon/icons/es/link/16';
     CommonModule, FormsModule,
     ButtonModule, NotificationModule, IconModule,
     TagModule, ModalModule, InputModule, DropdownModule, TabsModule,
+    LoadingModule,
   ],
   templateUrl: './agent-studio.component.html',
   styleUrls: ['./agent-studio.component.scss'],

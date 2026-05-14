@@ -28,7 +28,7 @@
   gap: 0.5rem;
 }
 
-.notification-wrapper {
+.notification-area {
   margin-bottom: 1rem;
 }
 
@@ -40,17 +40,16 @@
 }
 
 .orch-card {
-  background: rgba(38, 38, 38, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  background: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
   padding: 1.5rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    border-color: rgba(138, 63, 252, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    border-color: var(--cds-border-interactive, #0f62fe);
   }
 }
 
@@ -83,8 +82,8 @@
 
 .orch-card__name {
   font-size: 1.125rem;
-  font-weight: 500;
-  color: #fff;
+  font-weight: 600;
+  color: var(--cds-text-primary, #f4f4f4);
   margin: 0 0 0.25rem;
 }
 
@@ -95,8 +94,8 @@
 
 .orch-card__actions {
   display: flex;
-  gap: 0.25rem;
-  opacity: 0.4;
+  gap: 0.125rem;
+  opacity: 0.5;
   transition: opacity 0.15s ease;
 
   .orch-card:hover & {
@@ -118,9 +117,9 @@
 }
 
 .config-preview {
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  background: var(--cds-field, rgba(0, 0, 0, 0.3));
+  border: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.06));
+  border-radius: 4px;
   padding: 0.5rem 0.75rem;
   font-family: 'IBM Plex Mono', monospace;
   font-size: 0.75rem;
@@ -160,8 +159,12 @@
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding: 0.5rem 0;
+  gap: 1.5rem;
+  padding: 1rem 0;
+
+  .required {
+    color: var(--cds-support-error, #fa4d56);
+  }
 }
 
 // ─── Framework Selector ──────────────────────────────────────────
@@ -176,13 +179,13 @@
   align-items: center;
   gap: 1rem;
   padding: 0.75rem 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--cds-layer-hover, rgba(255, 255, 255, 0.04));
   }
 
   &.selected {
@@ -222,8 +225,8 @@
 
 .arch-option {
   padding: 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 8px;
+  border: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 4px;
   cursor: pointer;
   text-align: center;
   transition: all 0.15s ease;
@@ -232,7 +235,7 @@
   gap: 0.25rem;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--cds-layer-hover, rgba(255, 255, 255, 0.04));
   }
 
   &.selected {
@@ -268,5 +271,26 @@
 @media (max-width: 768px) {
   .arch-selector {
     grid-template-columns: 1fr;
+  }
+}
+
+// ─── Carbon Component Overrides ──────────────────────────────────
+:host ::ng-deep {
+  .cds--modal-container {
+    background: var(--cds-layer, #262626);
+  }
+
+  .cds--text-area__wrapper {
+    width: 100%;
+  }
+
+  .cds--text-area {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+  }
+
+  .cds--text-input {
+    width: 100%;
   }
 }

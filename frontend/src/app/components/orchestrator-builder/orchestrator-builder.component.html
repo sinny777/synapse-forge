@@ -8,11 +8,11 @@
       </p>
     </div>
     <div class="header-actions">
-      <button class="cds--btn cds--btn--ghost cds--btn--sm" (click)="loadOrchestrations()" title="Refresh">
+      <button cdsButton="ghost" size="sm" (click)="loadOrchestrations()" title="Refresh">
         <svg cdsIcon="renew" size="16" class="cds--btn__icon"></svg>
         Refresh
       </button>
-      <button class="cds--btn cds--btn--primary cds--btn--sm" (click)="openCreateModal()">
+      <button cdsButton="primary" size="sm" (click)="openCreateModal()">
         <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
         New Orchestration
       </button>
@@ -20,18 +20,20 @@
   </div>
 
   <!-- Notification -->
-  <div *ngIf="notification" class="notification-wrapper">
+  <div class="notification-area" *ngIf="notification">
     <cds-inline-notification [notificationObj]="{
         type: notification.type,
         title: notification.title,
         message: notification.message,
-        lowContrast: true
+        lowContrast: true,
+        showClose: true
       }" (close)="dismissNotification()">
     </cds-inline-notification>
   </div>
 
   <!-- No workspace -->
   <div *ngIf="!activeWorkspace" class="empty-state">
+    <svg cdsIcon="flow--data" size="32" class="empty-icon"></svg>
     <h3>No Workspace Selected</h3>
     <p>Select a workspace from the header to build orchestrations.</p>
   </div>
@@ -42,10 +44,10 @@
       <svg cdsIcon="flow--data" size="32" class="empty-icon"></svg>
       <h3>No Orchestrations Yet</h3>
       <p>Create your first orchestration to define multi-agent workflows.</p>
-      <button class="cds--btn cds--btn--tertiary cds--btn--sm" (click)="openCreateModal()">Create Orchestration</button>
+      <button cdsButton="tertiary" size="sm" (click)="openCreateModal()">Create Orchestration</button>
     </div>
 
-    <div *ngFor="let orch of orchestrations" class="orch-card glass-card">
+    <div *ngFor="let orch of orchestrations" class="orch-card">
       <div class="orch-card__header">
         <div class="orch-card__icon">
           <span class="fw-emoji">{{ getFrameworkIcon(orch.framework) }}</span>
@@ -58,17 +60,17 @@
           </div>
         </div>
         <div class="orch-card__actions">
-          <button class="cds--btn cds--btn--ghost cds--btn--sm cds--btn--icon-only" (click)="openEditModal(orch)" title="Edit">
+          <button cdsButton="ghost" size="sm" class="cds--btn--icon-only" (click)="openEditModal(orch)" title="Edit">
             <svg cdsIcon="edit" size="16"></svg>
           </button>
-          <button class="cds--btn cds--btn--danger--ghost cds--btn--sm cds--btn--icon-only" (click)="deleteOrchestration(orch)" title="Delete">
+          <button cdsButton="danger--ghost" size="sm" class="cds--btn--icon-only" (click)="deleteOrchestration(orch)" title="Delete">
             <svg cdsIcon="trash-can" size="16"></svg>
           </button>
         </div>
       </div>
 
       <div class="orch-card__config" *ngIf="orch.config">
-        <span class="config-label">Config</span>
+        <span class="config-label">CONFIG</span>
         <pre class="config-preview">{{ orch.config | json }}</pre>
       </div>
 
@@ -79,9 +81,7 @@
   </div>
 
   <div *ngIf="loading" class="loading-state">
-    <div class="cds--loading cds--loading--small">
-      <svg class="cds--loading__svg" viewBox="0 0 100 100"><circle class="cds--loading__stroke" cx="50" cy="50" r="44"></circle></svg>
-    </div>
+    <cds-loading size="sm"></cds-loading>
     <p>Loading orchestrations...</p>
   </div>
 </div>
@@ -89,20 +89,21 @@
 <!-- Create/Edit Modal -->
 <cds-modal [open]="showModal" (overlaySelected)="closeModal()" size="lg">
   <cds-modal-header (closeSelect)="closeModal()">
+    <p cdsModalHeaderLabel>Orchestration Configuration</p>
     <h3 cdsModalHeaderHeading>{{ editingOrch ? 'Edit Orchestration' : 'New Orchestration' }}</h3>
   </cds-modal-header>
 
-  <section cdsModalBody>
+  <section cdsModalContent>
     <div class="modal-form">
       <!-- Name -->
       <div class="cds--form-item">
-        <label class="cds--label">Orchestration Name *</label>
-        <input class="cds--text-input" type="text" [(ngModel)]="formData.name" placeholder="e.g. UHNW Banking Flow" />
+        <cds-label>Orchestration Name <span class="required">*</span></cds-label>
+        <input cdsText [(ngModel)]="formData.name" placeholder="e.g. UHNW Banking Flow" />
       </div>
 
       <!-- Framework Selector -->
       <div class="cds--form-item">
-        <label class="cds--label">Framework</label>
+        <cds-label>Framework</cds-label>
         <div class="framework-selector">
           <div *ngFor="let fw of frameworks"
                class="fw-option"
@@ -119,7 +120,7 @@
 
       <!-- Architecture Selector -->
       <div class="cds--form-item">
-        <label class="cds--label">Architecture Pattern</label>
+        <cds-label>Architecture Pattern</cds-label>
         <div class="arch-selector">
           <div *ngFor="let arch of architectures"
                class="arch-option"
@@ -133,8 +134,8 @@
 
       <!-- Config JSON -->
       <div class="cds--form-item">
-        <label class="cds--label">Config (JSONB)</label>
-        <textarea class="cds--text-area code-textarea" rows="8" [(ngModel)]="configJson"
+        <cds-label>Config (JSONB)</cds-label>
+        <textarea cdsTextArea class="code-textarea" rows="8" [(ngModel)]="configJson"
           placeholder='{"supervisor_agent_id": "...", "worker_agents": [...]}'></textarea>
         <p class="config-hint" *ngIf="agents.length > 0">
           Available agents: {{ agents.length }} ({{ getAgentNames() }})
@@ -144,8 +145,8 @@
   </section>
 
   <cds-modal-footer>
-    <button class="cds--btn cds--btn--secondary" (click)="closeModal()">Cancel</button>
-    <button class="cds--btn cds--btn--primary" (click)="saveOrchestration()" [disabled]="!formData.name">
+    <button cdsButton="secondary" (click)="closeModal()">Cancel</button>
+    <button cdsButton="primary" (click)="saveOrchestration()" [disabled]="!formData.name">
       {{ editingOrch ? 'Update' : 'Create Orchestration' }}
     </button>
   </cds-modal-footer>

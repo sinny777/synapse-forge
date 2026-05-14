@@ -109,9 +109,104 @@ cds-toggletip {
 .cds--text-input,
 .cds--number input,
 .cds--select-input,
-.cds--text-area {
+.cds--text-area,
+.cds--search-input {
   background-color: var(--cds-field, #262626) !important;
   color: var(--cds-text-primary, #f4f4f4) !important;
   border: 1px solid var(--cds-border-strong, #8d8d8d) !important;
   border-radius: 2px !important;
+  padding: 0.5rem 1rem !important; // Restore padding
+}
+
+.cds--text-area {
+  height: auto !important;
+  min-height: 80px !important;
+}
+
+.cds--modal {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  z-index: 9000 !important;
+}
+
+.cds--modal-container {
+  display: grid !important;
+  grid-template-rows: auto 1fr auto !important;
+  width: 100% !important;
+  max-width: 800px !important;
+  height: 85vh !important; // Fixed height to guarantee scroll
+  max-height: 85vh !important;
+  overflow: hidden !important;
+  background-color: var(--cds-layer, #262626) !important;
+  position: relative !important;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.5) !important;
+  border-radius: 4px !important;
+}
+
+.cds--modal-header {
+  grid-row: 1 !important;
+  padding: 2rem 2rem 1rem !important;
+  background-color: var(--cds-layer, #262626) !important;
+  border-bottom: 1px solid var(--cds-border-subtle) !important;
+}
+
+// Ensure modal container body section has breathing room
+.cds--modal-container .cds--modal-content {
+  padding-left: 1.5rem !important;
+  padding-right: 1.5rem !important;
+}
+
+.cds--modal-content {
+  grid-row: 2 !important;
+  padding: 2rem !important;
+  overflow-y: auto !important;
+  background-color: var(--cds-layer, #262626) !important;
+  height: auto !important;
+  max-height: none !important;
+  
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--cds-border-subtle, #393939);
+    border-radius: 3px;
+  }
+}
+
+.cds--modal-footer {
+  grid-row: 3 !important;
+  padding: 1rem 2rem !important;
+  background-color: var(--cds-layer-01, #161616) !important;
+  border-top: 1px solid var(--cds-border-subtle) !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  width: 100% !important;
+  min-height: 80px !important;
+
+  .cds--btn {
+    flex: 0 0 auto !important;
+    min-width: 140px !important;
+    margin: 0 !important;
+    height: 48px !important;
+  }
+}
+
+.modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+  padding: 1rem 0; // Vertical breathing room
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// ─── Global Search Input Padding Fix ──────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Increase left padding on search inputs so placeholder text doesn't
+// hide behind the magnifying glass icon.
+.cds--search-input {
+  padding-left: 2.5rem !important;
 }

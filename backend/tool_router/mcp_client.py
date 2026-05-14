@@ -16,6 +16,7 @@ from contextlib import AsyncExitStack
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
 from mcp.types import Tool, TextContent, ImageContent, EmbeddedResource
 
 from tool_router.config import MCPConfig
@@ -99,44 +100,76 @@ class MCPClient:
             env = server_config.get("env", {})
             transport = server_config.get("transport", "stdio")
             
-            if transport != "stdio":
+            if transport == "stdio":
+                logger.debug(f"Server command: {command} {' '.join(args)}")
+                
+                # Create server parameters
+                server_params = StdioServerParameters(
+                    command=command,
+                    args=args,
+                    env=env
+                )
+                
+                # Connect using stdio with timeout
+                logger.debug(f"Creating stdio context...")
+                read, write = await asyncio.wait_for(
+                    self.exit_stack.enter_async_context(stdio_client(server_params)),
+                    timeout=10.0
+                )
+                
+                logger.debug(f"Creating client session...")
+                # Create session
+                session = await asyncio.wait_for(
+                    self.exit_stack.enter_async_context(ClientSession(read, write)),
+                    timeout=10.0
+                )
+                
+                logger.debug(f"Initializing session...")
+                await asyncio.wait_for(
+                    session.initialize(),
+                    timeout=10.0
+                )
+                
+                # Store session and context for cleanup
+                self.sessions[server_name] = session
+                
+                logger.info(f"✓ Connected to stdio server {server_name}")
+                return True
+
+            elif transport == "sse":
+                url = server_config.get("url")
+                if not url:
+                    logger.error(f"SSE URL missing for {server_name}")
+                    return False
+                
+                logger.debug(f"Connecting to SSE URL: {url}")
+                
+                # Connect using SSE
+                read, write = await asyncio.wait_for(
+                    self.exit_stack.enter_async_context(sse_client(url)),
+                    timeout=15.0
+                )
+                
+                logger.debug(f"Creating SSE client session...")
+                session = await asyncio.wait_for(
+                    self.exit_stack.enter_async_context(ClientSession(read, write)),
+                    timeout=15.0
+                )
+                
+                logger.debug(f"Initializing SSE session...")
+                await asyncio.wait_for(
+                    session.initialize(),
+                    timeout=15.0
+                )
+                
+                # Store session
+                self.sessions[server_name] = session
+                logger.info(f"✓ Connected to SSE server {server_name}")
+                return True
+            
+            else:
                 logger.warning(f"Transport {transport} not yet supported, skipping {server_name}")
                 return False
-            
-            logger.debug(f"Server command: {command} {' '.join(args)}")
-            
-            # Create server parameters
-            server_params = StdioServerParameters(
-                command=command,
-                args=args,
-                env=env
-            )
-            
-            # Connect using stdio with timeout
-            logger.debug(f"Creating stdio context...")
-            read, write = await asyncio.wait_for(
-                self.exit_stack.enter_async_context(stdio_client(server_params)),
-                timeout=10.0
-            )
-            
-            logger.debug(f"Creating client session...")
-            # Create session
-            session = await asyncio.wait_for(
-                self.exit_stack.enter_async_context(ClientSession(read, write)),
-                timeout=10.0
-            )
-            
-            logger.debug(f"Initializing session...")
-            await asyncio.wait_for(
-                session.initialize(),
-                timeout=10.0
-            )
-            
-            # Store session and context for cleanup
-            self.sessions[server_name] = session
-            
-            logger.info(f"✓ Connected to {server_name}")
-            return True
             
         except asyncio.TimeoutError:
             logger.error(f"Timeout connecting to {server_name}")

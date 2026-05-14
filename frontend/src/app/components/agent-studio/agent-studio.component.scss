@@ -1,8 +1,13 @@
+// ═══════════════════════════════════════════════════════════════════
+// Agent Studio — IBM Carbon Design System Styles
+// ═══════════════════════════════════════════════════════════════════
+
 .studio-container {
   max-width: 1200px;
   margin: 0 auto;
 }
 
+// ─── Header ──────────────────────────────────────────────────────
 .studio-header {
   display: flex;
   justify-content: space-between;
@@ -28,7 +33,7 @@
   gap: 0.5rem;
 }
 
-.notification-wrapper {
+.notification-area {
   margin-bottom: 1rem;
 }
 
@@ -40,17 +45,16 @@
 }
 
 .agent-card {
-  background: rgba(38, 38, 38, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  background: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
   padding: 1.5rem;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    border-color: rgba(36, 161, 72, 0.3);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    border-color: var(--cds-border-interactive, #0f62fe);
   }
 }
 
@@ -69,8 +73,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--cds-support-success, #24a148);
   flex-shrink: 0;
+
+  svg {
+    fill: var(--cds-support-success, #24a148) !important;
+  }
 }
 
 .agent-card__info {
@@ -80,8 +87,8 @@
 
 .agent-card__name {
   font-size: 1.125rem;
-  font-weight: 500;
-  color: #fff;
+  font-weight: 600;
+  color: var(--cds-text-primary, #f4f4f4);
   margin: 0 0 0.25rem;
 }
 
@@ -99,8 +106,8 @@
 
 .agent-card__actions {
   display: flex;
-  gap: 0.25rem;
-  opacity: 0.4;
+  gap: 0.125rem;
+  opacity: 0.5;
   transition: opacity 0.15s ease;
 
   .agent-card:hover & {
@@ -119,13 +126,13 @@
   overflow: hidden;
   font-style: italic;
   padding-left: 0.75rem;
-  border-left: 2px solid rgba(255, 255, 255, 0.1);
+  border-left: 2px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.1));
 }
 
 .agent-card__tools {
   margin-top: auto;
   padding-top: 0.75rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  border-top: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.06));
 }
 
 .tools-label {
@@ -149,7 +156,8 @@
 }
 
 // ─── Empty / Loading ─────────────────────────────────────────────
-.empty-state, .loading-state {
+.empty-state,
+.loading-state {
   text-align: center;
   padding: 4rem 2rem;
   color: var(--cds-text-secondary, #c6c6c6);
@@ -172,8 +180,12 @@
 .modal-form {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
-  padding: 0.5rem 0;
+  gap: 1.5rem;
+  padding: 1rem 0;
+
+  .required {
+    color: var(--cds-support-error, #fa4d56);
+  }
 }
 
 .form-row {
@@ -186,12 +198,13 @@
   margin-bottom: 0;
 }
 
-// ─── Tool Selector ───────────────────────────────────────────────
+// ─── Tool Selector (in modal) ────────────────────────────────────
 .tool-selector {
   border: 1px solid var(--cds-border-subtle, #393939);
-  border-radius: 6px;
+  border-radius: 4px;
   max-height: 200px;
   overflow-y: auto;
+  background: var(--cds-field, #262626);
 }
 
 .tool-option {
@@ -200,11 +213,11 @@
   gap: 0.75rem;
   padding: 0.625rem 0.75rem;
   cursor: pointer;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.04));
   transition: background 0.1s ease;
 
   &:hover {
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--cds-layer-hover, rgba(255, 255, 255, 0.04));
   }
 
   &.selected {
@@ -247,4 +260,25 @@
   color: var(--cds-text-helper, #6f6f6f);
   font-style: italic;
   padding: 0.5rem 0;
+}
+
+// ─── Carbon Component Overrides ──────────────────────────────────
+:host ::ng-deep {
+  .cds--modal-container {
+    background: var(--cds-layer, #262626);
+  }
+
+  .cds--text-area__wrapper {
+    width: 100%;
+  }
+
+  .cds--text-area {
+    width: 100%;
+    min-height: 80px;
+    resize: vertical;
+  }
+
+  .cds--text-input {
+    width: 100%;
+  }
 }
