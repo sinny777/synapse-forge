@@ -39,6 +39,7 @@ import Api16 from '@carbon/icons/es/api/16';
 import LogoModelContextProtocol16 from '@carbon/icons/es/logo--model-context-protocol/16';
 import Renew16 from '@carbon/icons/es/renew/16';
 import Close16 from '@carbon/icons/es/close/16';
+import View16 from '@carbon/icons/es/view/16';
 
 @Component({
   selector: 'app-tool-registry',
@@ -102,7 +103,7 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
     private iconService: IconService,
   ) {
     this.iconService.registerAll([
-      Add16, TrashCan16, Edit16, Search16, Api16, LogoModelContextProtocol16, Renew16, Close16,
+      Add16, TrashCan16, Edit16, Search16, Api16, LogoModelContextProtocol16, Renew16, Close16, View16,
     ]);
   }
 
@@ -119,6 +120,10 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
+  }
+
+  get isDefaultWorkspace(): boolean {
+    return this.activeWorkspace?.name === 'Default Workspace' || this.activeWorkspace?.name === 'Default';
   }
 
   // ─── Data Loading ───────────────────────────────────────────────

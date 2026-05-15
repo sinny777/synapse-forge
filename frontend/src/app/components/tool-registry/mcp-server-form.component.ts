@@ -112,6 +112,7 @@ const mcpServerSchema = z.object({
             *ngIf="isEditMode"
             size="sm"
             [checked]="!!formData.is_enabled"
+            [disabled]="isReadonly"
             (checkedChange)="formData.is_enabled = $event; onFormChange()"
             [onText]="'Enabled'"
             [offText]="'Disabled'">
@@ -131,6 +132,7 @@ const mcpServerSchema = z.object({
               placeholder="e.g., Weather API Server"
               (ngModelChange)="onFormChange()"
               [invalid]="hasError('name')"
+              [disabled]="isReadonly"
             />
             <div *ngIf="hasError('name')" class="cds--form-requirement">{{ getError('name') }}</div>
           </div>
@@ -140,6 +142,7 @@ const mcpServerSchema = z.object({
             <cds-label>Transport Protocol <span class="required">*</span></cds-label>
             <cds-select
               [(ngModel)]="formData.transport"
+              [disabled]="isReadonly"
               (ngModelChange)="onFormChange()">
               <option value="stdio">stdio (Local Process)</option>
               <option value="sse">sse (Remote Server)</option>
@@ -167,6 +170,7 @@ const mcpServerSchema = z.object({
               placeholder="e.g., node, python, npx"
               (ngModelChange)="onFormChange()"
               [invalid]="hasError('command')"
+              [disabled]="isReadonly"
             />
             <div *ngIf="hasError('command')" class="cds--form-requirement">{{ getError('command') }}</div>
           </div>
@@ -181,6 +185,7 @@ const mcpServerSchema = z.object({
               placeholder="e.g.&#10;server.js&#10;--port&#10;3000"
               (ngModelChange)="onArgsChange()"
               class="mono-font"
+              [disabled]="isReadonly"
             ></textarea>
           </div>
 
@@ -195,6 +200,7 @@ const mcpServerSchema = z.object({
                   placeholder="VARIABLE_NAME"
                   class="env-key mono-font"
                   (ngModelChange)="onEnvChange()"
+                  [disabled]="isReadonly"
                 />
                 <div class="env-value-container">
                   <input
@@ -204,6 +210,7 @@ const mcpServerSchema = z.object({
                     placeholder="value"
                     class="env-value mono-font"
                     (ngModelChange)="onEnvChange()"
+                    [disabled]="isReadonly"
                   />
                   <button
                     cdsButton="ghost"
@@ -215,6 +222,7 @@ const mcpServerSchema = z.object({
                   </button>
                 </div>
                 <button
+                  *ngIf="!isReadonly"
                   cdsButton="danger--ghost"
                   size="sm"
                   class="delete-row-btn"
@@ -223,7 +231,7 @@ const mcpServerSchema = z.object({
                   <svg cdsIcon="trash-can" size="16"></svg>
                 </button>
               </div>
-              <button cdsButton="tertiary" size="sm" (click)="addEnvVar()" class="add-var-btn">
+              <button *ngIf="!isReadonly" cdsButton="tertiary" size="sm" (click)="addEnvVar()" class="add-var-btn">
                 <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
                 Add Environment Variable
               </button>
@@ -247,6 +255,7 @@ const mcpServerSchema = z.object({
               type="url"
               (ngModelChange)="onFormChange()"
               [invalid]="hasError('url')"
+              [disabled]="isReadonly"
             />
             <div *ngIf="hasError('url')" class="cds--form-requirement">{{ getError('url') }}</div>
           </div>
@@ -290,6 +299,7 @@ const mcpServerSchema = z.object({
             [class.has-error]="jsonError"
             placeholder='{ ... }'
             rows="13"
+            [disabled]="isReadonly"
           ></textarea>
         </div>
         
@@ -529,6 +539,7 @@ const mcpServerSchema = z.object({
 export class MCPServerFormComponent implements OnInit, OnChanges {
   @Input() server: Tool | null = null;
   @Input() isEditMode = false;
+  @Input() isReadonly = false;
   @Input() childTools: Tool[] = [];
   @Output() formDataChange = new EventEmitter<ToolCreate>();
   @Output() validationChange = new EventEmitter<boolean>();

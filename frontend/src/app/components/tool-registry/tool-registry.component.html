@@ -12,7 +12,7 @@
         <svg cdsIcon="renew" size="16" class="cds--btn__icon"></svg>
         Refresh
       </button>
-      <button cdsButton="primary" size="sm" (click)="openCreateModal()">
+      <button *ngIf="!isDefaultWorkspace" cdsButton="primary" size="sm" (click)="openCreateModal()">
         <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
         Register Tool
       </button>
@@ -63,7 +63,7 @@
       <div *ngIf="filteredTools.length === 0" class="empty-tools">
         <svg cdsIcon="api" size="32" class="empty-icon"></svg>
         <p>No tools found matching your search.</p>
-        <button cdsButton="tertiary" size="sm" (click)="openCreateModal()">
+        <button *ngIf="!isDefaultWorkspace" cdsButton="tertiary" size="sm" (click)="openCreateModal()">
           Register a new tool
         </button>
       </div>
@@ -92,6 +92,7 @@
             <cds-toggle
               size="sm"
               [checked]="!!tool.is_enabled"
+              [disabled]="isDefaultWorkspace"
               (checkedChange)="setToolStatus(tool, $event)"
               [onText]="'On'"
               [offText]="'Off'">
@@ -130,10 +131,11 @@
             <button *ngIf="tool.type === 'MCP_SERVER'" cdsButton="ghost" size="sm" class="cds--btn--icon-only" (click)="testConnection(tool)" title="Test Connection">
               <svg cdsIcon="renew" size="16"></svg>
             </button>
-            <button *ngIf="tool.type !== 'MCP_TOOL'" cdsButton="ghost" size="sm" class="cds--btn--icon-only" (click)="openEditModal(tool)" title="Edit">
-              <svg cdsIcon="edit" size="16"></svg>
+            <button *ngIf="tool.type !== 'MCP_TOOL'" cdsButton="ghost" size="sm" class="cds--btn--icon-only" (click)="openEditModal(tool)" [title]="isDefaultWorkspace ? 'View Details' : 'Edit'">
+              <svg *ngIf="!isDefaultWorkspace" cdsIcon="edit" size="16"></svg>
+              <svg *ngIf="isDefaultWorkspace" cdsIcon="view" size="16"></svg>
             </button>
-            <button cdsButton="danger--ghost" size="sm" class="cds--btn--icon-only" (click)="deleteTool(tool)" title="Delete">
+            <button *ngIf="!isDefaultWorkspace" cdsButton="danger--ghost" size="sm" class="cds--btn--icon-only" (click)="deleteTool(tool)" title="Delete">
               <svg cdsIcon="trash-can" size="16"></svg>
             </button>
           </div>
@@ -154,7 +156,7 @@
 <cds-modal [open]="showModal" (overlaySelected)="closeModal()" size="lg">
   <cds-modal-header (closeSelect)="closeModal()">
     <p cdsModalHeaderLabel>Registry Management</p>
-    <h3 cdsModalHeaderHeading>{{ editingTool ? 'Edit Tool Configuration' : 'Register New Tool' }}</h3>
+    <h3 cdsModalHeaderHeading>{{ editingTool ? (isDefaultWorkspace ? 'View Tool Configuration' : 'Edit Tool Configuration') : 'Register New Tool' }}</h3>
   </cds-modal-header>
 
   <section cdsModalContent>
@@ -174,22 +176,22 @@
       <ng-container *ngIf="selectedType === 'REST'">
         <div class="cds--form-item">
           <cds-label>Tool Name <span class="required">*</span></cds-label>
-          <input cdsText [(ngModel)]="formData.name" placeholder="e.g. get_balance" />
+          <input cdsText [(ngModel)]="formData.name" placeholder="e.g. get_balance" [disabled]="isDefaultWorkspace" />
         </div>
 
         <div class="cds--form-item">
           <cds-label>Description</cds-label>
-          <textarea cdsTextArea rows="3" [(ngModel)]="formData.description" placeholder="Describe what this tool does..."></textarea>
+          <textarea cdsTextArea rows="3" [(ngModel)]="formData.description" placeholder="Describe what this tool does..." [disabled]="isDefaultWorkspace"></textarea>
         </div>
 
         <div class="cds--form-item">
           <cds-label>Connection Config (JSON)</cds-label>
-          <textarea cdsTextArea class="code-textarea" rows="5" [(ngModel)]="connectionConfigJson" placeholder='{"url": "...", "method": "GET"}'></textarea>
+          <textarea cdsTextArea class="code-textarea" rows="5" [(ngModel)]="connectionConfigJson" placeholder='{"url": "...", "method": "GET"}' [disabled]="isDefaultWorkspace"></textarea>
         </div>
 
         <div class="cds--form-item">
           <cds-label>Schema Definition (JSON)</cds-label>
-          <textarea cdsTextArea class="code-textarea" rows="8" [(ngModel)]="schemaDefJson" placeholder='{"type": "function", ...}'></textarea>
+          <textarea cdsTextArea class="code-textarea" rows="8" [(ngModel)]="schemaDefJson" placeholder='{"type": "function", ...}' [disabled]="isDefaultWorkspace"></textarea>
         </div>
       </ng-container>
 
@@ -198,6 +200,7 @@
         <app-mcp-server-form
           [server]="editingTool"
           [isEditMode]="!!editingTool"
+          [isReadonly]="isDefaultWorkspace"
           [childTools]="editingTool ? getChildTools(editingTool.id) : []"
           (formDataChange)="onMCPFormDataChange($event)"
           (validationChange)="onMCPFormValidationChange($event)">
@@ -207,8 +210,8 @@
   </section>
 
   <cds-modal-footer>
-    <button cdsButton="secondary" (click)="closeModal()">Cancel</button>
-    <button cdsButton="primary" (click)="saveTool()" [disabled]="(selectedType === 'REST' && !formData.name) || (selectedType === 'MCP_SERVER' && !mcpFormValid)">
+    <button cdsButton="secondary" (click)="closeModal()">{{ isDefaultWorkspace ? 'Close' : 'Cancel' }}</button>
+    <button *ngIf="!isDefaultWorkspace" cdsButton="primary" (click)="saveTool()" [disabled]="(selectedType === 'REST' && !formData.name) || (selectedType === 'MCP_SERVER' && !mcpFormValid)">
       {{ editingTool ? 'Update Tool' : 'Register Tool' }}
     </button>
   </cds-modal-footer>
