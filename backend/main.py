@@ -107,6 +107,7 @@ from api.tools import router as tools_router
 from api.agents import router as agents_router
 from api.orchestrations import router as orchestrations_router
 from api.router import router as router_predict_router
+from api.workspace_cloning import router as cloning_router
 
 # --- Standalone Workflow Pipeline ---
 from api.workflow import router as workflow_router
@@ -124,6 +125,7 @@ app.include_router(tools_router)
 app.include_router(agents_router)
 app.include_router(orchestrations_router)
 app.include_router(router_predict_router)
+app.include_router(cloning_router)
 
 # Standalone workflow routes
 app.include_router(workflow_router)

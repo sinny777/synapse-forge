@@ -165,16 +165,40 @@ export class PlatformApiService {
     );
   }
 
-  // ========================== IMPORT ======================================
-
   /**
    * Import tools from the Default Workspace.
-   * If toolIds is empty, all top-level tools will be imported.
+   * Uses the new /api/clone/tools endpoint with proper batch request body.
    */
-  importMasterTools(workspaceId: string, toolIds: string[] = []): Observable<{imported: number}> {
-    return this.http.post<{imported: number}>(
-      `${API_BASE}/workspaces/${workspaceId}/tools/import-master`,
-      toolIds
+  importMasterTools(
+    destinationWorkspaceId: string,
+    toolIds: string[],
+    sourceWorkspaceId?: string
+  ): Observable<{cloned: number; skipped: number; errors: string[]}> {
+    return this.http.post<{cloned: number; skipped: number; errors: string[]}>(
+      `${API_BASE}/clone/tools`,
+      {
+        source_workspace_id: sourceWorkspaceId || null,
+        destination_workspace_id: destinationWorkspaceId,
+        resource_ids: toolIds,
+      }
+    );
+  }
+
+  /**
+   * Import agents from the Default Workspace.
+   */
+  importMasterAgents(
+    destinationWorkspaceId: string,
+    agentIds: string[],
+    sourceWorkspaceId?: string
+  ): Observable<{cloned: number; skipped: number; errors: string[]}> {
+    return this.http.post<{cloned: number; skipped: number; errors: string[]}>(
+      `${API_BASE}/clone/agents`,
+      {
+        source_workspace_id: sourceWorkspaceId || null,
+        destination_workspace_id: destinationWorkspaceId,
+        resource_ids: agentIds,
+      }
     );
   }
 

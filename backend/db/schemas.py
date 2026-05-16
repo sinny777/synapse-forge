@@ -46,6 +46,12 @@ class ArchitectureEnum(str, Enum):
     PLANNER = "PLANNER"
 
 
+class WorkspaceStatusEnum(str, Enum):
+    STOPPED = "STOPPED"
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+
+
 # ========================== WORKSPACE ======================================
 
 class WorkspaceCreate(BaseModel):
@@ -81,6 +87,8 @@ class WorkspaceRead(BaseModel):
     description: str | None = None
     embedding_model: str
     embedding_dim: int
+    is_default: bool = False
+    status: WorkspaceStatusEnum = WorkspaceStatusEnum.STOPPED
     created_at: datetime
     updated_at: datetime
     created_by: str | None = None

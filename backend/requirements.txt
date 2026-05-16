@@ -39,6 +39,7 @@ python-dotenv>=1.0.0
 sqlalchemy[asyncio]>=2.0.0
 asyncpg>=0.29.0          # Async PostgreSQL driver
 pgvector>=0.3.0          # pgvector SQLAlchemy integration
+# alembic & psycopg2-binary removed — using reset_db.py for schema management
 redis>=5.0.0             # redis.asyncio for caching & checkpoints
 
 # Optional: For development

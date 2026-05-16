@@ -314,7 +314,7 @@ const mcpServerSchema = z.object({
       </div>
 
       <!-- Discovered Tools Visible in Both Views -->
-      <div *ngIf="isEditMode && formData.is_enabled && childTools?.length" class="discovered-tools-panel" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--cds-border-subtle);">
+      <div *ngIf="childTools?.length" class="discovered-tools-panel" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--cds-border-subtle);">
         <div class="panel-header" style="margin-bottom: 0.75rem;">
           <h4 class="config-section-title">Discovered Tools</h4>
         </div>

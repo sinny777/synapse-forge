@@ -130,8 +130,7 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
   }
 
   get isDefaultWorkspace(): boolean {
-    const name = this.activeWorkspace?.name?.trim();
-    return name === 'Default Workspace' || name === 'Default';
+    return this.activeWorkspace?.is_default === true;
   }
 
   // ─── Data Loading ───────────────────────────────────────────────
@@ -327,14 +326,16 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
 
   // ─── Import from Default Workspace ─────────────────────────────
 
+  defaultWorkspaceId: string | null = null;
+
   openImportModal(): void {
     if (!this.activeWorkspace) return;
     
     // Find Default Workspace ID
     this.workspaceService.workspaces$.subscribe(wsList => {
-      const defaultWs = wsList.find(ws => ws.name === 'Default Workspace' || ws.name === 'Default');
+      const defaultWs = wsList.find(ws => ws.is_default === true);
       if (!defaultWs) {
-        this.notification = { type: 'error', title: 'Not Found', message: 'Default Workspace not found' };
+        this.notification = { type: 'error', title: 'Not Found', message: 'Default Workspace not found. Ensure the system has been seeded.' };
         return;
       }
       
@@ -343,6 +344,7 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
         return;
       }
 
+      this.defaultWorkspaceId = defaultWs.id;
       this.loading = true;
       this.platformApi.listTools(defaultWs.id).subscribe({
         next: (tools) => {
@@ -384,12 +386,19 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
     this.importing = true;
     const toolIds = Array.from(this.selectedMasterToolIds);
     
-    this.platformApi.importMasterTools(this.activeWorkspace.id, toolIds).subscribe({
+    this.platformApi.importMasterTools(
+      this.activeWorkspace.id,
+      toolIds,
+      this.defaultWorkspaceId || undefined
+    ).subscribe({
       next: (result) => {
+        const msg = result.skipped > 0
+          ? `Cloned ${result.cloned} tool(s), ${result.skipped} already existed.`
+          : `Successfully cloned ${result.cloned} tool(s).`;
         this.notification = { 
           type: 'success', 
           title: 'Import Successful', 
-          message: `Successfully imported ${result.imported} tool(s).` 
+          message: msg,
         };
         this.importing = false;
         this.closeImportModal();

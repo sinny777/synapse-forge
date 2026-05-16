@@ -25,6 +25,8 @@ import Edit16 from '@carbon/icons/es/edit/16';
 import Bot16 from '@carbon/icons/es/bot/16';
 import Renew16 from '@carbon/icons/es/renew/16';
 import Link16 from '@carbon/icons/es/link/16';
+import View16 from '@carbon/icons/es/view/16';
+import Copy16 from '@carbon/icons/es/copy/16';
 
 @Component({
   selector: 'app-agent-studio',
@@ -82,7 +84,7 @@ export class AgentStudioComponent implements OnInit, OnDestroy {
     private iconService: IconService,
   ) {
     this.iconService.registerAll([
-      Add16, TrashCan16, Edit16, Bot16, Renew16, Link16,
+      Add16, TrashCan16, Edit16, Bot16, Renew16, Link16, View16, Copy16,
     ]);
   }
 
@@ -100,6 +102,10 @@ export class AgentStudioComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.forEach((s) => s.unsubscribe());
+  }
+
+  get isDefaultWorkspace(): boolean {
+    return this.activeWorkspace?.is_default === true;
   }
 
   // ─── Data Loading ──────────────────────────────────────────────

@@ -17,6 +17,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    Boolean,
     Column,
     DateTime,
     Enum,
@@ -93,6 +94,13 @@ class ArchitectureType(str, enum.Enum):
     PLANNER = "PLANNER"
 
 
+class WorkspaceStatus(str, enum.Enum):
+    """Tracks the container / environment lifecycle of a workspace."""
+    STOPPED = "STOPPED"
+    RUNNING = "RUNNING"
+    FAILED = "FAILED"
+
+
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
@@ -125,7 +133,18 @@ class Workspace(Base, AuditMixin):
     embedding_dim: Mapped[int] = mapped_column(
         Integer, nullable=False, default=384, server_default="384"
     )
-    
+
+    # --- Default workspace & environment status flags ---
+    is_default: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false",
+    )
+    status: Mapped[WorkspaceStatus] = mapped_column(
+        Enum(WorkspaceStatus, name="workspace_status", create_constraint=True),
+        nullable=False,
+        default=WorkspaceStatus.STOPPED,
+        server_default="STOPPED",
+    )
+
     shared_with: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
 
     # Relationships

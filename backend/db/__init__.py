@@ -19,7 +19,7 @@ from db.redis_pool import (
     init_redis,
     close_redis,
 )
-from db.models import Base, Workspace, Tool, Agent, Orchestration
+from db.models import Base, Workspace, Tool, Agent, Orchestration, WorkspaceStatus
 
 __all__ = [
     # Engine / Sessions
@@ -33,10 +33,13 @@ __all__ = [
     "get_redis",
     "init_redis",
     "close_redis",
+    # DB Reset
+    "reset_db",
     # ORM Models
     "Base",
     "Workspace",
     "Tool",
     "Agent",
     "Orchestration",
+    "WorkspaceStatus",
 ]
