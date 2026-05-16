@@ -9,7 +9,12 @@ const refreshTokenSubject = new BehaviorSubject<any>(null);
 export const authInterceptor: HttpInterceptorFn = (req: HttpRequest<any>, next: HttpHandlerFn): Observable<HttpEvent<any>> => {
   const authService = inject(AuthService);
 
-  return next(req).pipe(
+  // Add withCredentials: true to all requests to the backend API
+  const authReq = req.clone({
+    withCredentials: true
+  });
+
+  return next(authReq).pipe(
     catchError((error: HttpErrorResponse) => {
       // If error is 401 and it's not the refresh endpoint itself
       if (error.status === 401 && !req.url.includes('/api/auth/refresh') && !req.url.includes('/api/auth/login')) {

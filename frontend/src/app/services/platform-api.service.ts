@@ -165,6 +165,19 @@ export class PlatformApiService {
     );
   }
 
+  // ========================== IMPORT ======================================
+
+  /**
+   * Import tools from the Default Workspace.
+   * If toolIds is empty, all top-level tools will be imported.
+   */
+  importMasterTools(workspaceId: string, toolIds: string[] = []): Observable<{imported: number}> {
+    return this.http.post<{imported: number}>(
+      `${API_BASE}/workspaces/${workspaceId}/tools/import-master`,
+      toolIds
+    );
+  }
+
   // ========================== ROUTER PREDICT ==============================
 
   routerPredict(body: RouterPredictRequest): Observable<RouterPredictResponse> {
@@ -191,6 +204,7 @@ export class PlatformApiService {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_prompt: userPrompt }),
+        credentials: 'include',
       }
     );
 

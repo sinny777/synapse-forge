@@ -248,3 +248,24 @@
   font-size: 0.8125rem !important;
 }
 
+// ─── Master Tool Import Modal ──────────────────────────────────────
+.master-tool-item {
+  background: var(--cds-layer-01, #262626);
+  
+  &:hover {
+    background: var(--cds-layer-hover-01, #353535);
+    border-color: var(--cds-focus, #0f62fe);
+  }
+  
+  &.selected {
+    background: var(--cds-layer-selected-01, #393939);
+    border-color: var(--cds-focus, #0f62fe);
+    box-shadow: 0 0 0 1px var(--cds-focus, #0f62fe);
+  }
+
+  cds-checkbox ::ng-deep .cds--checkbox-label::before {
+    margin-right: 0;
+  }
+}
+
+

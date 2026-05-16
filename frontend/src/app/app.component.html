@@ -132,6 +132,20 @@
 
 <!-- Main Content Area -->
 <div class="cds--content" style="height: 100vh; overflow-y: auto;">
+  <!-- Notifications area -->
+  <div class="notifications-container" style="position: fixed; top: 3rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;">
+    <cds-inline-notification
+      *ngFor="let notification of notifications"
+      [notificationObj]="{
+        type: notification.type,
+        title: notification.title,
+        message: notification.message,
+        showClose: true
+      }"
+      (close)="onNotificationClosed(notification)">
+    </cds-inline-notification>
+  </div>
+
   <ng-container [ngSwitch]="activePhase">
     <app-login *ngSwitchCase="'login'"></app-login>
     <app-workflow *ngSwitchCase="'workflow'"></app-workflow>

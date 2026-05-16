@@ -25,7 +25,8 @@ export class NeuralToolService {
   async streamTrainingProgress(onEvent: (event: any) => void): Promise<void> {
     const response = await fetch(`${this.apiUrl}/train/stream`, {
       method: 'GET',
-      headers: { 'Accept': 'text/event-stream' }
+      headers: { 'Accept': 'text/event-stream' },
+      credentials: 'include'
     });
 
     if (!response.ok) {
@@ -74,7 +75,8 @@ export class NeuralToolService {
     const response = await fetch(`${this.apiUrl}/run`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(config)
+      body: JSON.stringify(config),
+      credentials: 'include'
     });
 
     if (!response.body) {
@@ -210,7 +212,8 @@ export class NeuralToolService {
         scenario_id: scenarioId,
         llm_config: llmConfig,
         runtime_config: runtimeConfig
-      })
+      }),
+      credentials: 'include'
     });
 
     if (!response.ok) {

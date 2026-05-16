@@ -93,6 +93,7 @@ export class AppComponent implements OnInit {
   showWorkspaceModal = false;
   newWorkspaceName = '';
   newWorkspaceDesc = '';
+  notifications: any[] = [];
 
   // Chart Data
   meterData = [
@@ -293,10 +294,32 @@ export class AppComponent implements OnInit {
     this.workspaceService.createWorkspace(body).subscribe({
       next: () => {
         this.closeWorkspaceModal();
+        this.showNotification('success', 'Workspace Created', `Successfully created "${body.name}"`);
       },
       error: (err) => {
         console.error('Failed to create workspace:', err);
+        const detail = err.error?.detail || err.message || 'Unknown error';
+        this.showNotification('error', 'Creation Failed', detail);
       },
     });
+  }
+
+  showNotification(type: 'success' | 'error' | 'info' | 'warning', title: string, message: string): void {
+    const notification = {
+      type,
+      title,
+      message,
+      id: Math.random().toString(36).substring(2, 9)
+    };
+    this.notifications.push(notification);
+    
+    // Auto-dismiss after 5 seconds
+    setTimeout(() => {
+      this.notifications = this.notifications.filter(n => n.id !== notification.id);
+    }, 5000);
+  }
+
+  onNotificationClosed(notification: any): void {
+    this.notifications = this.notifications.filter(n => n.id !== notification.id);
   }
 }

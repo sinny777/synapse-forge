@@ -56,6 +56,36 @@ MASTER_SERVERS = [
         "command": "uvx",
         "args": ["mcp-server-fetch"],
         "is_enabled": False
+    },
+    {
+        "name": "Firecrawl MCP",
+        "description": "Web scraping and crawling using Firecrawl.",
+        "type": "MCP_SERVER",
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "firecrawl-mcp"],
+        "env": {"FIRECRAWL_API_KEY": "REPLACE_WITH_YOUR_KEY"},
+        "is_enabled": False
+    },
+    {
+        "name": "Brave Search MCP",
+        "description": "Search the web using Brave Search.",
+        "type": "MCP_SERVER",
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+        "env": {"BRAVE_API_KEY": "REPLACE_WITH_YOUR_KEY"},
+        "is_enabled": False
+    },
+    {
+        "name": "Perplexity MCP",
+        "description": "Search and research using Perplexity AI.",
+        "type": "MCP_SERVER",
+        "transport": "stdio",
+        "command": "npx",
+        "args": ["-y", "@perplexity-ai/mcp-server"],
+        "env": {"PERPLEXITY_API_KEY": "REPLACE_WITH_YOUR_KEY"},
+        "is_enabled": False
     }
 ]
 

@@ -283,3 +283,97 @@ async def test_tool_connection(
         tool.updated_by = user.get("email")
         await session.flush()
         return {"success": False, "error": str(e)}
+# ---------------------------------------------------------------------------
+# IMPORT FROM DEFAULT
+# ---------------------------------------------------------------------------
+
+@router.post("/import-master")
+async def import_master_tools(
+    workspace_id: uuid.UUID,
+    tool_ids: list[uuid.UUID] | None = None,
+    session: AsyncSessionDep = None,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Import selected tools from the 'Default Workspace' into this workspace.
+    """
+    target_ws = await require_workspace_access(workspace_id, session, user, require_write=True)
+    email = user.get("email")
+
+    # 1. Find the master workspace
+    master_ws_result = await session.execute(
+        select(Workspace).where(Workspace.name == "Default Workspace")
+    )
+    master_ws = master_ws_result.scalar_one_or_none()
+    if not master_ws:
+        raise HTTPException(status_code=404, detail="Default Workspace not found")
+
+    if master_ws.id == workspace_id:
+        raise HTTPException(status_code=400, detail="Cannot import from self")
+
+    # 2. Get the master tools
+    stmt = select(Tool).where(Tool.workspace_id == master_ws.id)
+    if tool_ids:
+        stmt = stmt.where(Tool.id.in_(tool_ids))
+    else:
+        # If no IDs, only import non-discovered tools (top-level)
+        stmt = stmt.where(Tool.parent_id == None)
+
+    master_tools_result = await session.execute(stmt)
+    master_tools = master_tools_result.scalars().all()
+
+    if not master_tools:
+        return {"imported": 0}
+
+    # 3. Clone them
+    imported_count = 0
+    imported_tools = []
+    for mt in master_tools:
+        # Check if already exists by name
+        exists_result = await session.execute(
+            select(Tool).where(Tool.workspace_id == workspace_id, Tool.name == mt.name)
+        )
+        if exists_result.scalar_one_or_none():
+            continue
+
+        # New embedding for the target workspace model
+        vec = None
+        if mt.type != ToolType.MCP_SERVER:
+            vec = _generate_embedding(target_ws, mt.name, mt.description, mt.schema_def)
+
+        cloned = Tool(
+            workspace_id=workspace_id,
+            name=mt.name,
+            description=mt.description,
+            type=mt.type,
+            is_enabled=mt.is_enabled,
+            connection_config=mt.connection_config,
+            schema_def=mt.schema_def,
+            transport=mt.transport,
+            command=mt.command,
+            args=mt.args,
+            env=mt.env,
+            url=mt.url,
+            status=mt.status,
+            embedding=vec,
+            created_by=email,
+            updated_by=email,
+        )
+        session.add(cloned)
+        imported_tools.append(cloned)
+
+    await session.commit()
+    
+    # Second pass: Discover tools for MCP servers in isolation
+    for tool in imported_tools:
+        if tool.type == ToolType.MCP_SERVER:
+             try:
+                # We need a new session or to ensure the current one is fresh after commit
+                # Using the existing session is fine since we committed already.
+                await MCPService.discover_tools(session, workspace_id, tool)
+                await session.commit()
+             except Exception as e:
+                logger.warning(f"Import discovery failed for {tool.name}: {e}")
+                # We can't really do much if discovery fails here, but the server tool is already created
+
+    return {"imported": len(imported_tools)}

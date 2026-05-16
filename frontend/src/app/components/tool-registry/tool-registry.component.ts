@@ -40,6 +40,7 @@ import LogoModelContextProtocol16 from '@carbon/icons/es/logo--model-context-pro
 import Renew16 from '@carbon/icons/es/renew/16';
 import Close16 from '@carbon/icons/es/close/16';
 import View16 from '@carbon/icons/es/view/16';
+import Copy16 from '@carbon/icons/es/copy/16';
 
 @Component({
   selector: 'app-tool-registry',
@@ -63,6 +64,12 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
   // Modal state
   showModal = false;
   editingTool: Tool | null = null;
+  
+  // Import Modal state
+  showImportModal = false;
+  masterTools: Tool[] = [];
+  selectedMasterToolIds = new Set<string>();
+  importing = false;
   
   // Registration Type
   toolTypeOptions = [
@@ -103,7 +110,7 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
     private iconService: IconService,
   ) {
     this.iconService.registerAll([
-      Add16, TrashCan16, Edit16, Search16, Api16, LogoModelContextProtocol16, Renew16, Close16, View16,
+      Add16, TrashCan16, Edit16, Search16, Api16, LogoModelContextProtocol16, Renew16, Close16, View16, Copy16,
     ]);
   }
 
@@ -123,7 +130,8 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
   }
 
   get isDefaultWorkspace(): boolean {
-    return this.activeWorkspace?.name === 'Default Workspace' || this.activeWorkspace?.name === 'Default';
+    const name = this.activeWorkspace?.name?.trim();
+    return name === 'Default Workspace' || name === 'Default';
   }
 
   // ─── Data Loading ───────────────────────────────────────────────
@@ -315,6 +323,87 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
           },
         });
     }
+  }
+
+  // ─── Import from Default Workspace ─────────────────────────────
+
+  openImportModal(): void {
+    if (!this.activeWorkspace) return;
+    
+    // Find Default Workspace ID
+    this.workspaceService.workspaces$.subscribe(wsList => {
+      const defaultWs = wsList.find(ws => ws.name === 'Default Workspace' || ws.name === 'Default');
+      if (!defaultWs) {
+        this.notification = { type: 'error', title: 'Not Found', message: 'Default Workspace not found' };
+        return;
+      }
+      
+      if (defaultWs.id === this.activeWorkspace?.id) {
+        this.notification = { type: 'info', title: 'Info', message: 'You are already in the Default Workspace' };
+        return;
+      }
+
+      this.loading = true;
+      this.platformApi.listTools(defaultWs.id).subscribe({
+        next: (tools) => {
+          // Only show top-level tools (MCP Servers and REST tools without parents)
+          this.masterTools = tools.filter(t => !t.parent_id);
+          this.selectedMasterToolIds.clear();
+          this.showImportModal = true;
+          this.loading = false;
+        },
+        error: (err) => {
+          this.notification = { type: 'error', title: 'Load Failed', message: 'Failed to load master tools' };
+          this.loading = false;
+        }
+      });
+    }).unsubscribe();
+  }
+
+  closeImportModal(): void {
+    this.showImportModal = false;
+    this.masterTools = [];
+    this.selectedMasterToolIds.clear();
+  }
+
+  toggleMasterToolSelection(toolId: string): void {
+    if (this.selectedMasterToolIds.has(toolId)) {
+      this.selectedMasterToolIds.delete(toolId);
+    } else {
+      this.selectedMasterToolIds.add(toolId);
+    }
+  }
+
+  isMasterToolSelected(toolId: string): boolean {
+    return this.selectedMasterToolIds.has(toolId);
+  }
+
+  importSelectedTools(): void {
+    if (!this.activeWorkspace || this.selectedMasterToolIds.size === 0) return;
+    
+    this.importing = true;
+    const toolIds = Array.from(this.selectedMasterToolIds);
+    
+    this.platformApi.importMasterTools(this.activeWorkspace.id, toolIds).subscribe({
+      next: (result) => {
+        this.notification = { 
+          type: 'success', 
+          title: 'Import Successful', 
+          message: `Successfully imported ${result.imported} tool(s).` 
+        };
+        this.importing = false;
+        this.closeImportModal();
+        this.loadTools();
+      },
+      error: (err) => {
+        this.notification = { 
+          type: 'error', 
+          title: 'Import Failed', 
+          message: err.error?.detail || err.message 
+        };
+        this.importing = false;
+      }
+    });
   }
 
   deleteTool(tool: Tool): void {
