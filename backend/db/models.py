@@ -7,6 +7,7 @@ Defines the core tables from the Platform Requirements:
   • Agent       — LLM agent definitions
   • Orchestration — workflow definitions (LangGraph, CrewAI, AutoGen)
   • MCPServer   — MCP server configurations (stdio/sse)
+  • LLMConfig   — per-workspace LLM provider configurations
 
 All tables use UUID primary keys and carry a workspace_id foreign key
 (except Workspace itself) for strict multi-tenant isolation.
@@ -21,6 +22,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     Enum,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -101,6 +103,20 @@ class WorkspaceStatus(str, enum.Enum):
     FAILED = "FAILED"
 
 
+class LLMProviderEnum(str, enum.Enum):
+    """Supported LLM provider types."""
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    IBM_WATSONX = "ibm_watsonx"
+    GROQ = "groq"
+    AZURE = "azure"
+    COHERE = "cohere"
+    BEDROCK = "bedrock"
+    VERTEX_AI = "vertex_ai"
+
+
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------
@@ -152,6 +168,9 @@ class Workspace(Base, AuditMixin):
     agents = relationship("Agent", back_populates="workspace", cascade="all, delete-orphan")
     orchestrations = relationship(
         "Orchestration", back_populates="workspace", cascade="all, delete-orphan"
+    )
+    llm_configs = relationship(
+        "LLMConfig", back_populates="workspace", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:
@@ -308,5 +327,50 @@ class Orchestration(Base, AuditMixin):
 
     def __repr__(self) -> str:
         return f"<Orchestration id={self.id!s} name={self.name!r} framework={self.framework.value}>"
+
+
+class LLMConfig(Base, AuditMixin):
+    """
+    Per-workspace LLM provider configuration.
+
+    Each workspace can have multiple named LLM configs (e.g. Teacher Config,
+    Expansion Config, Heavy Config). The Default Workspace ships with
+    pre-seeded Ollama configs for local development.
+
+    ``credentials`` stores provider-specific auth details as encrypted JSONB
+    (api_key, api_base, project_id, etc.).
+    """
+    __tablename__ = "llm_configs"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    provider: Mapped[LLMProviderEnum] = mapped_column(
+        Enum(LLMProviderEnum, name="llm_provider_enum", create_constraint=True),
+        nullable=False,
+        default=LLMProviderEnum.OLLAMA,
+    )
+    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    credentials: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    temperature: Mapped[float] = mapped_column(
+        Float, nullable=False, default=0.7, server_default="0.7"
+    )
+    max_tokens: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=2048, server_default="2048"
+    )
+
+    # Relationships
+    workspace = relationship("Workspace", back_populates="llm_configs")
+
+    __table_args__ = (
+        Index("ix_llm_configs_workspace_id", "workspace_id"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<LLMConfig id={self.id!s} name={self.name!r} provider={self.provider.value}>"
 
 # Made with Bob

@@ -12,3 +12,7 @@ __all__ = [
     "EmbeddingService",
     "RouterService",
 ]
+
+# WorkspaceDockerService is imported lazily (requires Docker daemon)
+# from services.workspace_docker_service import WorkspaceDockerService
+

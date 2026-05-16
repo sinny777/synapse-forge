@@ -40,67 +40,20 @@
     }
   }
 
-  .filter-section {
+  .default-workspace-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
     margin-bottom: 2rem;
+    background: var(--cds-support-info-inverse, #0043ce);
+    color: #ffffff;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    line-height: 1.4;
 
-    .cds--form-item {
-      max-width: 300px;
-    }
-
-    .cds--label {
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-  }
-
-  .role-summary-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1rem;
-    margin-bottom: 2rem;
-
-    .summary-card {
-      background: var(--cds-layer-01, #f4f4f4);
-      border: 1px solid var(--cds-border-subtle, #e0e0e0);
-      border-radius: 4px;
-      padding: 1.5rem;
-      display: flex;
-      gap: 1rem;
-      transition: all 0.2s ease;
-
-      &:hover {
-        background: var(--cds-layer-hover-01, #e8e8e8);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-      }
-
-      .card-icon {
-        font-size: 2rem;
-        line-height: 1;
-      }
-
-      .card-content {
-        flex: 1;
-
-        .card-title {
-          font-size: 1rem;
-          font-weight: 600;
-          margin: 0 0 0.5rem 0;
-          color: var(--cds-text-primary, #161616);
-        }
-
-        .card-description {
-          font-size: 0.875rem;
-          color: var(--cds-text-secondary, #525252);
-          margin: 0 0 0.5rem 0;
-        }
-
-        .card-count {
-          font-size: 0.75rem;
-          color: var(--cds-text-secondary, #525252);
-          margin: 0;
-          font-weight: 600;
-        }
-      }
+    svg {
+      flex-shrink: 0;
     }
   }
 
@@ -160,8 +113,14 @@
             display: flex;
             gap: 0.5rem;
             flex-wrap: wrap;
+            align-items: center;
 
-            .role-badge,
+            .config-name-badge {
+              font-size: 0.875rem;
+              font-weight: 600;
+              color: var(--cds-text-primary, #161616);
+            }
+
             .provider-badge {
               display: inline-flex;
               align-items: center;
@@ -172,11 +131,6 @@
               font-weight: 600;
               background: var(--cds-layer-accent-01, #e0e0e0);
               color: var(--cds-text-primary, #161616);
-            }
-
-            .role-badge {
-              background: var(--cds-support-info, #0f62fe);
-              color: #ffffff;
             }
           }
 
@@ -320,26 +274,8 @@
       }
     }
 
-    .role-summary-cards {
-      .summary-card {
-        background: var(--cds-layer-01, #262626);
-        border-color: var(--cds-border-subtle, #393939);
-
-        &:hover {
-          background: var(--cds-layer-hover-01, #333333);
-        }
-
-        .card-content {
-          .card-title {
-            color: var(--cds-text-primary, #f4f4f4);
-          }
-
-          .card-description,
-          .card-count {
-            color: var(--cds-text-secondary, #c6c6c6);
-          }
-        }
-      }
+    .default-workspace-banner {
+      background: var(--cds-support-info-inverse, #0043ce);
     }
 
     .configurations-list {
@@ -366,7 +302,10 @@
             border-bottom-color: var(--cds-border-subtle, #525252);
 
             .card-title-section {
-              .role-badge,
+              .config-name-badge {
+                color: var(--cds-text-primary, #f4f4f4);
+              }
+
               .provider-badge {
                 background: var(--cds-layer-accent-01, #525252);
                 color: var(--cds-text-primary, #f4f4f4);

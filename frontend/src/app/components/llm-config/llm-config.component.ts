@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import {
   ButtonModule,
   SelectModule,
@@ -28,13 +27,14 @@ import ViewOff16 from '@carbon/icons/es/view--off/16';
 import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 
 import { LLMConfigService } from '../../services/llm-config.service';
+import { WorkspaceService } from '../../services/workspace.service';
+import { Workspace } from '../../models/platform.model';
 import {
   LLMModelConfig,
-  ModelRole,
+  LLMModelConfigCreate,
   LLMProvider,
   ProviderCredentials,
   PROVIDER_INFO,
-  MODEL_ROLE_INFO,
   ProviderInfo,
   CredentialField
 } from '../../models/llm-config.model';
@@ -66,7 +66,7 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
   editingConfigId: string | null = null;
 
   // Form data
-  selectedRole: ModelRole = 'teacher';
+  configName = '';
   selectedProvider: LLMProvider = 'ollama';
   modelName = '';
   temperature = 0.7;
@@ -74,21 +74,16 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
   credentials: ProviderCredentials = {};
   showCredentials: { [key: string]: boolean } = {};
 
-  // Environment credentials cache
-  private envCredentials: any = null;
-
   // Data
   configurations: LLMModelConfig[] = [];
-  filteredConfigurations: LLMModelConfig[] = [];
-  selectedRoleFilter: ModelRole | 'all' = 'all';
+
+  // Workspace context
+  activeWorkspace: Workspace | null = null;
+  isDefaultWorkspace = false;
 
   // Provider info
   providers: ProviderInfo[] = Object.values(PROVIDER_INFO);
   currentProviderInfo: ProviderInfo | null = null;
-
-  // Role info
-  roleInfo = MODEL_ROLE_INFO;
-  roles: ModelRole[] = ['teacher', 'expansion', 'heavy'];
 
   // Notifications
   notification: any = null;
@@ -98,8 +93,8 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
 
   constructor(
     private llmConfigService: LLMConfigService,
+    private workspaceService: WorkspaceService,
     private iconService: IconService,
-    private http: HttpClient
   ) {
     this.iconService.registerAll([
       Add16, Edit16, TrashCan16, Save16, Close16,
@@ -108,25 +103,25 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Subscribe to workspace changes
+    this.subs.push(
+      this.workspaceService.activeWorkspace$.subscribe(ws => {
+        this.activeWorkspace = ws;
+        this.isDefaultWorkspace = ws?.is_default ?? false;
+        if (ws) {
+          this.llmConfigService.loadConfigurations(ws.id);
+        }
+      })
+    );
+
+    // Subscribe to configuration updates
     this.subs.push(
       this.llmConfigService.configurations$.subscribe(configs => {
         this.configurations = configs;
-        this.filterConfigurations();
       })
     );
-    this.updateProviderInfo();
-    this.loadEnvironmentCredentials();
-  }
 
-  /**
-   * Load environment credentials from backend
-   */
-  private async loadEnvironmentCredentials(): Promise<void> {
-    try {
-      this.envCredentials = await this.http.get<any>('http://localhost:8000/api/env/llm-credentials').toPromise();
-    } catch (error) {
-      console.warn('Failed to load environment credentials:', error);
-    }
+    this.updateProviderInfo();
   }
 
   ngOnDestroy(): void {
@@ -134,44 +129,17 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Filter configurations by role
-   */
-  filterConfigurations(): void {
-    if (this.selectedRoleFilter === 'all') {
-      this.filteredConfigurations = this.configurations;
-    } else {
-      this.filteredConfigurations = this.configurations.filter(
-        config => config.role === this.selectedRoleFilter
-      );
-    }
-  }
-
-  /**
-   * Get role label
-   */
-  getRoleLabel(role: ModelRole): string {
-    return this.roleInfo[role].label;
-  }
-
-  /**
-   * Get role icon
-   */
-  getRoleIcon(role: ModelRole): string {
-    return this.roleInfo[role].icon;
-  }
-
-  /**
    * Get provider label
    */
   getProviderLabel(provider: LLMProvider): string {
-    return PROVIDER_INFO[provider].name;
+    return PROVIDER_INFO[provider]?.name ?? provider;
   }
 
   /**
    * Get provider icon
    */
   getProviderIcon(provider: LLMProvider): string {
-    return PROVIDER_INFO[provider].icon;
+    return PROVIDER_INFO[provider]?.icon ?? '🔧';
   }
 
   /**
@@ -189,12 +157,12 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
   openEditModal(config: LLMModelConfig): void {
     this.modalMode = 'edit';
     this.editingConfigId = config.id;
-    this.selectedRole = config.role;
+    this.configName = config.name;
     this.selectedProvider = config.provider;
-    this.modelName = config.modelName;
-    this.temperature = config.temperature || 0.7;
-    this.maxTokens = config.maxTokens || 2048;
-    this.credentials = { ...config.credentials };
+    this.modelName = config.model_name;
+    this.temperature = config.temperature ?? 0.7;
+    this.maxTokens = config.max_tokens ?? 2048;
+    this.credentials = { ...(config.credentials || {}) };
     this.updateProviderInfo();
     this.showModal = true;
   }
@@ -212,7 +180,7 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
    */
   resetForm(): void {
     this.editingConfigId = null;
-    this.selectedRole = 'teacher';
+    this.configName = '';
     this.selectedProvider = 'ollama';
     this.modelName = '';
     this.temperature = 0.7;
@@ -227,18 +195,9 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
    */
   updateProviderInfo(): void {
     this.currentProviderInfo = PROVIDER_INFO[this.selectedProvider];
-    // Initialize credentials object with values from environment or empty
     const newCredentials: ProviderCredentials = {};
     this.currentProviderInfo.credentialFields.forEach((field: CredentialField) => {
-      // Try to get value from existing credentials first, then from environment
-      let value = this.credentials[field.key] || '';
-      
-      // If no existing value and we have environment credentials, try to populate from env
-      if (!value && this.envCredentials) {
-        value = this.envCredentials[field.key] || '';
-      }
-      
-      newCredentials[field.key] = value;
+      newCredentials[field.key] = this.credentials[field.key] || '';
     });
     this.credentials = newCredentials;
   }
@@ -247,7 +206,6 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
    * Handle provider change
    */
   onProviderChange(): void {
-    // Don't clear credentials, let updateProviderInfo populate from environment
     this.showCredentials = {};
     this.updateProviderInfo();
   }
@@ -263,33 +221,53 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
    * Save configuration
    */
   saveConfiguration(): void {
-    const config = {
-      role: this.selectedRole,
+    if (!this.activeWorkspace) {
+      this.showNotification('error', 'Error', 'No workspace selected');
+      return;
+    }
+
+    const configData: LLMModelConfigCreate = {
+      name: this.configName.trim(),
       provider: this.selectedProvider,
-      modelName: this.modelName.trim(),
+      model_name: this.modelName.trim(),
       temperature: this.temperature,
-      maxTokens: this.maxTokens,
+      max_tokens: this.maxTokens,
       credentials: this.credentials
     };
 
     // Validate
-    const validation = this.llmConfigService.validateModelConfig(config);
+    const validation = this.llmConfigService.validateModelConfig(configData);
     if (!validation.valid) {
       this.showNotification('error', 'Validation Error', validation.errors.join(', '));
       return;
     }
 
-    try {
-      if (this.modalMode === 'add') {
-        this.llmConfigService.addConfiguration(config);
-        this.showNotification('success', 'Success', 'Configuration added successfully');
-      } else if (this.editingConfigId) {
-        this.llmConfigService.updateConfiguration(this.editingConfigId, config);
-        this.showNotification('success', 'Success', 'Configuration updated successfully');
-      }
-      this.closeModal();
-    } catch (error) {
-      this.showNotification('error', 'Error', 'Failed to save configuration');
+    if (this.modalMode === 'add') {
+      this.llmConfigService
+        .createConfiguration(this.activeWorkspace.id, configData)
+        .subscribe({
+          next: () => {
+            this.showNotification('success', 'Success', 'Configuration added successfully');
+            this.closeModal();
+          },
+          error: (err) => {
+            const detail = err.error?.detail || 'Failed to save configuration';
+            this.showNotification('error', 'Error', detail);
+          }
+        });
+    } else if (this.editingConfigId) {
+      this.llmConfigService
+        .updateConfiguration(this.activeWorkspace.id, this.editingConfigId, configData)
+        .subscribe({
+          next: () => {
+            this.showNotification('success', 'Success', 'Configuration updated successfully');
+            this.closeModal();
+          },
+          error: (err) => {
+            const detail = err.error?.detail || 'Failed to update configuration';
+            this.showNotification('error', 'Error', detail);
+          }
+        });
     }
   }
 
@@ -297,13 +275,20 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
    * Delete configuration
    */
   deleteConfiguration(config: LLMModelConfig): void {
-    if (confirm(`Are you sure you want to delete the configuration for ${config.modelName}?`)) {
-      const success = this.llmConfigService.deleteConfiguration(config.id);
-      if (success) {
-        this.showNotification('success', 'Success', 'Configuration deleted successfully');
-      } else {
-        this.showNotification('error', 'Error', 'Failed to delete configuration');
-      }
+    if (!this.activeWorkspace) return;
+
+    if (confirm(`Are you sure you want to delete "${config.name}"?`)) {
+      this.llmConfigService
+        .deleteConfiguration(this.activeWorkspace.id, config.id)
+        .subscribe({
+          next: () => {
+            this.showNotification('success', 'Success', 'Configuration deleted successfully');
+          },
+          error: (err) => {
+            const detail = err.error?.detail || 'Failed to delete configuration';
+            this.showNotification('error', 'Error', detail);
+          }
+        });
     }
   }
 
@@ -319,12 +304,17 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
    * Import configurations
    */
   async importConfigurations(event: Event): Promise<void> {
+    if (!this.activeWorkspace) return;
+
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
 
-    const result = await this.llmConfigService.importConfigurations(file);
-    
+    const result = await this.llmConfigService.importConfigurations(
+      this.activeWorkspace.id,
+      file
+    );
+
     if (result.success) {
       this.showNotification(
         'success',
@@ -376,21 +366,6 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
       return this.showCredentials[key] ? 'text' : 'password';
     }
     return field.type === 'url' ? 'url' : 'text';
-  }
-
-  /**
-   * Get role summary
-   */
-  getRoleSummary(role: ModelRole): string {
-    const summary = this.llmConfigService.getRoleSummary(role);
-    return `${summary.count} configuration(s)`;
-  }
-
-  /**
-   * Handle role filter change
-   */
-  onRoleFilterChange(): void {
-    this.filterConfigurations();
   }
 }
 

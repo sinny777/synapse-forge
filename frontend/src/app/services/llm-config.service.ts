@@ -1,9 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
+import { tap, catchError, map } from 'rxjs/operators';
 import {
   LLMModelConfig,
-  ModelRole,
+  LLMModelConfigCreate,
+  LLMModelConfigUpdate,
   LLMProvider,
   ProviderCredentials,
   PROVIDER_INFO
@@ -13,115 +15,37 @@ import {
   providedIn: 'root'
 })
 export class LLMConfigService {
-  private readonly STORAGE_KEY = 'ntr_llm_configurations';
-  private readonly API_URL = 'http://localhost:8000/api';
-  
+  private readonly API_BASE = 'http://localhost:8000/api';
+
   private _configurations = new BehaviorSubject<LLMModelConfig[]>([]);
   public configurations$ = this._configurations.asObservable();
 
-  constructor(private http: HttpClient) {
-    this.loadConfigurations();
-    this.initializeFromEnvironment();
-  }
+  constructor(private http: HttpClient) {}
+
+  // ─── API Operations ────────────────────────────────────────────
 
   /**
-   * Initialize configurations from environment variables
+   * Load configurations from the backend for a specific workspace
    */
-  private async initializeFromEnvironment(): Promise<void> {
-    try {
-      const envCreds = await this.http.get<any>(`${this.API_URL}/env/llm-credentials`).toPromise();
-      
-      if (!envCreds) return;
-
-      const existingConfigs = this._configurations.value;
-      
-      // Create configurations from environment if they don't exist
-      const roles: ModelRole[] = ['teacher', 'expansion', 'heavy'];
-      
-      roles.forEach(role => {
-        const modelKey = `${role}_model`;
-        const modelName = envCreds[modelKey];
-        
-        if (modelName && !existingConfigs.some(c => c.role === role)) {
-          // Determine provider from model name
-          let provider: LLMProvider = 'ollama';
-          let credentials: ProviderCredentials = {};
-          
-          if (modelName.startsWith('gpt')) {
-            provider = 'openai';
-            credentials = { api_key: envCreds.openai_api_key || '' };
-          } else if (modelName.startsWith('claude')) {
-            provider = 'anthropic';
-            credentials = { api_key: envCreds.anthropic_api_key || '' };
-          } else if (modelName.startsWith('gemini')) {
-            provider = 'google';
-            credentials = { api_key: envCreds.google_api_key || '' };
-          } else if (modelName.startsWith('ollama/')) {
-            provider = 'ollama';
-            credentials = { api_base: envCreds.ollama_api_base || 'http://localhost:11434' };
-          }
-          
-          this.addConfiguration({
-            role,
-            provider,
-            modelName: modelName.replace('ollama/', ''),
-            credentials,
-            temperature: 0.7,
-            maxTokens: 2048
-          });
-        }
-      });
-    } catch (error) {
-      console.warn('Failed to initialize from environment variables:', error);
-    }
-  }
-
-  /**
-   * Load configurations from localStorage
-   */
-  private loadConfigurations(): void {
-    try {
-      const stored = localStorage.getItem(this.STORAGE_KEY);
-      if (stored) {
-        const configs = JSON.parse(stored);
-        // Convert date strings back to Date objects
-        configs.forEach((config: any) => {
-          config.createdAt = new Date(config.createdAt);
-          config.updatedAt = new Date(config.updatedAt);
-        });
+  loadConfigurations(workspaceId: string): void {
+    this.http
+      .get<LLMModelConfig[]>(`${this.API_BASE}/workspaces/${workspaceId}/llm-configs`)
+      .pipe(
+        catchError((err) => {
+          console.warn('Failed to load LLM configurations:', err);
+          return of([]);
+        })
+      )
+      .subscribe((configs) => {
         this._configurations.next(configs);
-      }
-    } catch (error) {
-      console.error('Failed to load LLM configurations:', error);
-      this._configurations.next([]);
-    }
+      });
   }
 
   /**
-   * Save configurations to localStorage
-   */
-  private saveConfigurations(configs: LLMModelConfig[]): void {
-    try {
-      localStorage.setItem(this.STORAGE_KEY, JSON.stringify(configs));
-      this._configurations.next(configs);
-    } catch (error) {
-      console.error('Failed to save LLM configurations:', error);
-      throw new Error('Failed to save configurations');
-    }
-  }
-
-  /**
-   * Get all configurations
+   * Get all configurations (current snapshot)
    */
   getConfigurations(): LLMModelConfig[] {
     return this._configurations.value;
-  }
-
-  /**
-   * Get configurations by role
-   */
-  getConfigurationsByRole(role: ModelRole): LLMModelConfig[] {
-    return this._configurations.value.filter(config => config.role === role);
   }
 
   /**
@@ -132,74 +56,70 @@ export class LLMConfigService {
   }
 
   /**
-   * Add a new configuration
+   * Create a new configuration in a workspace
    */
-  addConfiguration(config: Omit<LLMModelConfig, 'id' | 'createdAt' | 'updatedAt'>): LLMModelConfig {
-    const newConfig: LLMModelConfig = {
-      ...config,
-      id: this.generateId(),
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    const configs = [...this._configurations.value, newConfig];
-    this.saveConfigurations(configs);
-    return newConfig;
+  createConfiguration(
+    workspaceId: string,
+    config: LLMModelConfigCreate
+  ): Observable<LLMModelConfig> {
+    return this.http
+      .post<LLMModelConfig>(
+        `${this.API_BASE}/workspaces/${workspaceId}/llm-configs`,
+        config
+      )
+      .pipe(
+        tap((newConfig) => {
+          const configs = [...this._configurations.value, newConfig];
+          this._configurations.next(configs);
+        })
+      );
   }
 
   /**
    * Update an existing configuration
    */
-  updateConfiguration(id: string, updates: Partial<Omit<LLMModelConfig, 'id' | 'createdAt' | 'updatedAt'>>): LLMModelConfig | null {
-    const configs = this._configurations.value;
-    const index = configs.findIndex(c => c.id === id);
-    
-    if (index === -1) {
-      return null;
-    }
-
-    const updatedConfig: LLMModelConfig = {
-      ...configs[index],
-      ...updates,
-      updatedAt: new Date()
-    };
-
-    const newConfigs = [...configs];
-    newConfigs[index] = updatedConfig;
-    this.saveConfigurations(newConfigs);
-    
-    return updatedConfig;
+  updateConfiguration(
+    workspaceId: string,
+    configId: string,
+    updates: LLMModelConfigUpdate
+  ): Observable<LLMModelConfig> {
+    return this.http
+      .put<LLMModelConfig>(
+        `${this.API_BASE}/workspaces/${workspaceId}/llm-configs/${configId}`,
+        updates
+      )
+      .pipe(
+        tap((updatedConfig) => {
+          const configs = this._configurations.value.map((c) =>
+            c.id === configId ? updatedConfig : c
+          );
+          this._configurations.next(configs);
+        })
+      );
   }
 
   /**
    * Delete a configuration
    */
-  deleteConfiguration(id: string): boolean {
-    const configs = this._configurations.value;
-    const filteredConfigs = configs.filter(c => c.id !== id);
-    
-    if (filteredConfigs.length === configs.length) {
-      return false; // Configuration not found
-    }
-
-    this.saveConfigurations(filteredConfigs);
-    return true;
+  deleteConfiguration(
+    workspaceId: string,
+    configId: string
+  ): Observable<void> {
+    return this.http
+      .delete<void>(
+        `${this.API_BASE}/workspaces/${workspaceId}/llm-configs/${configId}`
+      )
+      .pipe(
+        tap(() => {
+          const configs = this._configurations.value.filter(
+            (c) => c.id !== configId
+          );
+          this._configurations.next(configs);
+        })
+      );
   }
 
-  /**
-   * Delete all configurations for a specific role
-   */
-  deleteConfigurationsByRole(role: ModelRole): number {
-    const configs = this._configurations.value;
-    const filteredConfigs = configs.filter(c => c.role !== role);
-    const deletedCount = configs.length - filteredConfigs.length;
-    
-    if (deletedCount > 0) {
-      this.saveConfigurations(filteredConfigs);
-    }
-    
-    return deletedCount;
-  }
+  // ─── Validation ────────────────────────────────────────────────
 
   /**
    * Validate credentials for a provider
@@ -243,24 +163,22 @@ export class LLMConfigService {
   /**
    * Validate model configuration
    */
-  validateModelConfig(config: Partial<LLMModelConfig>): { valid: boolean; errors: string[] } {
+  validateModelConfig(config: Partial<LLMModelConfigCreate>): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    if (!config.role) {
-      errors.push('Model role is required');
+    if (!config.name || config.name.trim() === '') {
+      errors.push('Configuration name is required');
     }
 
     if (!config.provider) {
       errors.push('Provider is required');
     }
 
-    if (!config.modelName || config.modelName.trim() === '') {
+    if (!config.model_name || config.model_name.trim() === '') {
       errors.push('Model name is required');
     }
 
-    if (!config.credentials) {
-      errors.push('Credentials are required');
-    } else if (config.provider) {
+    if (config.credentials && config.provider) {
       const credValidation = this.validateCredentials(config.provider, config.credentials);
       errors.push(...credValidation.errors);
     }
@@ -271,14 +189,16 @@ export class LLMConfigService {
       }
     }
 
-    if (config.maxTokens !== undefined) {
-      if (config.maxTokens < 1) {
+    if (config.max_tokens !== undefined) {
+      if (config.max_tokens < 1) {
         errors.push('Max tokens must be at least 1');
       }
     }
 
     return { valid: errors.length === 0, errors };
   }
+
+  // ─── Export / Import ───────────────────────────────────────────
 
   /**
    * Export configurations to JSON
@@ -296,16 +216,19 @@ export class LLMConfigService {
   }
 
   /**
-   * Import configurations from JSON
+   * Import configurations from JSON into a workspace
    */
-  async importConfigurations(file: File): Promise<{ success: boolean; imported: number; errors: string[] }> {
+  async importConfigurations(
+    workspaceId: string,
+    file: File
+  ): Promise<{ success: boolean; imported: number; errors: string[] }> {
     return new Promise((resolve) => {
       const reader = new FileReader();
-      
+
       reader.onload = () => {
         try {
           const configs = JSON.parse(reader.result as string);
-          
+
           if (!Array.isArray(configs)) {
             resolve({ success: false, imported: 0, errors: ['Invalid file format: expected an array'] });
             return;
@@ -314,22 +237,22 @@ export class LLMConfigService {
           const errors: string[] = [];
           let imported = 0;
 
-          configs.forEach((config, index) => {
-            // Validate each configuration
+          const promises = configs.map((config: any, index: number) => {
             const validation = this.validateModelConfig(config);
             if (!validation.valid) {
               errors.push(`Config ${index + 1}: ${validation.errors.join(', ')}`);
-            } else {
-              try {
-                this.addConfiguration(config);
-                imported++;
-              } catch (error) {
-                errors.push(`Config ${index + 1}: Failed to import`);
-              }
+              return Promise.resolve();
             }
+
+            return this.createConfiguration(workspaceId, config)
+              .toPromise()
+              .then(() => { imported++; })
+              .catch(() => { errors.push(`Config ${index + 1}: Failed to import`); });
           });
 
-          resolve({ success: imported > 0, imported, errors });
+          Promise.all(promises).then(() => {
+            resolve({ success: imported > 0, imported, errors });
+          });
         } catch (error) {
           resolve({ success: false, imported: 0, errors: ['Invalid JSON file'] });
         }
@@ -342,6 +265,8 @@ export class LLMConfigService {
       reader.readAsText(file);
     });
   }
+
+  // ─── Provider Helpers ──────────────────────────────────────────
 
   /**
    * Get provider information
@@ -358,26 +283,10 @@ export class LLMConfigService {
   }
 
   /**
-   * Generate a unique ID for configurations
+   * Clear all local state
    */
-  private generateId(): string {
-    return `llm_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  }
-
-  /**
-   * Clear all configurations (use with caution)
-   */
-  clearAllConfigurations(): void {
-    this.saveConfigurations([]);
-  }
-
-  /**
-   * Get configuration summary for a role
-   */
-  getRoleSummary(role: ModelRole): { count: number; providers: string[] } {
-    const configs = this.getConfigurationsByRole(role);
-    const providers = [...new Set(configs.map(c => c.provider))];
-    return { count: configs.length, providers };
+  clearConfigurations(): void {
+    this._configurations.next([]);
   }
 }
 

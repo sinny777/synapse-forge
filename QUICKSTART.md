@@ -12,7 +12,8 @@ Get the full-stack Agentic AI Platform running locally in under 10 minutes.
 | Node.js | 18+ | Angular frontend & MCP server runtimes |
 | PostgreSQL | 14+ | With the `pgvector` extension enabled |
 | Redis | 7+ | Caching & LangGraph checkpointing |
-| LLM API Key | — | At least one of: OpenAI, Anthropic, Google, Ollama (local) |
+| Docker | 24+ | Docker Desktop for workspace container orchestration (Control Plane) |
+| Ollama | Latest | Local LLM inference (default for development) |
 
 ---
 
@@ -64,7 +65,7 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `backend/.env` with your database credentials and API keys:
+Edit `backend/.env` with your database credentials:
 
 ```bash
 # ── Database ──────────────────────────────────────
@@ -79,15 +80,15 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=ntr_redis_2026
 
-# ── LLM Keys (at least one) ──────────────────────
-OPENAI_API_KEY=sk-your-key-here
-# ANTHROPIC_API_KEY=sk-ant-your-key-here
-# Or use Ollama for local models (no key needed):
-# OLLAMA_API_BASE=http://localhost:11434
-TEACHER_MODEL=ollama/granite4.1:8b
-EXPANSION_MODEL=ollama/granite4.1:8b
-HEAVY_MODEL=ollama/granite4.1:8b
+# ── Docker Control Plane (workspace containers) ──
+# WORKSPACE_CONTAINER_IMAGE=python:3.11-slim
+# DOCKER_NETWORK_NAME=synapse-forge_default
+
+# ── Ollama (Local LLM — default for development) ─
+OLLAMA_API_BASE=http://localhost:11434
 ```
+
+> **Note:** LLM provider API keys (OpenAI, Anthropic, Google, etc.) are no longer configured via environment variables. They are managed per-workspace through the **Settings** page in the UI. See [LLM Configuration](#10-llm-configuration) below.
 
 ---
 
@@ -105,7 +106,7 @@ python -m setup.reset_db
 This single command will:
 
 1. **Drop** all existing tables
-2. **Recreate** the full schema from SQLAlchemy ORM models (Workspace, Tool, Agent, Orchestration)
+2. **Recreate** the full schema from SQLAlchemy ORM models (Workspace, Tool, Agent, Orchestration, LLMConfig)
 3. **Ensure** the `pgvector` extension is available
 4. **Seed** the "System Default Workspace" with pre-built templates
 
@@ -150,7 +151,15 @@ The Mediclaim and Banking MCP Servers come with pre-defined tool definitions so 
 | Banking | `update_card_limit` | Temporarily raise spending limits |
 | Banking | `initiate_wire_transfer` | Wire money to external accounts |
 
-> **Total seeded resources:** 25 tools (9 servers + 16 child tools) + 8 agents
+**LLM Configurations (3) — Ollama defaults for local development:**
+
+| Name | Provider | Model | Temperature | Max Tokens |
+|---|---|---|---|---|
+| Teacher Config | Ollama | granite4.1:8b | 0.8 | 2048 |
+| Expansion Config | Ollama | granite4.1:8b | 0.3 | 1024 |
+| Heavy Config | Ollama | granite4.1:8b | 0.0 | 4096 |
+
+> **Total seeded resources:** 25 tools (9 servers + 16 child tools) + 8 agents + 3 LLM configs
 
 **Agents (8) — from example applications:**
 
@@ -221,7 +230,8 @@ Once both servers are running:
 4. Navigate to the **Tool Registry** — you should see 9 MCP servers/tools (all disabled, read-only)
 5. Click any MCP server to view its **Discovered Tools** in the modal (e.g., 6 tools for Mediclaim, 10 for Banking)
 6. Navigate to **Agent Studio** — you should see 8 pre-built agent definitions (read-only)
-7. Create your own workspace and **Import Master Tools** to clone templates into it
+7. Navigate to **Settings** — you should see 3 pre-configured LLM configs (Teacher, Expansion, Heavy — all Ollama, read-only)
+8. Create your own workspace and **Import Master Tools** to clone templates into it
 
 ---
 
@@ -264,6 +274,119 @@ curl -X POST http://localhost:8000/api/clone/tool/<tool-id> \
 
 ---
 
+## 9. Docker Control Plane (Workspace Environments)
+
+SynapseForge acts as a **Control Plane** that can spin up isolated Docker containers per workspace. Each container is a **Data Plane** instance running the workspace's agents, tools, and NeuralToolRouter model.
+
+### Prerequisites
+
+- **Docker Desktop** must be running and accessible
+- The Docker Python SDK (`docker>=7.0.0`) is included in `requirements.txt`
+
+### Starting a Workspace Environment
+
+```bash
+# Start a workspace container
+curl -X POST http://localhost:8000/api/workspaces/<workspace-id>/environment/start \
+  -H 'Content-Type: application/json'
+
+# Stop a workspace container
+curl -X POST http://localhost:8000/api/workspaces/<workspace-id>/environment/stop \
+  -H 'Content-Type: application/json'
+```
+
+### What Happens
+
+1. The Control Plane pulls the container image (default: `python:3.11-slim`)
+2. Creates a container named `sf-workspace-<workspace-id>`
+3. Injects `WORKSPACE_ID`, `DATABASE_URL`, and `REDIS_URL` as environment variables
+4. Connects the container to the shared Docker network (`synapse-forge_default`)
+5. Updates the workspace `status` in PostgreSQL to `RUNNING` or `STOPPED`
+
+### Configuration (Optional)
+
+Add these to `backend/.env` to customize container behaviour:
+
+```bash
+# Custom Data Plane image (default: python:3.11-slim)
+WORKSPACE_CONTAINER_IMAGE=your-registry/synapse-dataplane:latest
+
+# Docker network name (default: synapse-forge_default)
+DOCKER_NETWORK_NAME=synapse-forge_default
+
+# DB/Redis hostnames as seen from inside Docker network
+WORKSPACE_DB_HOST=ntr_postgres
+WORKSPACE_REDIS_HOST=ntr_redis
+```
+
+> **Note:** If Docker is not running, the backend starts normally but the environment start/stop endpoints return HTTP 503.
+
+---
+
+## 10. LLM Configuration
+
+SynapseForge uses **workspace-scoped LLM configurations** stored in the database. This replaces the old approach of putting all LLM API keys in the `.env` file.
+
+### Architecture
+
+- LLM configurations belong to a **workspace** (not global)
+- Each config has a **name**, **provider**, **model**, **credentials**, and tuning parameters
+- The **Default Workspace** ships with 3 pre-seeded Ollama configs for local development
+- **Custom workspaces** let users create their own configs with any supported provider
+
+### Supported Providers
+
+| Provider | Icon | Credential Required | Example Models |
+|---|---|---|---|
+| Ollama | 🦙 | API Base URL | granite4.1:8b, llama2, mistral |
+| OpenAI | 🤖 | API Key | gpt-4o, gpt-4o-mini |
+| Anthropic | 🧠 | API Key | claude-3-5-sonnet, claude-3-opus |
+| Google AI | 🔷 | API Key | gemini-pro, gemini-1.5-flash |
+| IBM Watsonx | 💙 | API Key + Project ID | granite-13b-chat-v2 |
+| Groq | ⚡ | API Key | llama-3.1-70b-versatile |
+| Azure OpenAI | ☁️ | API Key + Base URL + Version | gpt-4, gpt-35-turbo |
+| Cohere | 🌊 | API Key | command-r-plus |
+| AWS Bedrock | 🪨 | AWS Key + Secret + Region | anthropic.claude-3-sonnet |
+| Vertex AI | 🔺 | Project + Location | gemini-pro |
+
+### Managing Configs via the UI
+
+1. Navigate to **Settings** in the sidebar
+2. If on the **Default Workspace**: view the 3 pre-seeded configs (read-only)
+3. Switch to a **custom workspace** to create, edit, or delete configs
+4. Click **"Add Configuration"** → select a provider → fill in credentials → save
+
+### Managing Configs via the API
+
+```bash
+# List LLM configs for a workspace
+curl http://localhost:8000/api/workspaces/<workspace-id>/llm-configs
+
+# Create a new LLM config
+curl -X POST http://localhost:8000/api/workspaces/<workspace-id>/llm-configs \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "name": "My OpenAI Config",
+    "provider": "openai",
+    "model_name": "gpt-4o",
+    "credentials": {"api_key": "sk-..."},
+    "temperature": 0.7,
+    "max_tokens": 4096
+  }'
+
+# Update a config
+curl -X PUT http://localhost:8000/api/workspaces/<workspace-id>/llm-configs/<config-id> \
+  -H 'Content-Type: application/json' \
+  -d '{"temperature": 0.0}'
+
+# Delete a config
+curl -X DELETE http://localhost:8000/api/workspaces/<workspace-id>/llm-configs/<config-id>
+```
+
+> **Note:** The Default Workspace's LLM configs are read-only. The API returns HTTP 403 if you attempt to create, update, or delete configs in the default workspace.
+
+---
+
 ## Project Structure
 
 ```
@@ -274,14 +397,20 @@ synapse-forge/
 │   │   ├── workspaces.py       # /api/workspaces CRUD
 │   │   ├── tools.py            # /api/workspaces/{id}/tools CRUD
 │   │   ├── agents.py           # /api/workspaces/{id}/agents CRUD
+│   │   ├── llm_configs.py      # /api/workspaces/{id}/llm-configs CRUD
 │   │   ├── workspace_cloning.py # /api/clone/* (deep-copy resources)
+│   │   ├── workspace_environment.py # /api/workspaces/{id}/environment/start|stop
 │   │   ├── auth.py             # OAuth2 (Google, GitHub) + JWT sessions
 │   │   └── ...                 # orchestrations, router, workflow, etc.
 │   ├── db/
 │   │   ├── engine.py           # Async SQLAlchemy engine & session management
-│   │   ├── models.py           # ORM models (Workspace, Tool, Agent, Orchestration)
+│   │   ├── models.py           # ORM models (Workspace, Tool, Agent, Orchestration, LLMConfig)
 │   │   └── schemas.py          # Pydantic v2 request/response schemas
 │   ├── services/               # Business logic layer
+│   │   ├── workspace_docker_service.py  # Docker SDK container lifecycle
+│   │   ├── embedding_service.py
+│   │   ├── router_service.py
+│   │   └── mcp_service.py
 │   ├── setup/
 │   │   ├── reset_db.py         # ⚡ Drop + recreate schema + seed
 │   │   ├── seed_default_workspace.py  # Default workspace seeder
@@ -305,12 +434,20 @@ synapse-forge/
 ## Key Concepts
 
 ### Default Workspace & Cloning
-The **System Default Workspace** (`is_default=True`) is a read-only template workspace accessible to all users. It contains pre-built Agents and MCP Tool configurations that users can **clone** into their own private workspaces.
+The **System Default Workspace** (`is_default=True`) is a read-only template workspace accessible to all users. It contains pre-built Agents, MCP Tool configurations, and LLM configs that users can **clone** into their own private workspaces.
 
 - **Read-only enforcement:** UI hides edit/delete buttons and disables all form inputs
 - **Detection:** Uses the `is_default` boolean flag from the backend (not name matching)
 - **Cloning API:** `POST /api/clone/tools` and `POST /api/clone/agents` for batch operations
 - **Child tools included:** Cloning an MCP server automatically clones its discovered child tools
+
+### LLM Configuration Model
+LLM configurations are **workspace-scoped** database records, not environment variables. Each config stores:
+- **name** — user-friendly label (e.g., "Teacher Config", "My GPT-4o")
+- **provider** — one of: ollama, openai, anthropic, google, ibm_watsonx, groq, azure, cohere, bedrock, vertex_ai
+- **model_name** — the model identifier (e.g., granite4.1:8b, gpt-4o)
+- **credentials** — provider-specific auth (api_key, api_base, etc.)
+- **temperature** / **max_tokens** — tuning parameters
 
 ### Workspace Status
 Each workspace tracks its environment lifecycle via a `status` enum:
@@ -325,6 +462,10 @@ Each workspace tracks its environment lifecycle via a `status` enum:
 | `/api/workspaces` | GET, POST | List/create workspaces |
 | `/api/workspaces/{id}/tools` | GET, POST | List/register tools in a workspace |
 | `/api/workspaces/{id}/agents` | GET, POST | List/create agents in a workspace |
+| `/api/workspaces/{id}/llm-configs` | GET, POST | List/create LLM configurations |
+| `/api/workspaces/{id}/llm-configs/{cid}` | GET, PUT, DELETE | Read/update/delete an LLM config |
+| `/api/workspaces/{id}/environment/start` | POST | Start workspace Docker container |
+| `/api/workspaces/{id}/environment/stop` | POST | Stop workspace Docker container |
 | `/api/clone/tools` | POST | Batch-clone tools between workspaces |
 | `/api/clone/agents` | POST | Batch-clone agents between workspaces |
 | `/api/clone/{type}/{id}` | POST | Clone a single resource |
@@ -380,6 +521,11 @@ Both examples are fully instrumented with **Langfuse** for observability. Add yo
 ### MCP server not connecting
 - Ensure `npx` and `uvx` are available in your PATH
 - Check tool configurations in the Tool Registry UI
+
+### LLM configs not appearing
+- Ensure the database was seeded: `python -m setup.seed_default_workspace`
+- Check that the active workspace is selected in the UI workspace switcher
+- For custom workspaces, create configs via the Settings page
 
 ---
 

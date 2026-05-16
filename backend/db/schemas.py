@@ -264,6 +264,60 @@ class OrchestrationRead(BaseModel):
     updated_by: str | None = None
 
 
+# ========================== LLM CONFIG =====================================
+
+class LLMProviderSchemaEnum(str, Enum):
+    OLLAMA = "ollama"
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    GOOGLE = "google"
+    IBM_WATSONX = "ibm_watsonx"
+    GROQ = "groq"
+    AZURE = "azure"
+    COHERE = "cohere"
+    BEDROCK = "bedrock"
+    VERTEX_AI = "vertex_ai"
+
+
+class LLMConfigCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=255, examples=["Teacher Config"])
+    provider: LLMProviderSchemaEnum = LLMProviderSchemaEnum.OLLAMA
+    model_name: str = Field(..., min_length=1, max_length=255, examples=["granite4.1:8b"])
+    credentials: dict[str, Any] | None = Field(
+        default=None,
+        examples=[{"api_base": "http://localhost:11434"}],
+        description="Provider-specific credentials (api_key, api_base, etc.)",
+    )
+    temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    max_tokens: int = Field(default=2048, ge=1)
+
+
+class LLMConfigUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    provider: LLMProviderSchemaEnum | None = None
+    model_name: str | None = Field(default=None, min_length=1, max_length=255)
+    credentials: dict[str, Any] | None = None
+    temperature: float | None = Field(default=None, ge=0.0, le=2.0)
+    max_tokens: int | None = Field(default=None, ge=1)
+
+
+class LLMConfigRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workspace_id: uuid.UUID
+    name: str
+    provider: LLMProviderSchemaEnum
+    model_name: str
+    credentials: dict[str, Any] | None = None
+    temperature: float
+    max_tokens: int
+    created_at: datetime
+    updated_at: datetime
+    created_by: str | None = None
+    updated_by: str | None = None
+
+
 # ========================== ROUTER PREDICT =================================
 
 class RouterPredictRequest(BaseModel):

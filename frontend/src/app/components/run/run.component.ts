@@ -313,15 +313,15 @@ export class RunComponent implements OnInit {
   loadLLMConfigs(): void {
     this.llmConfigService.configurations$.subscribe(configs => {
       this.llmConfigs = configs;
-      this.expansionConfigs = configs.filter(c => c.role === 'expansion');
-      this.heavyConfigs = configs.filter(c => c.role === 'heavy');
+      this.expansionConfigs = configs.filter(c => c.name.toLowerCase().includes('expansion'));
+      this.heavyConfigs = configs.filter(c => c.name.toLowerCase().includes('heavy'));
       
       // Update dropdown items - use setTimeout to avoid ExpressionChangedAfterItHasBeenCheckedError
       setTimeout(() => {
         this.expansionModelDropdownItems = [
           { content: 'Manual Entry', value: '', selected: this.selectedExpansionConfigId === '' },
           ...this.expansionConfigs.map(cfg => ({
-            content: `${cfg.provider}/${cfg.modelName}`,
+            content: `${cfg.provider}/${cfg.model_name}`,
             value: cfg.id,
             selected: cfg.id === this.selectedExpansionConfigId
           }))
@@ -330,7 +330,7 @@ export class RunComponent implements OnInit {
         this.heavyModelDropdownItems = [
           { content: 'Manual Entry', value: '', selected: this.selectedHeavyConfigId === '' },
           ...this.heavyConfigs.map(cfg => ({
-            content: `${cfg.provider}/${cfg.modelName}`,
+            content: `${cfg.provider}/${cfg.model_name}`,
             value: cfg.id,
             selected: cfg.id === this.selectedHeavyConfigId
           }))
@@ -407,7 +407,7 @@ export class RunComponent implements OnInit {
     if (this.selectedExpansionConfigId) {
       const config = this.expansionConfigs.find(c => c.id === this.selectedExpansionConfigId);
       if (config) {
-        this.runtimeLLMConfig.expansion_model = config.modelName;
+        this.runtimeLLMConfig.expansion_model = config.model_name;
         this.runValidation();
       }
     }
@@ -417,7 +417,7 @@ export class RunComponent implements OnInit {
     if (this.selectedHeavyConfigId) {
       const config = this.heavyConfigs.find(c => c.id === this.selectedHeavyConfigId);
       if (config) {
-        this.runtimeLLMConfig.heavy_model = config.modelName;
+        this.runtimeLLMConfig.heavy_model = config.model_name;
         this.runValidation();
       }
     }

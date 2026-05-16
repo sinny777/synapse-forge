@@ -2,71 +2,67 @@
   <!-- Header -->
   <div class="config-header">
     <div class="header-content">
-      <h2 class="config-title">LLM Model Configuration</h2>
-      <p class="config-subtitle">Configure Teacher, Expansion, and Heavy models with provider-specific credentials</p>
+      <h2 class="config-title">LLM Configurations</h2>
+      <p class="config-subtitle">
+        <ng-container *ngIf="isDefaultWorkspace">
+          Pre-configured models for the Default Workspace (read-only). Clone into your workspace to customize.
+        </ng-container>
+        <ng-container *ngIf="!isDefaultWorkspace && activeWorkspace">
+          Manage LLM provider configurations for workspace "{{ activeWorkspace.name }}"
+        </ng-container>
+        <ng-container *ngIf="!activeWorkspace">
+          Select a workspace to manage LLM configurations
+        </ng-container>
+      </p>
     </div>
-    <div class="header-actions">
-      <button class="cds--btn cds--btn--tertiary cds--btn--sm" (click)="exportConfigurations()">
+    <div class="header-actions" *ngIf="activeWorkspace">
+      <button class="cds--btn cds--btn--tertiary cds--btn--sm" (click)="exportConfigurations()"
+        *ngIf="configurations.length > 0">
         <svg cdsIcon="download" size="16" class="cds--btn__icon"></svg>
         Export
       </button>
-      <label class="cds--btn cds--btn--tertiary cds--btn--sm import-btn">
+      <label class="cds--btn cds--btn--tertiary cds--btn--sm import-btn" *ngIf="!isDefaultWorkspace">
         <svg cdsIcon="upload" size="16" class="cds--btn__icon"></svg>
         Import
         <input type="file" accept=".json" (change)="importConfigurations($event)" style="display: none;">
       </label>
-      <button class="cds--btn cds--btn--primary cds--btn--sm" (click)="openAddModal()">
+      <button class="cds--btn cds--btn--primary cds--btn--sm" (click)="openAddModal()"
+        *ngIf="!isDefaultWorkspace">
         <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
         Add Configuration
       </button>
     </div>
   </div>
 
-  <!-- Role Filter -->
-  <div class="filter-section">
-    <div class="cds--form-item">
-      <label class="cds--label">Filter by Role:</label>
-      <select class="cds--select-input" [(ngModel)]="selectedRoleFilter" (change)="onRoleFilterChange()">
-        <option value="all">All Roles</option>
-        <option *ngFor="let role of roles" [value]="role">
-          {{ getRoleIcon(role) }} {{ getRoleLabel(role) }}
-        </option>
-      </select>
-    </div>
-  </div>
-
-  <!-- Role Summary Cards -->
-  <div class="role-summary-cards">
-    <div class="summary-card" *ngFor="let role of roles">
-      <div class="card-icon">{{ getRoleIcon(role) }}</div>
-      <div class="card-content">
-        <h4 class="card-title">{{ getRoleLabel(role) }}</h4>
-        <p class="card-description">{{ roleInfo[role].description }}</p>
-        <p class="card-count">{{ getRoleSummary(role) }}</p>
-      </div>
-    </div>
+  <!-- Default Workspace Banner -->
+  <div class="default-workspace-banner" *ngIf="isDefaultWorkspace">
+    <svg cdsIcon="information--filled" size="16"></svg>
+    <span>
+      Default Workspace configurations are read-only. Create your own workspace to add and modify LLM configurations.
+    </span>
   </div>
 
   <!-- Configurations List -->
   <div class="configurations-list">
-    <div *ngIf="filteredConfigurations.length === 0" class="empty-state">
+    <div *ngIf="configurations.length === 0" class="empty-state">
       <svg cdsIcon="information--filled" size="32"></svg>
-      <h3>No configurations found</h3>
-      <p>Add a new configuration to get started</p>
-      <button class="cds--btn cds--btn--primary" (click)="openAddModal()">
+      <h3>No LLM configurations</h3>
+      <p *ngIf="!isDefaultWorkspace">Add a configuration to connect to an LLM provider</p>
+      <p *ngIf="isDefaultWorkspace">No pre-configured models in this workspace</p>
+      <button class="cds--btn cds--btn--primary" (click)="openAddModal()" *ngIf="!isDefaultWorkspace">
         <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
         Add Configuration
       </button>
     </div>
 
-    <div *ngIf="filteredConfigurations.length > 0" class="config-cards">
-      <div class="config-card" *ngFor="let config of filteredConfigurations">
+    <div *ngIf="configurations.length > 0" class="config-cards">
+      <div class="config-card" *ngFor="let config of configurations">
         <div class="card-header">
           <div class="card-title-section">
-            <span class="role-badge">{{ getRoleIcon(config.role) }} {{ getRoleLabel(config.role) }}</span>
+            <span class="config-name-badge">{{ config.name }}</span>
             <span class="provider-badge">{{ getProviderIcon(config.provider) }} {{ getProviderLabel(config.provider) }}</span>
           </div>
-          <div class="card-actions">
+          <div class="card-actions" *ngIf="!isDefaultWorkspace">
             <button class="cds--btn cds--btn--ghost cds--btn--sm" (click)="openEditModal(config)" title="Edit">
               <svg cdsIcon="edit" size="16"></svg>
             </button>
@@ -77,20 +73,20 @@
         </div>
         <div class="card-body">
           <div class="config-detail">
-            <span class="detail-label">Model Name:</span>
-            <span class="detail-value">{{ config.modelName }}</span>
+            <span class="detail-label">Model:</span>
+            <span class="detail-value">{{ config.model_name }}</span>
           </div>
           <div class="config-detail">
             <span class="detail-label">Temperature:</span>
-            <span class="detail-value">{{ config.temperature?.toFixed(2) || 'N/A' }}</span>
+            <span class="detail-value">{{ config.temperature.toFixed(2) || 'N/A' }}</span>
           </div>
           <div class="config-detail">
             <span class="detail-label">Max Tokens:</span>
-            <span class="detail-value">{{ config.maxTokens || 'N/A' }}</span>
+            <span class="detail-value">{{ config.max_tokens || 'N/A' }}</span>
           </div>
           <div class="config-detail">
             <span class="detail-label">Updated:</span>
-            <span class="detail-value">{{ config.updatedAt | date:'short' }}</span>
+            <span class="detail-value">{{ config.updated_at | date:'short' }}</span>
           </div>
         </div>
       </div>
@@ -110,23 +106,18 @@
 
     <div class="cds--modal-content">
       <div class="modal-form">
-        <!-- Role Selection -->
+        <!-- Configuration Name -->
         <div class="cds--form-item">
-          <label class="cds--label" for="role-select">
-            Model Role <span class="required">*</span>
-            <span class="cds--tooltip__trigger" [title]="roleInfo[selectedRole].description">
-              <svg cdsIcon="information--filled" size="16"></svg>
-            </span>
+          <label class="cds--label" for="config-name">
+            Configuration Name <span class="required">*</span>
           </label>
-          <select 
-            id="role-select"
-            class="cds--select-input" 
-            [(ngModel)]="selectedRole">
-            <option *ngFor="let role of roles" [value]="role">
-              {{ getRoleIcon(role) }} {{ getRoleLabel(role) }}
-            </option>
-          </select>
-          <div class="cds--form__helper-text">{{ roleInfo[selectedRole].description }}</div>
+          <input
+            id="config-name"
+            type="text"
+            class="cds--text-input"
+            [(ngModel)]="configName"
+            placeholder="e.g., Teacher Config, My OpenAI Config">
+          <div class="cds--form__helper-text">A descriptive name for this LLM configuration</div>
         </div>
 
         <!-- Provider Selection -->
@@ -134,9 +125,9 @@
           <label class="cds--label" for="provider-select">
             Provider <span class="required">*</span>
           </label>
-          <select 
+          <select
             id="provider-select"
-            class="cds--select-input" 
+            class="cds--select-input"
             [(ngModel)]="selectedProvider"
             (change)="onProviderChange()">
             <option *ngFor="let provider of providers" [value]="provider.id">
@@ -154,10 +145,10 @@
           <label class="cds--label" for="model-name">
             Model Name <span class="required">*</span>
           </label>
-          <input 
+          <input
             id="model-name"
-            type="text" 
-            class="cds--text-input" 
+            type="text"
+            class="cds--text-input"
             [(ngModel)]="modelName"
             placeholder="e.g., {{ currentProviderInfo?.modelExamples?.[0] || '' }}">
           <div class="cds--form__helper-text">
@@ -170,10 +161,10 @@
           <label class="cds--label" for="temperature">
             Temperature (0-2)
           </label>
-          <input 
+          <input
             id="temperature"
-            type="number" 
-            class="cds--text-input" 
+            type="number"
+            class="cds--text-input"
             [(ngModel)]="temperature"
             min="0"
             max="2"
@@ -186,10 +177,10 @@
           <label class="cds--label" for="max-tokens">
             Max Tokens
           </label>
-          <input 
+          <input
             id="max-tokens"
-            type="number" 
-            class="cds--text-input" 
+            type="number"
+            class="cds--text-input"
             [(ngModel)]="maxTokens"
             min="1"
             step="1">
@@ -210,10 +201,10 @@
               </label>
 
               <!-- Select field -->
-              <select 
+              <select
                 *ngIf="field.type === 'select'"
                 [id]="'cred-' + field.key"
-                class="cds--select-input" 
+                class="cds--select-input"
                 [(ngModel)]="credentials[field.key]">
                 <option value="">Select {{ field.label }}</option>
                 <option *ngFor="let option of field.options" [value]="option.value">
@@ -223,13 +214,13 @@
 
               <!-- Text/Password/URL field -->
               <div *ngIf="field.type !== 'select'" class="input-with-toggle">
-                <input 
+                <input
                   [id]="'cred-' + field.key"
                   [type]="getCredentialInputType(field, field.key)"
-                  class="cds--text-input" 
+                  class="cds--text-input"
                   [(ngModel)]="credentials[field.key]"
                   [placeholder]="field.placeholder || ''">
-                <button 
+                <button
                   *ngIf="field.type === 'password'"
                   type="button"
                   class="cds--btn cds--btn--ghost cds--btn--sm toggle-visibility"

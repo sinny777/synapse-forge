@@ -50,6 +50,8 @@ from db.models import (
     MCPTransportType,
     MCPServerStatus,
     Agent,
+    LLMConfig,
+    LLMProviderEnum,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -537,6 +539,42 @@ AGENT_DEFINITIONS: list[dict] = [
 ]
 
 
+# ---------------------------------------------------------------------------
+# Default LLM Configuration Definitions
+#
+# These 3 named configs are seeded into the Default Workspace with Ollama
+# details for local development. Users can clone them into custom workspaces
+# and modify provider/credentials as needed.
+# ---------------------------------------------------------------------------
+
+LLM_CONFIG_DEFINITIONS: list[dict] = [
+    {
+        "name": "Teacher Config",
+        "provider": LLMProviderEnum.OLLAMA,
+        "model_name": "granite4.1:8b",
+        "credentials": {"api_base": "http://localhost:11434"},
+        "temperature": 0.8,
+        "max_tokens": 2048,
+    },
+    {
+        "name": "Expansion Config",
+        "provider": LLMProviderEnum.OLLAMA,
+        "model_name": "granite4.1:8b",
+        "credentials": {"api_base": "http://localhost:11434"},
+        "temperature": 0.3,
+        "max_tokens": 1024,
+    },
+    {
+        "name": "Heavy Config",
+        "provider": LLMProviderEnum.OLLAMA,
+        "model_name": "granite4.1:8b",
+        "credentials": {"api_base": "http://localhost:11434"},
+        "temperature": 0.0,
+        "max_tokens": 4096,
+    },
+]
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Database helpers
 # ═══════════════════════════════════════════════════════════════════════════
@@ -742,6 +780,37 @@ async def _reset_default_workspace(session: AsyncSession) -> None:
     logger.info("✅ Default workspace deleted.")
 
 
+async def _seed_llm_configs(
+    session: AsyncSession,
+    workspace_id: uuid.UUID,
+) -> None:
+    """Seed default LLM configurations into the workspace."""
+    result = await session.execute(
+        select(LLMConfig).where(LLMConfig.workspace_id == workspace_id)
+    )
+    existing_names = {c.name for c in result.scalars().all()}
+
+    for defn in LLM_CONFIG_DEFINITIONS:
+        if defn["name"] in existing_names:
+            logger.info("  LLM config '%s' already exists, skipping.", defn["name"])
+            continue
+
+        config = LLMConfig(
+            workspace_id=workspace_id,
+            name=defn["name"],
+            provider=defn["provider"],
+            model_name=defn["model_name"],
+            credentials=defn.get("credentials"),
+            temperature=defn.get("temperature", 0.7),
+            max_tokens=defn.get("max_tokens", 2048),
+            created_by="system",
+            updated_by="system",
+        )
+        session.add(config)
+        await session.flush()
+        logger.info("  ✅ Created LLM config: %s (%s)", config.name, config.id)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Main entry point
 # ═══════════════════════════════════════════════════════════════════════════
@@ -770,6 +839,10 @@ async def seed(reset: bool = False) -> None:
             # 3. Seed agents
             logger.info("Seeding agent definitions...")
             await _seed_agents(session, ws.id, tool_map)
+
+            # 4. Seed default LLM configurations
+            logger.info("Seeding default LLM configurations...")
+            await _seed_llm_configs(session, ws.id)
 
             await session.commit()
             logger.info("🎉 Default workspace seeding complete!")

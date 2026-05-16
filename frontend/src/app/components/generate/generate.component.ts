@@ -326,7 +326,7 @@ export class GenerateComponent implements OnInit {
 
   loadTeacherConfigs(): void {
     this.llmConfigService.configurations$.subscribe(configs => {
-      this.teacherConfigs = configs.filter(c => c.role === 'teacher');
+      this.teacherConfigs = configs.filter(c => c.name.toLowerCase().includes('teacher'));
     });
   }
 
@@ -334,7 +334,7 @@ export class GenerateComponent implements OnInit {
     if (this.selectedTeacherConfigId) {
       const config = this.llmConfigService.getConfigurationById(this.selectedTeacherConfigId);
       if (config) {
-        let modelName = config.modelName;
+        let modelName = config.model_name;
         if (config.provider === 'ollama' && !modelName.startsWith('ollama/')) {
           modelName = `ollama/${modelName}`;
         }
@@ -361,8 +361,8 @@ export class GenerateComponent implements OnInit {
         if (config.temperature !== undefined) {
           this.llmConfig.teacher_temperature = config.temperature;
         }
-        if (config.maxTokens !== undefined) {
-          this.llmConfig.teacher_max_tokens = config.maxTokens;
+        if (config.max_tokens !== undefined) {
+          this.llmConfig.teacher_max_tokens = config.max_tokens;
         }
         
         this.onConfigChange();

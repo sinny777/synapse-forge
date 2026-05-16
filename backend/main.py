@@ -108,6 +108,8 @@ from api.agents import router as agents_router
 from api.orchestrations import router as orchestrations_router
 from api.router import router as router_predict_router
 from api.workspace_cloning import router as cloning_router
+from api.workspace_environment import router as environment_router
+from api.llm_configs import router as llm_configs_router
 
 # --- Standalone Workflow Pipeline ---
 from api.workflow import router as workflow_router
@@ -126,6 +128,8 @@ app.include_router(agents_router)
 app.include_router(orchestrations_router)
 app.include_router(router_predict_router)
 app.include_router(cloning_router)
+app.include_router(environment_router)
+app.include_router(llm_configs_router)
 
 # Standalone workflow routes
 app.include_router(workflow_router)

@@ -42,6 +42,9 @@ pgvector>=0.3.0          # pgvector SQLAlchemy integration
 # alembic & psycopg2-binary removed — using reset_db.py for schema management
 redis>=5.0.0             # redis.asyncio for caching & checkpoints
 
+# Docker Control Plane (Phase 3)
+docker>=7.0.0            # Docker SDK for workspace container orchestration
+
 # Optional: For development
 pytest>=7.4.0
 black>=23.0.0

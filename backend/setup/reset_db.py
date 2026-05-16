@@ -84,6 +84,7 @@ async def reset_schema() -> None:
             "mcp_server_status",
             "orchestration_framework",
             "architecture_type",
+            "llm_provider_enum",
         ]:
             await conn.execute(
                 text(f"DROP TYPE IF EXISTS {enum_name} CASCADE")
