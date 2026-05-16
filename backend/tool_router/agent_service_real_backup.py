@@ -1,8 +1,8 @@
 """
-Agent Orchestration Service for Neural Tool Router - Real Implementation
+Agent Orchestration Service for SynapseForge - Real Implementation
 
 This module provides the infrastructure to execute multi-agent scenarios
-using BeeAI and LangGraph frameworks with real NeuralToolRouter integration.
+using BeeAI and LangGraph frameworks with real SynapseForge integration.
 """
 
 import asyncio

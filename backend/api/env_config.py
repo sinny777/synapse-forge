@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Environment / Config API Routes
+SynapseForge — Environment / Config API Routes
 
   • GET /api/env/llm-credentials — fetch LLM provider credentials from env vars
 """

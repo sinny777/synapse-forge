@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Async Redis Connection Pool
+SynapseForge — Async Redis Connection Pool
 
 Provides a shared ``redis.asyncio`` connection pool used for:
   • Router prediction caching  (hash(prompt + workspace_id) → tool schemas)

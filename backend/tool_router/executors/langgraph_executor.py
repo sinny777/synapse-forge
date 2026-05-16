@@ -1,5 +1,5 @@
 """
-LangGraph executor for real agent execution with NeuralToolRouter.
+LangGraph executor for real agent execution with SynapseForge.
 """
 
 import sys
@@ -21,7 +21,7 @@ class LangGraphExecutor(BaseAgentExecutor):
     LangGraph executor that implements real agent execution.
     
     Uses LangGraph's StateGraph with supervisor pattern and integrates
-    with NeuralToolRouter for dynamic tool selection.
+    with SynapseForge for dynamic tool selection.
     """
     
     def __init__(self, scenario: AgentScenario, examples_dir: Path, model_path: str = None):
@@ -162,7 +162,7 @@ class LangGraphExecutor(BaseAgentExecutor):
                     }
                 )
                 
-                # Retrieve tools using NeuralToolRouter
+                # Retrieve tools using SynapseForge
                 k = 3 if "Trading" in agent_config["name"] or "Tax" in agent_config["name"] else 2
                 
                 # Get tools with scores from semantic router

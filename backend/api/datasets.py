@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Dataset Management API Routes
+SynapseForge — Dataset Management API Routes
 
 Endpoints for managing versioned training datasets:
   • GET    /api/datasets              — list archived datasets

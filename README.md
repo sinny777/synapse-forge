@@ -1,13 +1,13 @@
-# NeuralToolRouter
+# SynapseForge
 
 A production-ready Python framework that optimizes Agentic AI architectures by separating **Tool Retrieval** (using a fine-tuned PyTorch embedding model) from **Parameter Extraction and Execution** (using a heavy LLM). This dramatically reduces context window bloat and latency.
 
 **A blueprint for eliminating context bloat and reducing API latency.**
 
-### 🚀 NeuralToolRouter: Scaling Agentic AI Architectures
+### 🚀 SynapseForge: Scaling Agentic AI Architectures
 ![Slide 1](./docs/slides/Slide1.png)
 
-> "Welcome. This is NeuralToolRouter—a production-ready Python framework designed to solve one of the biggest bottlenecks in modern Agentic AI: scaling tool usage without blowing up your context window, latency, or API costs."
+> "Welcome. This is SynapseForge—a production-ready Python framework designed to solve one of the biggest bottlenecks in modern Agentic AI: scaling tool usage without blowing up your context window, latency, or API costs."
 
 ### ⚠️ The Bottleneck in Current Agentic AI
 ![Slide 2](./docs/slides/Slide2.png)
@@ -20,12 +20,12 @@ Standard Agentic systems send **all** available tool schemas to the LLM on every
 *   💸 **Exorbitant Costs:** Input tokens add up quickly, leading to heavily inflated API bills.
 *   📉 **Degraded Accuracy:** LLMs suffer from "lost-in-the-middle" syndrome; exposing them to irrelevant tools increases hallucination and misrouting.
 
-### 💡 The Solution - NeuralToolRouter
+### 💡 The Solution - SynapseForge
 ![Slide 3](./docs/slides/Slide3.png)
 
 **Introducing a "RAG-for-Tools" Architecture:** 
 
-NeuralToolRouter decouples **Tool Retrieval** from **Execution** by treating tool selection as a semantic search problem. 
+SynapseForge decouples **Tool Retrieval** from **Execution** by treating tool selection as a semantic search problem. 
 
 *   **Fast Retrieval:** Uses fine-tuned PyTorch embedding models to fetch only the Top-K relevant tools.
 *   **Query Expansion:** Employs a lightweight, fast LLM (e.g., GPT-4o-mini) to expand user intent before retrieval.
@@ -37,14 +37,14 @@ NeuralToolRouter decouples **Tool Retrieval** from **Execution** by treating too
 
 **Measurable ROI & Scalability:** 
 
-By implementing NeuralToolRouter, AI architectures realize immediate, compounding benefits:
+By implementing SynapseForge, AI architectures realize immediate, compounding benefits:
 *   📉 **90%+ Context Reduction:** Condenses payload from 10,000+ tokens down to 500–1,000 tokens.
 *   ⚡ **1.5 to 4.5s Faster Response:** Net latency drops dramatically despite the micro-overhead of the retrieval step.
 *   💰 **~90% Cost Savings:** Token API costs shrink proportionally to the context reduction.
 *   🌐 **Infinite Scalability:** Scales to 1,000+ tools with **O(1)** constant-time retrieval using FAISS/ChromaDB.
 
 ### ⚙️ Core Architecture Overview
-![Slide 5](./docs/slides/Slide5.png)
+![Slide 5](./docs/slides/Slide1.png)
 
 **How It Works Under the Hood:**
 
@@ -66,7 +66,7 @@ The framework operates in three distinct phases to ensure high accuracy:
 3.  **Phase 3: Agentic Runtime (`main.py run`)**
     *   The live execution environment where hybrid retrieval (Semantic + BM25) routes user requests to the precise tool required.
 
-> "Unlike zero-shot semantic search, NeuralToolRouter actually fine-tunes the embedding model specifically on your unique tool definitions. This ensures domain-specific terminology maps perfectly to the correct function."
+> "Unlike zero-shot semantic search, SynapseForge actually fine-tunes the embedding model specifically on your unique tool definitions. This ensures domain-specific terminology maps perfectly to the correct function."
 
 ### 🛠️ Bleeding-Edge Tech Stack
 ![Slide 7](./docs/slides/Slide7.png)
@@ -83,7 +83,7 @@ The framework operates in three distinct phases to ensure high accuracy:
 
 **Adaptable to Any Agentic Use Case:** 
 
-NeuralToolRouter can be dynamically tuned based on your enterprise priorities:
+SynapseForge can be dynamically tuned based on your enterprise priorities:
 *   🚀 **Optimize for Speed:** Swap to `paraphrase-MiniLM-L3-v2`, reduce Top-K to 2, disable query expansion, use `faiss-cpu`.
 *   🎯 **Optimize for Accuracy:** Use `all-mpnet-base-v2`, increase Top-K to 5, train for more epochs, use Hybrid Retrieval (Vector + BM25).
 *   💸 **Optimize for Cost:** Swap the Expansion LLM to open-source or `gpt-4o-mini`, minimizing cloud dependency.
@@ -93,7 +93,7 @@ NeuralToolRouter can be dynamically tuned based on your enterprise priorities:
 
 **Drop-in Replacement for Any Framework:** 
 
-NeuralToolRouter is designed to bypass interactive runtime limitations. You can directly inject the generated FAISS/BM25 indices and fine-tuned embeddings into your existing orchestrators.
+SynapseForge is designed to bypass interactive runtime limitations. You can directly inject the generated FAISS/BM25 indices and fine-tuned embeddings into your existing orchestrators.
 *   **Compatible Frameworks:** LangChain, AutoGen, IBM BeeAI, CrewAI.
 *   **How it fits:** Replace your existing `ToolNode` or standard tool arrays with a `SemanticRouter.retrieve_tools()` call. Pass only the resulting schemas into your Agent's prompt context.
 
@@ -104,7 +104,7 @@ NeuralToolRouter is designed to bypass interactive runtime limitations. You can 
 
 *   **The Paradigm Shift:** Moving from passing *all* tools to *dynamically retrieving* relevant tools is critical for scaling to hundreds of enterprise tools.
 *   **Get Started:** 
-    *   Clone the repository: `git clone https://github.com/sinny777/neural-tool-router`
+    *   Clone the repository: `git clone https://github.com/sinny777/synapse-forge`
     *   Review `ARCHITECTURE.md`
     *   Run the 3-phase pipeline setup
 *   **Looking Ahead:** Active learning from user feedback, multi-modal routing, and hierarchical tool logic.
@@ -124,7 +124,7 @@ Standard architectures break when hitting the agentic scaling wall. Most Agentic
 
 ## 💡 Solution: Decoupling Retrieval from Execution
 
-NeuralToolRouter implements a **RAG-for-Tools** architecture:
+SynapseForge implements a **RAG-for-Tools** architecture:
 
 1. **Query Expander**: Fast LLM (GPT-4o-mini) decomposes complex user intent into specific logical sub-steps.
 2. **Semantic Router**: Embeds queries and searches the Vector Index for exact tool signatures.
@@ -309,7 +309,7 @@ Contributions welcome! Areas for improvement:
 
 MIT License
 
-Copyright (c) 2024 NeuralToolRouter Contributors
+Copyright (c) 2024 SynapseForge Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -348,7 +348,9 @@ Contributions are welcome! If you find this repository helpful, please star it!
 </div>
 
 For issues and questions:
-- GitHub Issues: [[NeuralToolRouter](https://github.com/sinny777/neural-tool-router/issues)]
+- GitHub Issues: [[SynapseForge](https://github.com/sinny777/synapse-forge/issues)]
 - Documentation: [`ARCHITECTURE.md`](./docs/ARCHITECTURE.md)
+
+**Built with ❤️ for the Agentic AI community by [Gurvinder Singh](https://github.com/sinny777)**TECTURE.md`](./docs/ARCHITECTURE.md)
 
 **Built with ❤️ for the Agentic AI community by [Gurvinder Singh](https://github.com/sinny777)**

@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Async SQLAlchemy Engine & Session Management
+SynapseForge — Async SQLAlchemy Engine & Session Management
 
 Uses asyncpg as the async driver for PostgreSQL.
 The engine and session factory are created lazily and attached to the
@@ -37,13 +37,13 @@ def _build_database_url() -> str:
         POSTGRES_PASSWORD (default: ntr_secret_2026)
         POSTGRES_HOST     (default: localhost)
         POSTGRES_PORT     (default: 5432)
-        POSTGRES_DB       (default: neural_tool_router)
+        POSTGRES_DB       (default: synapse_forge)
     """
     user = os.getenv("POSTGRES_USER", "ntr_user")
     password = os.getenv("POSTGRES_PASSWORD", "ntr_secret_2026")
     host = os.getenv("POSTGRES_HOST", "localhost")
     port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "neural_tool_router")
+    db = os.getenv("POSTGRES_DB", "synapse_forge")
     return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 
 

@@ -1,12 +1,12 @@
 """
-NeuralToolRouter — Orchestrator Execute API Route
+SynapseForge — Orchestrator Execute API Route
 
 POST /api/orchestrator/{orchestration_id}/execute — Execute an orchestration
 with SSE streaming for real-time trace events.
 
 This endpoint:
   1. Loads the Orchestration config from the database.
-  2. Uses NeuralToolRouter to find relevant tools for the prompt.
+  2. Uses SynapseForge to find relevant tools for the prompt.
   3. Streams trace events (tool routing, LLM calls, tool execution) via SSE.
 """
 
@@ -75,7 +75,7 @@ async def execute_orchestration(
     with fields: type, label, detail, timestamp, latency_ms, status.
 
     Event types:
-      - router: NeuralToolRouter semantic search results
+      - router: SynapseForge semantic search results
       - llm_call: LLM invocation with bound tools
       - tool_call: Tool function execution
       - tool_result: Result from tool execution

@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Agent Scenario API Routes
+SynapseForge — Agent Scenario API Routes
 
 Endpoints for the standalone agent orchestration scenarios:
   • GET  /api/agents/scenarios              — list available scenarios

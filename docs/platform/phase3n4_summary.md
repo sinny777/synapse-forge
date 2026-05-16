@@ -6,9 +6,9 @@
 
 | File | Purpose |
 |------|---------|
-| [services/__init__.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/services/__init__.py) | Services package init |
-| [services/embedding_service.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/services/embedding_service.py) | Per-workspace embedding model loader with lazy caching. Generates dense vectors from `name • description • schema` for pgvector storage |
-| [services/router_service.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/services/router_service.py) | Platform-mode semantic router: pgvector cosine similarity search + Redis cache layer (`ntr:predict:{sha256}`, 5 min TTL) |
+| [services/__init__.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/services/__init__.py) | Services package init |
+| [services/embedding_service.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/services/embedding_service.py) | Per-workspace embedding model loader with lazy caching. Generates dense vectors from `name • description • schema` for pgvector storage |
+| [services/router_service.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/services/router_service.py) | Platform-mode semantic router: pgvector cosine similarity search + Redis cache layer (`ntr:predict:{sha256}`, 5 min TTL) |
 
 ### Phase 4: API Restructuring + Platform CRUD
 
@@ -16,23 +16,23 @@ All route handlers extracted from `main.py` (823 → 133 lines) into focused mod
 
 | File | Tag | Routes | Purpose |
 |------|-----|--------|---------|
-| [api/workspaces.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/workspaces.py) | Workspaces | 5 | `GET/POST/PUT/DELETE /api/workspaces` |
-| [api/tools.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/tools.py) | Tools | 5 | `CRUD /api/workspaces/{id}/tools` — auto-embeds on create/update |
-| [api/agents.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/agents.py) | Agents | 5 | `CRUD /api/workspaces/{id}/agents` |
-| [api/orchestrations.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/orchestrations.py) | Orchestrations | 5 | `CRUD /api/workspaces/{id}/orchestrations` |
-| [api/router.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/router.py) | Router | 1 | `POST /api/router/predict` — pgvector + Redis |
-| [api/workflow.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/workflow.py) | Workflow | 6 | Generate, Train, Run, Evaluate, Status |
-| [api/data.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/data.py) | Data | 3 | Synthetic data + tool cache |
-| [api/models.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/models.py) | Models | 3 | Model archive management |
-| [api/datasets.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/datasets.py) | Datasets | 4 | Dataset versioning |
-| [api/env_config.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/env_config.py) | Environment | 1 | LLM credentials from env vars |
-| [api/scenarios.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/api/scenarios.py) | Agent Scenarios | 3 | Standalone agent scenario execution |
+| [api/workspaces.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/workspaces.py) | Workspaces | 5 | `GET/POST/PUT/DELETE /api/workspaces` |
+| [api/tools.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/tools.py) | Tools | 5 | `CRUD /api/workspaces/{id}/tools` — auto-embeds on create/update |
+| [api/agents.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/agents.py) | Agents | 5 | `CRUD /api/workspaces/{id}/agents` |
+| [api/orchestrations.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/orchestrations.py) | Orchestrations | 5 | `CRUD /api/workspaces/{id}/orchestrations` |
+| [api/router.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/router.py) | Router | 1 | `POST /api/router/predict` — pgvector + Redis |
+| [api/workflow.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/workflow.py) | Workflow | 6 | Generate, Train, Run, Evaluate, Status |
+| [api/data.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/data.py) | Data | 3 | Synthetic data + tool cache |
+| [api/models.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/models.py) | Models | 3 | Model archive management |
+| [api/datasets.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/datasets.py) | Datasets | 4 | Dataset versioning |
+| [api/env_config.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/env_config.py) | Environment | 1 | LLM credentials from env vars |
+| [api/scenarios.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/api/scenarios.py) | Agent Scenarios | 3 | Standalone agent scenario execution |
 
 ### Updated Files
 
 | File | Change |
 |------|--------|
-| [main.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/main.py) | Rewritten as thin app shell (823 → 133 lines). Only lifespan, CORS, and `include_router()` calls |
+| [main.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/main.py) | Rewritten as thin app shell (823 → 133 lines). Only lifespan, CORS, and `include_router()` calls |
 
 ---
 

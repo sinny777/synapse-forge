@@ -1,5 +1,5 @@
 /**
- * NeuralToolRouter — Workspace Service
+ * SynapseForge — Workspace Service
  *
  * Manages global workspace state via a BehaviorSubject.
  * All platform views subscribe to activeWorkspace$ and scope their

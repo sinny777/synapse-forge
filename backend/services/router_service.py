@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Router Service (Platform Mode)
+SynapseForge — Router Service (Platform Mode)
 
 Performs semantic tool retrieval using pgvector similarity search
 against the ``tools`` table, with an optional Redis cache layer.

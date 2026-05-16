@@ -1,5 +1,5 @@
 """
-BeeAI executor for real agent execution with NeuralToolRouter.
+BeeAI executor for real agent execution with SynapseForge.
 """
 
 import sys
@@ -49,7 +49,7 @@ class BeeAIExecutor(BaseAgentExecutor):
     """
     BeeAI executor that implements real agent execution.
     
-    Uses IBM BeeAI's RequirementAgent and integrates with NeuralToolRouter
+    Uses IBM BeeAI's RequirementAgent and integrates with SynapseForge
     for dynamic tool selection.
     """
     
@@ -197,7 +197,7 @@ class BeeAIExecutor(BaseAgentExecutor):
                     }
                 )
                 
-                # Retrieve tools using NeuralToolRouter with scores
+                # Retrieve tools using SynapseForge with scores
                 tool_results = self.router.semantic_router.retrieve_tools(agent_config["tool_query"], top_k=2, use_hybrid=True)
                 tools_mcp = []
                 tool_scores = {}

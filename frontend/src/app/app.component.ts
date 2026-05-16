@@ -108,7 +108,7 @@ export class AppComponent implements OnInit {
 
   ttftData = [
     { group: 'Legacy Prompt', date: 'Latency', value: 4.5 },
-    { group: 'NeuralToolRouter', date: 'Latency', value: 1.2 }
+    { group: 'SynapseForge', date: 'Latency', value: 1.2 }
   ];
   ttftOptions = {
     title: 'TTFT (Seconds)',
@@ -117,7 +117,7 @@ export class AppComponent implements OnInit {
       bottom: { mapsTo: 'date', scaleType: 'labels' }
     },
     height: '150px',
-    color: { scale: { 'Legacy Prompt': '#fa4d56', 'NeuralToolRouter': '#24a148' } },
+    color: { scale: { 'Legacy Prompt': '#fa4d56', 'SynapseForge': '#24a148' } },
     theme: 'g100'
   };
 
@@ -202,7 +202,7 @@ export class AppComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    console.log('NeuralToolRouter App initialized');
+    console.log('SynapseForge App initialized');
     const savedTheme = localStorage.getItem('theme');
     this.isDark = savedTheme !== 'light';
     this.applyTheme();

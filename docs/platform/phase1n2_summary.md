@@ -6,26 +6,26 @@
 
 | File | Purpose |
 |------|---------|
-| [docker-compose.yml](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/docker-compose.yml) | PostgreSQL 16 (pgvector) + Redis 7 with health checks, persistent volumes, and env-driven credentials |
-| [infra/init-db.sql](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/infra/init-db.sql) | Auto-runs `CREATE EXTENSION vector` on first container start |
-| [db/engine.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/db/engine.py) | Async SQLAlchemy engine (asyncpg), session factory, pgvector verification |
-| [db/redis_pool.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/db/redis_pool.py) | Async Redis connection pool with PING smoke-test |
-| [main.py lifespan](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/main.py#L24-L67) | FastAPI lifespan hooks wiring init/close for both DB & Redis |
+| [docker-compose.yml](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/docker-compose.yml) | PostgreSQL 16 (pgvector) + Redis 7 with health checks, persistent volumes, and env-driven credentials |
+| [infra/init-db.sql](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/infra/init-db.sql) | Auto-runs `CREATE EXTENSION vector` on first container start |
+| [db/engine.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/db/engine.py) | Async SQLAlchemy engine (asyncpg), session factory, pgvector verification |
+| [db/redis_pool.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/db/redis_pool.py) | Async Redis connection pool with PING smoke-test |
+| [main.py lifespan](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/main.py#L24-L67) | FastAPI lifespan hooks wiring init/close for both DB & Redis |
 
 ### Phase 2: Data Models & Schemas
 
 | File | Purpose |
 |------|---------|
-| [db/models.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/db/models.py) | SQLAlchemy ORM: `Workspace`, `Tool` (with pgvector), `Agent`, `Orchestration` |
-| [db/schemas.py](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/db/schemas.py) | Pydantic v2 Create/Update/Read schemas + `RouterPredictRequest/Response` |
+| [db/models.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/db/models.py) | SQLAlchemy ORM: `Workspace`, `Tool` (with pgvector), `Agent`, `Orchestration` |
+| [db/schemas.py](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/db/schemas.py) | Pydantic v2 Create/Update/Read schemas + `RouterPredictRequest/Response` |
 
 ### Updated Files
 
 | File | Change |
 |------|--------|
-| [requirements.txt](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/requirements.txt) | Added `sqlalchemy[asyncio]`, `asyncpg`, `pgvector`, `redis` |
-| [.env](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/.env) | Added `POSTGRES_*` and `REDIS_*` connection variables |
-| [.env.example](file:///Users/gurvindersingh/Documents/development/repositories/neural-tool-router/backend/.env.example) | Same + documentation comments |
+| [requirements.txt](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/requirements.txt) | Added `sqlalchemy[asyncio]`, `asyncpg`, `pgvector`, `redis` |
+| [.env](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/.env) | Added `POSTGRES_*` and `REDIS_*` connection variables |
+| [.env.example](file:///Users/gurvindersingh/Documents/development/repositories/synapse-forge/backend/.env.example) | Same + documentation comments |
 
 ---
 
@@ -60,7 +60,7 @@ graph LR
 
 ### 1. Start Infrastructure
 ```bash
-cd /Users/gurvindersingh/Documents/development/repositories/neural-tool-router
+cd /Users/gurvindersingh/Documents/development/repositories/synapse-forge
 # If using existing PG + Redis containers, just configure backend/.env
 # If starting fresh:
 docker compose --profile infra up -d
@@ -80,7 +80,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 Tables are **auto-created on startup** from ORM models (no migrations needed).
 You should see:
 ```
-🚀 Starting NeuralToolRouter platform services...
+🚀 Starting SynapseForge platform services...
 pgvector extension verified ✓
 Database tables synced ✓
 ✅ PostgreSQL (pgvector) connected

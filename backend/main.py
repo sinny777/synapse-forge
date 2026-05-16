@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — FastAPI Application Entry Point
+SynapseForge — FastAPI Application Entry Point
 
 This is the thin application shell. All route handlers live in the
 ``api/`` package.  This file is responsible only for:
@@ -45,7 +45,7 @@ async def lifespan(app: FastAPI):
     from db.engine import init_db, close_db
     from db.redis_pool import init_redis, close_redis
 
-    logger.info("🚀 Starting NeuralToolRouter platform services...")
+    logger.info("🚀 Starting SynapseForge platform services...")
 
     # --- Startup ---
     try:
@@ -79,7 +79,7 @@ async def lifespan(app: FastAPI):
 # App instance
 # ---------------------------------------------------------------------------
 
-app = FastAPI(title="Neural Tool Router API", lifespan=lifespan)
+app = FastAPI(title="SynapseForge API", lifespan=lifespan)
 
 import os
 secret_key = os.environ.get("SECRET_KEY", "super-secret-key-for-dev")

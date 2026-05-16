@@ -1,5 +1,5 @@
 /**
- * NeuralToolRouter — Platform API Service
+ * SynapseForge — Platform API Service
  *
  * Typed HTTP service wrapping all platform CRUD endpoints for
  * Tools, Agents, Orchestrations, and Router predictions.

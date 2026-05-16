@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Orchestration API Routes
+SynapseForge — Orchestration API Routes
 
 CRUD operations for multi-agent orchestration definitions within a workspace.
 """

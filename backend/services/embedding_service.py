@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Embedding Service
+SynapseForge — Embedding Service
 
 Manages per-workspace embedding model loading and vector generation.
 Each workspace can configure its own embedding model + dimension,

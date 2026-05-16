@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Agent API Routes
+SynapseForge — Agent API Routes
 
 CRUD operations for agent definitions within a workspace.
 """

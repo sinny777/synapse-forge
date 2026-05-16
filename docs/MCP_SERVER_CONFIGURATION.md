@@ -2,7 +2,7 @@
 
 ## Overview
 
-The NeuralToolRouter platform now supports dynamic MCP (Model Context Protocol) server configuration through a robust, production-ready interface. This system allows users to register and manage both local (stdio) and remote (SSE) MCP servers directly from the Tool Registry UI.
+The SynapseForge platform now supports dynamic MCP (Model Context Protocol) server configuration through a robust, production-ready interface. This system allows users to register and manage both local (stdio) and remote (SSE) MCP servers directly from the Tool Registry UI.
 
 ## Features
 
@@ -220,7 +220,7 @@ POST   /api/workspaces/{workspace_id}/mcp-servers/{id}/test # Test connection
 To add the MCP server table to an existing database:
 
 ```bash
-psql -U your_user -d neural_tool_router -f backend/db/migrations/001_add_mcp_servers.sql
+psql -U your_user -d synapse_forge -f backend/db/migrations/001_add_mcp_servers.sql
 ```
 
 Or use your preferred migration tool to execute the SQL script.
@@ -306,7 +306,7 @@ curl -X POST http://localhost:8000/api/workspaces/{workspace_id}/mcp-servers/{se
 ## Support
 
 For issues or questions:
-- GitHub Issues: [NeuralToolRouter Issues](https://github.com/sinny777/neural-tool-router/issues)
+- GitHub Issues: [SynapseForge Issues](https://github.com/sinny777/synapse-forge/issues)
 - Documentation: [Architecture Guide](./ARCHITECTURE.md)
 
 ---

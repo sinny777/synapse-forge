@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Data Management API Routes
+SynapseForge — Data Management API Routes
 
 Endpoints for synthetic training data and cached tool schema management:
   • GET/POST  /api/data/synthetic  — read/write synthetic query data

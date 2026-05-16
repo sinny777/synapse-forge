@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Model Management API Routes
+SynapseForge — Model Management API Routes
 
 Endpoints for managing trained embedding model archives:
   • GET    /api/models              — list archived models

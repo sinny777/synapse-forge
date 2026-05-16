@@ -214,7 +214,7 @@ export class LLMConfigService {
     }
 
     // Check required fields
-    providerInfo.credentialFields.forEach(field => {
+    providerInfo.credentialFields.forEach((field: any) => {
       if (field.required) {
         const value = credentials[field.key];
         if (!value || (typeof value === 'string' && value.trim() === '')) {
@@ -225,8 +225,8 @@ export class LLMConfigService {
 
     // Validate URL fields
     providerInfo.credentialFields
-      .filter(field => field.type === 'url' && credentials[field.key])
-      .forEach(field => {
+      .filter((field: any) => field.type === 'url' && credentials[field.key])
+      .forEach((field: any) => {
         const value = credentials[field.key];
         if (value && typeof value === 'string') {
           try {

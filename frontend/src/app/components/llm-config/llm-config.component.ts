@@ -83,7 +83,7 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
   selectedRoleFilter: ModelRole | 'all' = 'all';
 
   // Provider info
-  providers = Object.values(PROVIDER_INFO);
+  providers: ProviderInfo[] = Object.values(PROVIDER_INFO);
   currentProviderInfo: ProviderInfo | null = null;
 
   // Role info
@@ -229,7 +229,7 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
     this.currentProviderInfo = PROVIDER_INFO[this.selectedProvider];
     // Initialize credentials object with values from environment or empty
     const newCredentials: ProviderCredentials = {};
-    this.currentProviderInfo.credentialFields.forEach(field => {
+    this.currentProviderInfo.credentialFields.forEach((field: CredentialField) => {
       // Try to get value from existing credentials first, then from environment
       let value = this.credentials[field.key] || '';
       
@@ -318,8 +318,9 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
   /**
    * Import configurations
    */
-  async importConfigurations(event: any): Promise<void> {
-    const file = event.target.files[0];
+  async importConfigurations(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
     if (!file) return;
 
     const result = await this.llmConfigService.importConfigurations(file);
@@ -338,8 +339,9 @@ export class LLMConfigComponent implements OnInit, OnDestroy {
       );
     }
 
-    // Reset file input
-    event.target.value = '';
+    if (input) {
+      input.value = '';
+    }
   }
 
   /**

@@ -1,5 +1,5 @@
 """
-Agent Orchestration Service for Neural Tool Router - Hybrid Implementation
+Agent Orchestration Service for SynapseForge - Hybrid Implementation
 
 This module provides both mock and real agent execution modes, switchable via
 environment variable AGENT_EXECUTION_MODE (mock/real).
@@ -629,7 +629,7 @@ class AgentOrchestrator:
         llm_config: Optional[Dict[str, Any]],
         runtime_config: Optional[Dict[str, Any]]
     ) -> AsyncGenerator[AgentEvent, None]:
-        """Execute BeeAI scenario with real NeuralToolRouter"""
+        """Execute BeeAI scenario with real SynapseForge"""
         # Import real modules
         from beeai_mediclaim_processing.multi_agent_orchestrator import (
             ToolRouterForBeeAI,
@@ -723,7 +723,7 @@ class AgentOrchestrator:
         llm_config: Optional[Dict[str, Any]],
         runtime_config: Optional[Dict[str, Any]]
     ) -> AsyncGenerator[AgentEvent, None]:
-        """Execute LangGraph scenario with real NeuralToolRouter"""
+        """Execute LangGraph scenario with real SynapseForge"""
         from langgraph_UHNW_banking.multi_agent_orchestrator import (
             ToolRouterForLangChain,
             LangChainToolAdapter

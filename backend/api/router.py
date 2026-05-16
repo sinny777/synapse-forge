@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Router Predict API Route
+SynapseForge — Router Predict API Route
 
 POST /api/router/predict — Semantic tool retrieval using pgvector.
 
@@ -21,7 +21,7 @@ from services.router_service import RouterService
 
 logger = logging.getLogger("ntr.api.router")
 
-router = APIRouter(prefix="/api/router", tags=["NeuralToolRouter"])
+router = APIRouter(prefix="/api/router", tags=["SynapseForge"])
 
 
 # ---------------------------------------------------------------------------

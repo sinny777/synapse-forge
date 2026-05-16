@@ -1,5 +1,5 @@
 -- ============================================================================
--- NeuralToolRouter — PostgreSQL Init Script
+-- SynapseForge — PostgreSQL Init Script
 -- Runs automatically on first container start via docker-entrypoint-initdb.d
 -- ============================================================================
 

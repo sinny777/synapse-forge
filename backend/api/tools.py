@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Tool API Routes
+SynapseForge — Tool API Routes
 
 CRUD operations for tools within a workspace.
 On creation (and update when description changes), an embedding is

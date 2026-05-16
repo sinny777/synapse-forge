@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Pydantic v2 Schemas
+SynapseForge — Pydantic v2 Schemas
 
 Request / Response schemas for the platform API.
 Separated from the ORM models to keep validation concerns distinct.

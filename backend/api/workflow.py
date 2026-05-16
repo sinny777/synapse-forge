@@ -1,7 +1,7 @@
 """
-NeuralToolRouter — Workflow API Routes
+SynapseForge — Workflow API Routes
 
-Endpoints for the standalone NeuralToolRouter pipeline:
+Endpoints for the standalone SynapseForge pipeline:
   • Generate  — synthetic data generation (Phase 1)
   • Train     — embedding model fine-tuning (Phase 2)
   • Run       — agentic runtime loop (Phase 3)
@@ -24,7 +24,7 @@ from pydantic import BaseModel
 
 logger = logging.getLogger("ntr.api.workflow")
 
-router = APIRouter(prefix="/api", tags=["NeuralToolRouter_Workflow"])
+router = APIRouter(prefix="/api", tags=["SynapseForge_Workflow"])
 
 
 # ---------------------------------------------------------------------------

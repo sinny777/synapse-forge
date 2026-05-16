@@ -1,5 +1,5 @@
 ##############################################################################
-# NeuralToolRouter - Infrastructure Services
+# SynapseForge - Infrastructure Services
 # PostgreSQL (pgvector) + Redis
 #
 # USAGE:
@@ -32,14 +32,14 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-ntr_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ntr_secret_2026}
-      POSTGRES_DB: ${POSTGRES_DB:-neural_tool_router}
+      POSTGRES_DB: ${POSTGRES_DB:-synapse_forge}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./infra/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ntr_user} -d ${POSTGRES_DB:-neural_tool_router}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ntr_user} -d ${POSTGRES_DB:-synapse_forge}"]
       interval: 10s
       timeout: 5s
       retries: 5

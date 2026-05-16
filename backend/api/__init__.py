@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — API Package
+SynapseForge — API Package
 
 All FastAPI routers for the platform.
 

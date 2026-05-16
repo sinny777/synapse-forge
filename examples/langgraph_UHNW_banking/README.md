@@ -1,12 +1,12 @@
 # LangGraph Multi-Agent UHNW Banking Example
 
-This example demonstrates how to use **NeuralToolRouter** with the **LangGraph** Multi-Agent framework to orchestrate a complex Ultra-High-Net-Worth (UHNW) private banking scenario.
+This example demonstrates how to use **SynapseForge** with the **LangGraph** Multi-Agent framework to orchestrate a complex Ultra-High-Net-Worth (UHNW) private banking scenario.
 
 ## Overview
 
 The example showcases:
 
-1. **Dynamic Tool Retrieval**: Using NeuralToolRouter's hybrid retrieval (Dense + BM25 with RRF) to fetch only relevant tools for each agent.
+1. **Dynamic Tool Retrieval**: Using SynapseForge's hybrid retrieval (Dense + BM25 with RRF) to fetch only relevant tools for each agent.
 2. **Supervisor Multi-Agent Pattern**: A LangGraph Supervisor agent dynamically routes user intents to four specialized LangChain Worker Agents.
 3. **Context Passing**: The StateGraph natively passes the conversation message history and context between agents.
 4. **FastMCP Integration**: Mock private banking tools (wealth management, market data, tax compliance, core banking) exposed via FastMCP.
@@ -61,7 +61,7 @@ OPENAI_API_KEY=your_openai_api_key
 
 ### 3. Ensure ToolRouter is Trained
 
-The example requires a trained NeuralToolRouter model. From the project root:
+The example requires a trained SynapseForge model. From the project root:
 
 ```bash
 # Generate training data
@@ -237,7 +237,7 @@ With this architecture:
 - [LangChain & LangGraph](https://python.langchain.com/docs/langgraph)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
 - [FastMCP](https://github.com/jlowin/fastmcp)
-- [NeuralToolRouter Documentation](../../README.md)
+- [SynapseForge Documentation](../../README.md)
 
 ## License
 

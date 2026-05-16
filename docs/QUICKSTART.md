@@ -1,6 +1,6 @@
-# Neural Tool Router - 🚀 Quick Start Guide
+# SynapseForge - 🚀 Quick Start Guide
 
-Get up and running with the modern Neural Tool Router platform in just a few minutes! 
+Get up and running with the modern SynapseForge platform in just a few minutes! 
 
 This guide covers setting up the full-stack architecture: a **FastAPI backend** with PostgreSQL, and an **Angular frontend** dashboard.
 
@@ -28,7 +28,7 @@ Create a `.env` file in the `backend/` directory:
 
 ```bash
 # Database Configuration
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/neural_tool_router
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/synapse_forge
 
 # API Keys
 OPENAI_API_KEY=your_openai_key_here
@@ -69,7 +69,7 @@ The application will compile and launch the dashboard at `http://localhost:4200`
 
 ## 3. Platform Workflow
 
-Open `http://localhost:4200` in your browser. The Neural Tool Router is built around a centralized configuration dashboard and a 3-phase execution pipeline.
+Open `http://localhost:4200` in your browser. The SynapseForge is built around a centralized configuration dashboard and a 3-phase execution pipeline.
 
 ### Tool Registry
 Navigate to the **Tool Registry** via the left navigation rail.
@@ -97,7 +97,7 @@ Navigate to the **Tool Registry** via the left navigation rail.
 ## 📁 Architecture Overview
 
 ```text
-neural-tool-router/
+synapse-forge/
 ├── backend/                  # FastAPI & Python Orchestrator
 │   ├── api/                  # REST API Endpoints
 │   ├── db/                   # SQLAlchemy Models & Migrations

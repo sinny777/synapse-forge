@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Workspace API Routes
+SynapseForge — Workspace API Routes
 
 CRUD operations for workspaces (the multi-tenant root entity).
 """

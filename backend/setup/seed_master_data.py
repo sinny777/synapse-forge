@@ -128,7 +128,7 @@ def update_master_data():
     create_master_data()
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Seed Master Data for Neural Tool Router")
+    parser = argparse.ArgumentParser(description="Seed Master Data for SynapseForge")
     parser.add_argument("action", choices=["create", "update", "delete"], help="Action to perform on master data")
     
     try:

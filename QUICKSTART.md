@@ -1,6 +1,6 @@
 # Neural ToolRouter - Quick Start Guide
 
-Get up and running with NeuralToolRouter in 5 minutes!
+Get up and running with SynapseForge in 5 minutes!
 
 ## Prerequisites
 
@@ -15,8 +15,8 @@ Get up and running with NeuralToolRouter in 5 minutes!
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/neural-tool-router.git
-cd neural-tool-router
+git clone https://github.com/YOUR_USERNAME/synapse-forge.git
+cd synapse-forge
 ```
 
 ### 2. Create Virtual Environment
@@ -103,7 +103,7 @@ If you want to use actual MCP servers:
 
 ## Example Applications
 
-The repository includes two full multi-agent example applications that demonstrate `NeuralToolRouter` in action. Both examples use hybrid search to dynamically inject only the relevant tools into each specialized agent.
+The repository includes two full multi-agent example applications that demonstrate `SynapseForge` in action. Both examples use hybrid search to dynamically inject only the relevant tools into each specialized agent.
 
 ### 1. LangGraph UHNW Private Banking Example
 

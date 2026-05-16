@@ -1,5 +1,5 @@
 """
-Agent Orchestration Service for Neural Tool Router - Refactored
+Agent Orchestration Service for SynapseForge - Refactored
 
 This module provides agent execution using the executor pattern with support
 for multiple frameworks (BeeAI, LangGraph) and execution modes (mock, real).

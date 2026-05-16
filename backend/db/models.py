@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — SQLAlchemy ORM Models
+SynapseForge — SQLAlchemy ORM Models
 
 Defines the core tables from the Platform Requirements:
   • Workspace   — multi-tenant container
@@ -221,7 +221,7 @@ class Agent(Base, AuditMixin):
     An LLM agent definition bound to a workspace.
 
     ``attached_tool_ids`` stores a list of Tool UUIDs that this agent
-    is allowed to invoke.  At runtime, NeuralToolRouter further narrows
+    is allowed to invoke.  At runtime, SynapseForge further narrows
     these down to the most relevant subset for each prompt.
     """
     __tablename__ = "agents"

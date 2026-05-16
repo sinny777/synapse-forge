@@ -1,4 +1,4 @@
-# NeuralToolRouter
+# SynapseForge
 
 A production-ready Python framework that optimizes Agentic AI architectures by separating **Tool Retrieval** (using a fine-tuned PyTorch embedding model) from **Parameter Extraction and Execution** (using a heavy LLM). This dramatically reduces context window bloat and latency.
 
@@ -12,7 +12,7 @@ Most Agentic AI systems suffer from:
 
 ## 💡 Solution
 
-NeuralToolRouter implements a **RAG-for-Tools** architecture:
+SynapseForge implements a **RAG-for-Tools** architecture:
 
 1. **Fast Retrieval**: Fine-tuned embedding model retrieves Top-K relevant tools
 2. **Query Expansion**: Fast LLM expands queries for better retrieval
@@ -40,7 +40,7 @@ NeuralToolRouter implements a **RAG-for-Tools** architecture:
 ```bash
 # Clone the repository
 git clone <repository-url>
-cd neural-tool-router
+cd synapse-forge
 
 # Create virtual environment
 python -m venv venv
@@ -420,13 +420,13 @@ Contributions welcome! Areas for improvement:
 - [Architecture Details](./ARCHITECTURE.md)
 - [Enhancements & Roadmap](./ENHANCEMENTS.md)
 - [Quickstart Guide](./QUICKSTART.md)
-- [Neural Tool Router Whitepaper (PDF)](./NeuralToolRouter.pdf)
-- [Scaling Agentic AI Whitepaper (PDF)](./Scaling_Agentic_AI_via_NeuralToolRouter.pdf)
+- [SynapseForge Whitepaper (PDF)](./SynapseForge.pdf)
+- [Scaling Agentic AI Whitepaper (PDF)](./Scaling_Agentic_AI_via_SynapseForge.pdf)
 
 ## 📞 Support
 
 For issues and questions:
-- GitHub Issues: [[NeuralToolRouter](https://github.com/sinny777/neural-tool-router)]
+- GitHub Issues: [[SynapseForge](https://github.com/sinny777/synapse-forge)]
 - Documentation: [`ARCHITECTURE.md`](./ARCHITECTURE.md)
 - Email: [sinny777@gmail.com]
 

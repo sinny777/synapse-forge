@@ -613,7 +613,7 @@ export class MCPServerFormComponent implements OnInit, OnChanges {
     this.argsText = (this.formData.args || []).join('\n');
     this.envVars = Object.entries(this.formData.env || {}).map(([key, value]) => ({
       key,
-      value,
+      value: value as string,
       masked: true,
     }));
 
@@ -687,7 +687,7 @@ export class MCPServerFormComponent implements OnInit, OnChanges {
       this.argsText = (this.formData.args || []).join('\n');
       this.envVars = Object.entries(this.formData.env || {}).map(([key, value]) => ({
         key,
-        value,
+        value: value as string,
         masked: true,
       }));
 

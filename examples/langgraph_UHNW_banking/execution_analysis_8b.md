@@ -4,11 +4,11 @@ This document provides a detailed analysis of a successful terminal execution ru
 
 ## 🎯 Orchestration Success Summary
 
-The execution completed **flawlessly**. The combination of `NeuralToolRouter` for dynamic tool injection and the `granite4.1:8b` model's improved reasoning capabilities led to a textbook multi-agent routing scenario that completed without any loops or context bleed.
+The execution completed **flawlessly**. The combination of `SynapseForge` for dynamic tool injection and the `granite4.1:8b` model's improved reasoning capabilities led to a textbook multi-agent routing scenario that completed without any loops or context bleed.
 
 ---
 
-## 🧠 NeuralToolRouter Performance
+## 🧠 SynapseForge Performance
 
 1. **Semantic Routing & Tool Injection**: 
    The semantic router precisely identified the correct tools for the specific intent of each agent. The logs indicate:
@@ -22,7 +22,7 @@ The execution completed **flawlessly**. The combination of `NeuralToolRouter` fo
 ## 🤖 Agent Logic & Output Quality
 
 ### The Tax & Compliance Agent
-The specialized `TaxCompliance` agent handled the sub-task brilliantly. Armed with the tools provided by `NeuralToolRouter`, it executed a sequence of tool calls:
+The specialized `TaxCompliance` agent handled the sub-task brilliantly. Armed with the tools provided by `SynapseForge`, it executed a sequence of tool calls:
 1. Called `get_unrealized_gains_losses` to map out the current portfolio baseline.
 2. Called `simulate_capital_gains_tax` to estimate the $45,000 tax hit for selling NVDA.
 3. Called `get_tax_loss_harvesting_options` to identify RIVN as an offsetting asset.
@@ -46,6 +46,6 @@ Because the system prompt was updated to emphasize `FINISH` when the core intent
 
 * **Model Sizing Matters**: Upgrading from a 3B to an 8B parameter model drastically improved the orchestrator's ability to handle strict, structured routing outputs (like `Literal["FINISH"]`).
 * **Prompt Engineering is Crucial**: Providing explicit, deterministic rules ("MUST output FINISH") prevents LLMs from trying to unnecessarily involve every agent in the graph.
-* **Architecture Validation**: This run fully validates the use of **NeuralToolRouter + LangGraph**. You can effectively reduce context windows and token usage by starving agents of irrelevant tools, while relying on a Supervisor to route the user through the specialized ecosystem. 
+* **Architecture Validation**: This run fully validates the use of **SynapseForge + LangGraph**. You can effectively reduce context windows and token usage by starving agents of irrelevant tools, while relying on a Supervisor to route the user through the specialized ecosystem. 
 
 The UHNW Banking Concierge example is now fully functional and optimized for local execution!

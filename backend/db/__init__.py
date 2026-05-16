@@ -1,5 +1,5 @@
 """
-NeuralToolRouter — Database Package
+SynapseForge — Database Package
 
 Provides async SQLAlchemy engine, session factory, Redis connection pool,
 and all ORM models for the Agentic AI Platform.
