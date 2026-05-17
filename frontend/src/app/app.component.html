@@ -69,6 +69,11 @@
     Tool Registry
   </cds-sidenav-item>
 
+  <cds-sidenav-item (click)="setActivePhase('neural-router'); closeSidenav()" [active]="activePhase === 'neural-router'">
+    <svg icon cdsIcon="machine-learning-model" size="16"></svg>
+    NeuralToolRouter
+  </cds-sidenav-item>
+
   <cds-sidenav-item (click)="setActivePhase('agents'); closeSidenav()" [active]="activePhase === 'agents'">
     <svg icon cdsIcon="bot" size="16"></svg>
     Agent Studio
@@ -151,6 +156,7 @@
     <app-workflow *ngSwitchCase="'workflow'"></app-workflow>
     <app-llm-config *ngSwitchCase="'settings'"></app-llm-config>
     <app-tool-registry *ngSwitchCase="'tools'"></app-tool-registry>
+    <app-workflow *ngSwitchCase="'neural-router'"></app-workflow>
     <app-agent-studio *ngSwitchCase="'agents'"></app-agent-studio>
     <app-orchestrator-builder *ngSwitchCase="'orchestrator'"></app-orchestrator-builder>
     <app-playground *ngSwitchCase="'playground'"></app-playground>

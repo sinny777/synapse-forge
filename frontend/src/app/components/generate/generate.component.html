@@ -24,7 +24,9 @@
       <button cdsButton="ghost" (click)="resetDefaults()" title="Reset to Defaults">
         <svg cdsIcon="reset" size="16"></svg>
       </button>
-      <button cdsButton="primary" (click)="onSubmit()" [disabled]="isLoading" [title]="isLoading ? 'Generating...' : 'Start Generation'">
+      <button cdsButton="primary" (click)="onSubmit()" 
+        [disabled]="!canStartGeneration" 
+        [title]="isLoading ? 'Generating...' : (!canStartGeneration ? 'Required: Dataset name, version, and LLM config' : 'Start Generation')">
         <svg cdsIcon="play--filled" size="16"></svg>
       </button>
     </div>
@@ -72,7 +74,7 @@
 <ng-template #mcpTabHeading>
   <div class="tab-header-content">
     <svg cdsIcon="connect" size="16"></svg>
-    <span>MCP Server</span>
+    <span>MCP Server/Tools</span>
   </div>
 </ng-template>
 
@@ -95,107 +97,31 @@
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- SECTION 1: MCP Configuration                                    -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
+  <!-- SECTION 1: MCP Configuration (Managed via Registry)             -->
+  <!-- ═══════════════════════════════════════════════════════════════ -->
   <section class="config-section">
     <div class="config-section__header" (click)="toggleSection('mcp')">
       <div class="config-section__header-left">
         <svg cdsIcon="connect" size="20" class="config-section__icon"></svg>
         <div>
           <h2 class="ibm--type-productive-heading-03">MCP Server Configuration</h2>
-          <p class="ibm--type-helper-text-01">Model Context Protocol server endpoints and connection parameters.</p>
+          <p class="ibm--type-helper-text-01">Manage MCP servers via the Tool Registry in the workspace sidebar.</p>
         </div>
       </div>
       <div class="config-section__header-right">
-        <cds-tag *ngIf="!getSectionValidation('mcp').valid" type="red" size="sm">⚠ Invalid</cds-tag>
-        <cds-tag *ngIf="mcpServers.length > 0" type="purple" size="sm">{{ mcpServers.length }} server{{
-          mcpServers.length !== 1 ? 's' : '' }}</cds-tag>
+        <cds-tag [type]="getSelectedMCPCount() > 0 ? 'purple' : 'warm-gray'" size="sm">
+          {{ getSelectedMCPCount() }} selected
+        </cds-tag>
         <svg cdsIcon="chevron--down" size="16" class="config-section__chevron"
           [class.config-section__chevron--open]="sections['mcp']"></svg>
       </div>
     </div>
 
     <div class="config-section__body" *ngIf="sections['mcp']">
-      <p class="ibm--type-label-01 config-subsection-label">
-        MCP Servers
-        <span class="config-subsection-hint">(add/remove servers interactively)</span>
+      <p class="ibm--type-body-01" style="color: var(--ibm-text-secondary); padding: 1rem; border: 1px dashed var(--ibm-ui-03);">
+        MCP servers are now managed globally per workspace. Please use the <strong>Vertical Tabs View</strong> (List icon in header) to select specific workspace servers for this generation session, or visit the <strong>Tool Registry</strong> to add new servers.
       </p>
-
-      <div class="config-row" style="margin-bottom: 1rem;">
-        <div class="config-field config-field--wide">
-          <cds-label>
-            Add Pre-defined MCP Server Example
-            <cds-dropdown
-              placeholder="Select an example..."
-              [appendInline]="true"
-              size="md"
-              [(ngModel)]="selectedPredefinedMcp"
-              (selected)="onPredefinedMcpSelectDropdown($event)">
-              <cds-dropdown-list [items]="predefinedMcpDropdownItems"></cds-dropdown-list>
-            </cds-dropdown>
-          </cds-label>
-        </div>
-      </div>
-
-      <!-- Add Server Row -->
-      <div class="mcp-add-row" style="margin-bottom: 1rem;">
-        <input cdsText type="text" [(ngModel)]="newServer.name" placeholder="Server name" class="mcp-add-field" />
-        <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)"
-          class="mcp-add-field" />
-        <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)"
-          class="mcp-add-field mcp-add-field--wide" />
-        <cds-dropdown
-          [appendInline]="true"
-          size="sm"
-          [(ngModel)]="newServer.transport"
-          (selected)="onNewServerTransportChange($event)"
-          class="mcp-add-field">
-          <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
-        </cds-dropdown>
-        <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()"
-          title="Add server">
-          <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
-          Add
-        </button>
-      </div>
-
-      <!-- MCP Servers Table -->
-      <div class="mcp-table-wrapper">
-        <table class="mcp-table">
-          <thead>
-            <tr>
-              <th>Server Name</th>
-              <th>Command</th>
-              <th>Args</th>
-              <th>Transport</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let srv of mcpServers; let i = index">
-              <td><input cdsText type="text" [(ngModel)]="srv.name" (ngModelChange)="onServerChange()" /></td>
-              <td><input cdsText type="text" [(ngModel)]="srv.command" (ngModelChange)="onServerChange()" /></td>
-              <td><input cdsText type="text" [(ngModel)]="srv.args" (ngModelChange)="onServerChange()"
-                  placeholder="space-separated" /></td>
-              <td>
-                <cds-dropdown
-                  [appendInline]="true"
-                  size="sm"
-                  [(ngModel)]="srv.transport"
-                  (selected)="onTransportChange($event, i)">
-                  <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
-                </cds-dropdown>
-              </td>
-              <td>
-                <button cdsButton="danger--ghost" size="sm" (click)="removeServer(i)" title="Remove server">
-                  <svg cdsIcon="trash-can" size="16"></svg>
-                </button>
-              </td>
-            </tr>
-            <tr *ngIf="mcpServers.length === 0">
-              <td colspan="5" class="mcp-table__empty">No MCP servers configured. Add one below.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
     </div>
   </section>
 
@@ -328,13 +254,13 @@
           <div class="config-row" style="margin-bottom: 1.5rem;">
             <div class="config-field">
               <cds-label>
-                Dataset Name
+                Dataset Name <span style="color: var(--ibm-support-01);">*</span>
                 <input cdsText type="text" [(ngModel)]="datasetArchiveName" placeholder="e.g., banking-queries" />
               </cds-label>
             </div>
             <div class="config-field">
               <cds-label>
-                Version
+                Version <span style="color: var(--ibm-support-01);">*</span>
                 <input cdsText type="text" [(ngModel)]="datasetArchiveVersion" placeholder="1.0" />
               </cds-label>
             </div>
@@ -350,13 +276,13 @@
           <div class="config-row" style="margin-bottom: 1.5rem;">
             <div class="config-field">
               <cds-label>
-                Dataset Name
+                Dataset Name <span style="color: var(--ibm-support-01);">*</span>
                 <input cdsText type="text" [(ngModel)]="datasetArchiveName" placeholder="e.g., banking-queries" />
               </cds-label>
             </div>
             <div class="config-field">
               <cds-label>
-                Version
+                Version <span style="color: var(--ibm-support-01);">*</span>
                 <input cdsText type="text" [(ngModel)]="datasetArchiveVersion" placeholder="1.0" />
               </cds-label>
             </div>
@@ -387,88 +313,58 @@
     </cds-tab>
     <cds-tab [heading]="mcpTabHeading">
       <div class="config-section__body config-section__body--tabs">
-      <p class="ibm--type-label-01 config-subsection-label">
-        MCP Servers
-        <span class="config-subsection-hint">(add/remove servers interactively)</span>
-      </p>
-
-      <div class="config-row" style="margin-bottom: 1rem;">
-        <div class="config-field config-field--wide">
-          <cds-label>
-            Add Pre-defined MCP Server Example
-            <cds-dropdown
-              placeholder="Select an example..."
-              [appendInline]="true"
-              size="md"
-              [(ngModel)]="selectedPredefinedMcp"
-              (selected)="onPredefinedMcpSelectDropdown($event)">
-              <cds-dropdown-list [items]="predefinedMcpDropdownItems"></cds-dropdown-list>
-            </cds-dropdown>
-          </cds-label>
+        
+        <!-- Workspace MCP Server Selection -->
+        <div class="mcp-selector-header" style="margin-bottom: 1.5rem;">
+          <h3 class="ibm--type-heading-01">Select Workspace MCP Servers</h3>
+          <p class="ibm--type-helper-text-01">
+            Choose which workspace MCP servers to include in synthetic data generation.
+          </p>
+          <div class="mcp-selector-actions" *ngIf="workspaceMCPServers.length > 0" style="margin-top: 1rem; display: flex; gap: 1rem; align-items: center;">
+            <button cdsButton="ghost" size="sm" (click)="selectAllMCPServers()">Select All</button>
+            <button cdsButton="ghost" size="sm" (click)="deselectAllMCPServers()">Deselect All</button>
+            <cds-tag type="blue" size="sm">{{ getSelectedMCPCount() }} selected</cds-tag>
+          </div>
         </div>
-      </div>
 
-      <!-- Add Server Row -->
-      <div class="mcp-add-row" style="margin-bottom: 1rem;">
-        <input cdsText type="text" [(ngModel)]="newServer.name" placeholder="Server name" class="mcp-add-field" />
-        <input cdsText type="text" [(ngModel)]="newServer.command" placeholder="Command (e.g., python)"
-          class="mcp-add-field" />
-        <input cdsText type="text" [(ngModel)]="newServer.args" placeholder="Args (space-separated)"
-          class="mcp-add-field mcp-add-field--wide" />
-        <cds-dropdown
-          [appendInline]="true"
-          size="sm"
-          [(ngModel)]="newServer.transport"
-          (selected)="onNewServerTransportChange($event)"
-          class="mcp-add-field">
-          <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
-        </cds-dropdown>
-        <button cdsButton="primary" size="sm" (click)="addServer()" [disabled]="!newServer.name.trim()"
-          title="Add server">
-          <svg cdsIcon="add" size="16" class="cds--btn__icon"></svg>
-          Add
-        </button>
-      </div>
+        <div class="mcp-server-grid" *ngIf="!isLoadingMCPServers && workspaceMCPServers.length > 0">
+          <div *ngFor="let srv of workspaceMCPServers"
+               class="mcp-server-card"
+               [class.selected]="isMCPServerSelected(srv.id)"
+               (click)="toggleMCPServer(srv.id)">
+            <div class="mcp-card-header">
+              <div class="mcp-card-check">
+                <svg *ngIf="isMCPServerSelected(srv.id)" cdsIcon="checkmark" size="16"></svg>
+              </div>
+              <span class="mcp-card-name">{{ srv.name }}</span>
+            </div>
+            <p class="mcp-card-desc" *ngIf="srv.description">{{ srv.description }}</p>
+            <div class="mcp-card-meta">
+              <cds-tag type="outline" size="sm">{{ srv.transport || 'stdio' }}</cds-tag>
+              <cds-tag [type]="srv.status === 'active' ? 'green' : 'warm-gray'" size="sm">
+                {{ srv.status }}
+              </cds-tag>
+            </div>
+          </div>
+        </div>
 
-      <!-- MCP Servers Table -->
-      <div class="mcp-table-wrapper">
-        <table class="mcp-table">
-          <thead>
-            <tr>
-              <th>Server Name</th>
-              <th>Command</th>
-              <th>Args</th>
-              <th>Transport</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let srv of mcpServers; let i = index">
-              <td><input cdsText type="text" [(ngModel)]="srv.name" (ngModelChange)="onServerChange()" /></td>
-              <td><input cdsText type="text" [(ngModel)]="srv.command" (ngModelChange)="onServerChange()" /></td>
-              <td><input cdsText type="text" [(ngModel)]="srv.args" (ngModelChange)="onServerChange()"
-                  placeholder="space-separated" /></td>
-              <td>
-                <cds-dropdown
-                  [appendInline]="true"
-                  size="sm"
-                  [(ngModel)]="srv.transport"
-                  (selected)="onTransportChange($event, i)">
-                  <cds-dropdown-list [items]="transportOptions"></cds-dropdown-list>
-                </cds-dropdown>
-              </td>
-              <td>
-                <button cdsButton="danger--ghost" size="sm" (click)="removeServer(i)" title="Remove server">
-                  <svg cdsIcon="trash-can" size="16"></svg>
-                </button>
-              </td>
-            </tr>
-            <tr *ngIf="mcpServers.length === 0">
-              <td colspan="5" class="mcp-table__empty">No MCP servers configured. Add one below.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <div class="mcp-server-empty" *ngIf="!isLoadingMCPServers && workspaceMCPServers.length === 0" style="padding: 2rem; text-align: center; background: var(--ibm-ui-01); border-radius: 4px;">
+          <p class="ibm--type-body-01">No enabled MCP servers found in this workspace.</p>
+          <p class="ibm--type-helper-text-01" style="margin-top: 0.5rem;">
+            Go to <strong>Tool Registry</strong> to add MCP servers.
+          </p>
+        </div>
+
+        <div class="mcp-server-loading" *ngIf="isLoadingMCPServers" style="display: flex; flex-direction: column; align-items: center; padding: 2rem; gap: 1rem;">
+          <cds-loading [isActive]="true" size="sm" [overlay]="false"></cds-loading>
+          <span>Loading workspace servers...</span>
+        </div>
+
+        <div class="mcp-server-footer" style="margin-top: 2rem; padding: 1.5rem; background: var(--ibm-layer-01); border-radius: 4px; border-left: 4px solid var(--ibm-interactive);">
+          <p class="ibm--type-body-01">
+            <strong>Pro Tip:</strong> Only selected servers from the grid above will be included in the synthetic data generation payload. This ensures your datasets are clean and focused on specific domains.
+          </p>
+        </div>
       </div>
     </cds-tab>
     <cds-tab [heading]="dataGenerationTabHeading">

@@ -4,17 +4,14 @@
   <!-- Workflow Title Bar                                              -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <div class="workflow-title-wrapper">
-    <!-- Breadcrumbs -->
-    <!-- <div class="page-breadcrumb">
-      <cds-breadcrumb [noTrailingSlash]="false">
-        <cds-breadcrumb-item href="#">Homepage</cds-breadcrumb-item>
-        <cds-breadcrumb-item href="#">Workflows</cds-breadcrumb-item>
-      </cds-breadcrumb>
-    </div> -->
-
     <div class="workflow-title">
       <div class="workflow-title__left">
-        <h1>SynapseForge Workflow</h1>
+        <h1>NeuralToolRouter</h1>
+        <p class="workflow-title__subtitle" *ngIf="activeWorkspace">
+          <span class="ws-label">Workspace:</span>
+          <strong>{{ activeWorkspace.name }}</strong>
+          <cds-tag *ngIf="isDefaultWorkspace()" type="blue" size="sm">Read Only</cds-tag>
+        </p>
       </div>
     </div>
   </div>
@@ -141,9 +138,136 @@
   </ng-template>
 
   <div class="workflow-content">
-    <div [hidden]="activeTab !== 0"><app-generate></app-generate></div>
-    <div [hidden]="activeTab !== 1"><app-train></app-train></div>
-    <div [hidden]="activeTab !== 2"><app-run></app-run></div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- PHASE 1: Generate Synthetic Dataset                         -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div [hidden]="activeTab !== 0">
+
+      <!-- Phase Header with LLM Selection & Clone -->
+      <div class="phase-header">
+        <div class="phase-header__config">
+          <div class="phase-config-item" *ngIf="!hasLLMConfigs()">
+            <div class="missing-config-msg">
+              <svg cdsIcon="warning--alt--filled" size="20" class="warning-icon"></svg>
+              <span>No LLM configurations found. Please <a (click)="openLLMConfig()" class="config-link">Configure LLM settings</a> in Settings.</span>
+            </div>
+          </div>
+          <div class="phase-config-item" *ngIf="hasLLMConfigs()">
+            <label class="cds--label">LLM for Generation</label>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <cds-dropdown
+                label="Select LLM Configuration"
+                placeholder="Choose a configured LLM..."
+                [appendInline]="true"
+                size="md"
+                (selected)="onGenerateLLMSelect($event)"
+                style="min-width: 300px;">
+                <cds-dropdown-list [items]="getGenerateLLMItems()"></cds-dropdown-list>
+              </cds-dropdown>
+              <cds-tag type="blue" size="sm" *ngIf="selectedGenerateLLMId">
+                Active: {{ getSelectedLLMName('generate') }}
+              </cds-tag>
+            </div>
+          </div>
+        </div>
+        <div class="phase-header__actions">
+          <button cdsButton="tertiary" size="sm"
+                  (click)="clonePhaseResources('generate')"
+                  [disabled]="isCloningPhase1 || isDefaultWorkspace()"
+                  title="Clone default workspace tools and MCP servers into this workspace">
+            <svg cdsIcon="copy" size="16"></svg>
+            {{ isCloningPhase1 ? 'Cloning...' : 'Clone Default Resources' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Embedded Generate Component -->
+      <app-generate 
+        [workspaceId]="activeWorkspace?.id" 
+        [selectedLLMId]="selectedGenerateLLMId">
+      </app-generate>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- PHASE 2: Fine-Tune                                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div [hidden]="activeTab !== 1">
+
+      <!-- Phase Header with LLM Selection & Clone -->
+      <div class="phase-header">
+          <div class="phase-config-item">
+            <p class="ibm--type-helper-text-01" style="color: var(--ibm-text-secondary);">
+              Configure your training hyperparameters and model metadata below to begin fine-tuning.
+            </p>
+          </div>
+        <div class="phase-header__actions">
+          <button cdsButton="tertiary" size="sm"
+                  (click)="clonePhaseResources('train')"
+                  [disabled]="isCloningPhase2 || isDefaultWorkspace()"
+                  title="Clone default workspace training configs into this workspace">
+            <svg cdsIcon="copy" size="16"></svg>
+            {{ isCloningPhase2 ? 'Cloning...' : 'Clone Default Resources' }}
+          </button>
+        </div>
+      </div>
+
+      <app-train
+        [workspaceId]="activeWorkspace?.id"
+        [selectedLLMId]="selectedTrainLLMId">
+      </app-train>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- PHASE 3: Run / Orchestrate                                  -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <div [hidden]="activeTab !== 2">
+
+      <!-- Phase Header with LLM Selection & Clone -->
+      <div class="phase-header">
+        <div class="phase-header__config">
+          <div class="phase-config-item" *ngIf="!hasLLMConfigs()">
+            <div class="missing-config-msg">
+              <svg cdsIcon="warning--alt--filled" size="20" class="warning-icon"></svg>
+              <span>No LLM configurations found. Please <a (click)="openLLMConfig()" class="config-link">Configure LLM settings</a>.</span>
+            </div>
+          </div>
+          <div class="phase-config-item" *ngIf="hasLLMConfigs()">
+            <label class="cds--label">LLM for Runtime / Orchestration</label>
+            <div style="display: flex; align-items: center; gap: 1rem;">
+              <cds-dropdown
+                label="Select LLM Configuration"
+                placeholder="Choose a configured LLM..."
+                [appendInline]="true"
+                size="md"
+                (selected)="onRunLLMSelect($event)"
+                style="min-width: 300px;">
+                <cds-dropdown-list [items]="getRunLLMItems()"></cds-dropdown-list>
+              </cds-dropdown>
+              <cds-tag type="blue" size="sm" *ngIf="selectedRunLLMId">
+                Active: {{ getSelectedLLMName('run') }}
+              </cds-tag>
+            </div>
+          </div>
+        </div>
+        <div class="phase-header__actions">
+          <button cdsButton="tertiary" size="sm"
+                  (click)="clonePhaseResources('run')"
+                  [disabled]="isCloningPhase3 || isDefaultWorkspace()"
+                  title="Clone default workspace runtime configs into this workspace">
+            <svg cdsIcon="copy" size="16"></svg>
+            {{ isCloningPhase3 ? 'Cloning...' : 'Clone Default Resources' }}
+          </button>
+        </div>
+      </div>
+
+      <app-run
+        [workspaceId]="activeWorkspace?.id"
+        [selectedExpansionLLMId]="selectedRunLLMId"
+        [selectedHeavyLLMId]="selectedRunLLMId">
+      </app-run>
+    </div>
+
   </div>
 
 </div>

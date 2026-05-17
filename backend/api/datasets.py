@@ -14,7 +14,8 @@ import os
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 logger = logging.getLogger("ntr.api.datasets")
@@ -33,10 +34,12 @@ class LoadDatasetRequest(BaseModel):
 
 
 @router.get("")
-async def list_datasets():
+async def list_datasets(workspace_id: Optional[str] = Query(None)):
     """List all archived datasets."""
     from tool_router.config import config
     datasets_dir = config.datasets_dir
+    if workspace_id:
+        datasets_dir = config.project_root / "data" / "workspaces" / workspace_id / "data" / "datasets"
     datasets = []
     if datasets_dir.exists():
         for item in datasets_dir.iterdir():
@@ -51,10 +54,12 @@ async def list_datasets():
 
 
 @router.post("/archive")
-async def archive_dataset(req: ArchiveDatasetRequest):
+async def archive_dataset(req: ArchiveDatasetRequest, workspace_id: Optional[str] = Query(None)):
     """Archive a dataset with versioned name."""
     from tool_router.config import config
     datasets_dir = config.datasets_dir
+    if workspace_id:
+        datasets_dir = config.project_root / "data" / "workspaces" / workspace_id / "data" / "datasets"
     datasets_dir.mkdir(parents=True, exist_ok=True)
     source_path = Path(req.source_file)
     if not source_path.is_absolute():

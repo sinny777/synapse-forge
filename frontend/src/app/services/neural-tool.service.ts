@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { HttpParams } from '@angular/common/http';
 
 @Injectable({
   providedIn: 'root'
@@ -118,20 +119,24 @@ export class NeuralToolService {
     return this.http.get(`${this.apiUrl}/status`);
   }
 
-  getSyntheticData(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/data/synthetic`);
+  getSyntheticData(workspaceId?: string): Observable<any> {
+    const url = workspaceId ? `${this.apiUrl}/data/synthetic?workspace_id=${workspaceId}` : `${this.apiUrl}/data/synthetic`;
+    return this.http.get(url);
   }
 
-  getCachedTools(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/data/tools`);
+  getCachedTools(workspaceId?: string): Observable<any> {
+    const url = workspaceId ? `${this.apiUrl}/data/tools?workspace_id=${workspaceId}` : `${this.apiUrl}/data/tools`;
+    return this.http.get(url);
   }
 
-  saveSyntheticData(data: any[]): Observable<any> {
-    return this.http.post(`${this.apiUrl}/data/synthetic`, { data });
+  saveSyntheticData(data: any[], workspaceId?: string): Observable<any> {
+    const url = workspaceId ? `${this.apiUrl}/data/synthetic?workspace_id=${workspaceId}` : `${this.apiUrl}/data/synthetic`;
+    return this.http.post(url, { data });
   }
 
-  getModels(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/models`);
+  getModels(workspaceId?: string): Observable<any> {
+    const url = workspaceId ? `${this.apiUrl}/models?workspace_id=${workspaceId}` : `${this.apiUrl}/models`;
+    return this.http.get(url);
   }
 
   archiveModel(name: string, version: string, sourceDir: string): Observable<any> {
@@ -149,15 +154,17 @@ export class NeuralToolService {
   /**
    * Get list of available datasets
    */
-  getDatasets(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/datasets`);
+  getDatasets(workspaceId?: string): Observable<any> {
+    const url = workspaceId ? `${this.apiUrl}/datasets?workspace_id=${workspaceId}` : `${this.apiUrl}/datasets`;
+    return this.http.get(url);
   }
 
   /**
    * Archive a dataset with name and version
    */
-  archiveDataset(name: string, version: string, sourceFile: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/datasets/archive`, { name, version, source_file: sourceFile });
+  archiveDataset(name: string, version: string, sourceFile: string, workspaceId?: string): Observable<any> {
+    const url = workspaceId ? `${this.apiUrl}/datasets/archive?workspace_id=${workspaceId}` : `${this.apiUrl}/datasets/archive`;
+    return this.http.post(url, { name, version, source_file: sourceFile });
   }
 
   /**
@@ -181,8 +188,9 @@ export class NeuralToolService {
   /**
    * Get list of available agent scenarios
    */
-  getAgentScenarios(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/agents/scenarios`);
+  getAgentScenarios(workspaceId?: string): Observable<any> {
+    const url = workspaceId ? `${this.apiUrl}/agents/scenarios?workspace_id=${workspaceId}` : `${this.apiUrl}/agents/scenarios`;
+    return this.http.get(url);
   }
 
   /**
@@ -203,16 +211,19 @@ export class NeuralToolService {
     scenarioId: string,
     llmConfig: any,
     runtimeConfig: any,
-    onEvent: (event: any) => void
+    onEvent: (event: any) => void,
+    workspaceId?: string
   ): Promise<void> {
     const response = await fetch(`${this.apiUrl}/agents/execute`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         scenario_id: scenarioId,
+        workspace_id: workspaceId,
         llm_config: llmConfig,
         runtime_config: runtimeConfig
       }),
+
       credentials: 'include'
     });
 
@@ -253,5 +264,15 @@ export class NeuralToolService {
         }
       }
     }
+  }
+
+  /**
+   * Clone default workspace resources for a specific workflow phase
+   */
+  cloneWorkflowResources(workspaceId: string, phase: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/clone/workflow-resources`, {
+      destination_workspace_id: workspaceId,
+      phase: phase
+    });
   }
 }

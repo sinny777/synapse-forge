@@ -16,6 +16,94 @@ from ..common.models import AgentScenario
 logger = logging.getLogger(__name__)
 
 
+from langchain_openai import ChatOpenAI
+from litellm import completion, acompletion
+
+class LiteLLMChatOpenAI(ChatOpenAI):
+    litellm_model: str
+    
+    def _generate(self, messages, stop=None, run_manager=None, **kwargs):
+        # Translate langchain messages to litellm messages
+        litellm_messages = []
+        for m in messages:
+            role = "user"
+            if hasattr(m, 'type'):
+                if m.type == "system":
+                    role = "system"
+                elif m.type in ("assistant", "ai"):
+                    role = "assistant"
+            elif hasattr(m, 'role'):
+                role = m.role
+            litellm_messages.append({"role": role, "content": m.content})
+            
+        res = completion(
+            model=self.litellm_model,
+            messages=litellm_messages,
+            temperature=self.temperature or 0.0,
+            max_tokens=self.max_tokens,
+            **kwargs
+        )
+        content = res.choices[0].message.content or ""
+        from langchain_core.outputs import ChatResult, ChatGeneration
+        from langchain_core.messages import AIMessage
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
+
+    async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
+        # Translate langchain messages to litellm messages
+        litellm_messages = []
+        for m in messages:
+            role = "user"
+            if hasattr(m, 'type'):
+                if m.type == "system":
+                    role = "system"
+                elif m.type in ("assistant", "ai"):
+                    role = "assistant"
+            elif hasattr(m, 'role'):
+                role = m.role
+            litellm_messages.append({"role": role, "content": m.content})
+            
+        res = await acompletion(
+            model=self.litellm_model,
+            messages=litellm_messages,
+            temperature=self.temperature or 0.0,
+            max_tokens=self.max_tokens,
+            **kwargs
+        )
+        content = res.choices[0].message.content or ""
+        from langchain_core.outputs import ChatResult, ChatGeneration
+        from langchain_core.messages import AIMessage
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=content))])
+
+    async def _astream(self, messages, stop=None, run_manager=None, **kwargs):
+        # Translate langchain messages to litellm messages
+        litellm_messages = []
+        for m in messages:
+            role = "user"
+            if hasattr(m, 'type'):
+                if m.type == "system":
+                    role = "system"
+                elif m.type in ("assistant", "ai"):
+                    role = "assistant"
+            elif hasattr(m, 'role'):
+                role = m.role
+            litellm_messages.append({"role": role, "content": m.content})
+            
+        response = await acompletion(
+            model=self.litellm_model,
+            messages=litellm_messages,
+            temperature=self.temperature or 0.0,
+            max_tokens=self.max_tokens,
+            stream=True,
+            **kwargs
+        )
+        from langchain_core.messages import AIMessageChunk
+        from langchain_core.outputs import ChatGenerationChunk
+        async for chunk in response:
+            delta = chunk.choices[0].delta.content or ""
+            if delta:
+                yield ChatGenerationChunk(message=AIMessageChunk(content=delta))
+
+
 class LangGraphExecutor(BaseAgentExecutor):
     """
     LangGraph executor that implements real agent execution.
@@ -119,8 +207,107 @@ class LangGraphExecutor(BaseAgentExecutor):
                 raise RuntimeError(f"Could not load module from {module_path}")
             
             # Get LLM
-            model_name = llm_config.get("model", "gpt-4o") if llm_config else "gpt-4o"
-            llm = ChatOpenAI(model=model_name, temperature=0)
+            model_name = "gpt-4o"
+            heavy_config_id = None
+            if llm_config:
+                model_name = llm_config.get("model") or llm_config.get("heavy_model") or "gpt-4o"
+                heavy_config_id = llm_config.get("heavy_config_id")
+                
+            provider = None
+            if "/" in model_name:
+                parts = model_name.split("/", 1)
+                provider = parts[0].lower()
+                model_name = parts[1]
+            elif model_name.startswith("openai:") or model_name.startswith("ollama:"):
+                parts = model_name.split(":", 1)
+                provider = parts[0].lower()
+                model_name = parts[1]
+
+            import os
+            db_provider = None
+            db_credentials = None
+
+            if heavy_config_id:
+                try:
+                    from db.engine import _session_factory
+                    from db.models import LLMConfig
+                    import uuid
+                    config_uuid = uuid.UUID(str(heavy_config_id))
+                    
+                    async with _session_factory() as session:
+                        config_row = await session.get(LLMConfig, config_uuid)
+                        if config_row:
+                            db_provider = config_row.provider.value
+                            db_credentials = config_row.credentials
+                            logger.info(f"Loaded credentials from database for LLMConfig '{config_row.name}' (provider: {db_provider})")
+                except Exception as db_err:
+                    logger.error(f"Error loading LLMConfig by ID {heavy_config_id}: {db_err}")
+
+            if db_provider and db_credentials:
+                provider = db_provider
+                # Inject credentials into env vars
+                if provider == "ibm_watsonx":
+                    api_key = db_credentials.get("api_key") or db_credentials.get("apikey")
+                    project_id = db_credentials.get("project_id")
+                    region = db_credentials.get("region", "us-south")
+                    
+                    if api_key:
+                        os.environ["WATSONX_APIKEY"] = api_key
+                        os.environ["WATSONX_API_KEY"] = api_key
+                    if project_id:
+                        os.environ["WATSONX_PROJECT_ID"] = project_id
+                    if region:
+                        if region.startswith("http"):
+                            os.environ["WATSONX_URL"] = region
+                        else:
+                            os.environ["WATSONX_URL"] = f"https://{region}.ml.cloud.ibm.com"
+                        os.environ["WATSONX_REGION"] = region
+                        
+                elif provider == "openai":
+                    api_key = db_credentials.get("api_key") or db_credentials.get("apikey")
+                    api_base = db_credentials.get("api_base") or db_credentials.get("url")
+                    if api_key:
+                        os.environ["OPENAI_API_KEY"] = api_key
+                    if api_base:
+                        os.environ["OPENAI_API_BASE"] = api_base
+                        
+                elif provider == "ollama":
+                    api_base = db_credentials.get("api_base") or db_credentials.get("url")
+                    if api_base:
+                        os.environ["OLLAMA_API_BASE"] = api_base
+
+            # Map ibm_watsonx provider name to watsonx
+            if provider == "ibm_watsonx":
+                provider = "watsonx"
+
+            is_watsonx = (provider == "watsonx")
+            
+            # Determine if we should use local Ollama or LiteLLM wrapper
+            if not is_watsonx and not os.getenv("OPENAI_API_KEY") and provider != "openai":
+                local_model = os.getenv("DEFAULT_AGENT_MODEL", "granite4.1:8b")
+                if "/" in local_model:
+                    local_model = local_model.split("/", 1)[1]
+                    
+                selected_model = local_model if (provider == "openai" or "gpt" in model_name or "claude" in model_name) else model_name
+                llm_model = f"ollama/{selected_model}"
+                llm_info = f"ollama/{selected_model}"
+                logger.info(f"OPENAI_API_KEY not found. Using local Ollama model via LiteLLM: {llm_model}")
+            else:
+                if provider == "ollama":
+                    llm_model = f"ollama/{model_name}"
+                elif is_watsonx:
+                    llm_model = f"watsonx/{model_name}"
+                else:
+                    llm_model = f"openai/{model_name}"
+                llm_info = llm_model
+                
+            logger.info(f"Instantiating LiteLLMChatOpenAI with model: {llm_model}")
+            llm = LiteLLMChatOpenAI(
+                model="gpt-4o",  # Dummy model to pass validation
+                litellm_model=llm_model,
+                openai_api_key="litellm-dummy-key",  # Pass dummy key to pass validation
+                temperature=0
+            )
             
             # Define agents with their queries for tool retrieval
             agents_config = [
@@ -151,6 +338,8 @@ class LangGraphExecutor(BaseAgentExecutor):
                 start_time = time.time()
                 self.agents_executed += 1
                 
+                logger.info(f"Agent '{agent_config['name']}' is executing using LLM model: {llm_info}")
+                
                 # Emit agent activated
                 yield AgentEvent(
                     type=EventType.AGENT_ACTIVATED,
@@ -170,10 +359,21 @@ class LangGraphExecutor(BaseAgentExecutor):
                 tools_mcp = []
                 tool_scores = {}
                 for tool_id, score in tool_results:
-                    if tool_id in self.router.all_tools:
-                        tool_schema = self.router.all_tools[tool_id]
+                    # Try exact match first
+                    tool_schema = self.router.all_tools.get(tool_id)
+                    
+                    # If not found, try flexible matching by extracting the tool name (part after the dot)
+                    if not tool_schema:
+                        tool_name = tool_id.split(".")[-1]
+                        # Look for a key in self.router.all_tools that ends with "." + tool_name or equals tool_name
+                        for key, schema in self.router.all_tools.items():
+                            if key.split(".")[-1] == tool_name or schema.name == tool_name:
+                                tool_schema = schema
+                                break
+                                
+                    if tool_schema:
                         tools_mcp.append(tool_schema)
-                        tool_scores[tool_id] = score
+                        tool_scores[tool_schema.id] = score
                 
                 self.tools_retrieved += len(tools_mcp)
                 

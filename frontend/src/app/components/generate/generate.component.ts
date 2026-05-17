@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -16,6 +16,7 @@ import {
   PaginationModule,
   PaginationModel,
   ContentSwitcherModule,
+  LoadingModule,
 } from 'carbon-components-angular';
 import { ToggletipModule } from 'carbon-components-angular/toggletip';
 import { IconModule, IconService } from 'carbon-components-angular/icon';
@@ -23,6 +24,10 @@ import { NeuralToolService } from '../../services/neural-tool.service';
 import { ConfigService, FIELD_TOOLTIPS, ValidationResult } from '../../services/config.service';
 import { LLMConfigService } from '../../services/llm-config.service';
 import { LLMModelConfig } from '../../models/llm-config.model';
+import { WorkspaceService } from '../../services/workspace.service';
+import { PlatformApiService } from '../../services/platform-api.service';
+import { Tool } from '../../models/platform.model';
+import { Subscription } from 'rxjs';
 
 import PlayFilled16 from '@carbon/icons/es/play--filled/16';
 import Save16 from '@carbon/icons/es/save/16';
@@ -127,12 +132,17 @@ interface MCPServerEntry {
     ToggletipModule,
     PaginationModule,
     ContentSwitcherModule,
+    LoadingModule,
   ],
   templateUrl: './generate.component.html',
   styleUrls: ['./generate.component.scss'],
 })
 export class GenerateComponent implements OnInit {
+  @Input() workspaceId: string | undefined;
+  @Input() selectedLLMId: string | undefined;
+
   /** Section collapse states (false = collapsed by default) */
+
   sections: Record<string, boolean> = {
     llm: false,
     embedding: false,
@@ -175,7 +185,6 @@ export class GenerateComponent implements OnInit {
     mcp: {
       servers: {},
       connection_timeout: 30,
-      tool_cache_path: 'data/tool_cache.json',
     } as MCPConfig,
     dataGeneration: {
       queries_per_tool: 10,
@@ -183,7 +192,6 @@ export class GenerateComponent implements OnInit {
       implicit_query_ratio: 0.4,
       multi_tool_query_ratio: 0.2,
       num_hard_negatives: 3,
-      output_path: 'data/synthetic_queries.jsonl',
       batch_size: 5,
     } as DataGenerationConfig,
   };
@@ -270,6 +278,12 @@ export class GenerateComponent implements OnInit {
   isArchivingDataset = false;
   currentDatasetPath: string = 'data/synthetic_queries.jsonl';
   
+  // Workspace state
+  workspaceMCPServers: Tool[] = [];
+  selectedMCPServerIds: Set<string> = new Set();
+  isLoadingMCPServers = false;
+  private subs: Subscription[] = [];
+
   // Pagination
   paginationModel = new PaginationModel();
 
@@ -281,6 +295,16 @@ export class GenerateComponent implements OnInit {
   
   onSelectPage(event: any) {
     this.paginationModel.currentPage = event.page;
+  }
+
+  /** Check if all required fields are present for generation */
+  get canStartGeneration(): boolean {
+    return !!(
+      !this.isLoading &&
+      this.datasetArchiveName?.trim() &&
+      this.datasetArchiveVersion?.trim() &&
+      this.selectedLLMId
+    );
   }
 
   /** Handle view mode change from content switcher */
@@ -296,7 +320,9 @@ export class GenerateComponent implements OnInit {
     private service: NeuralToolService,
     private iconService: IconService,
     public configService: ConfigService,
-    private llmConfigService: LLMConfigService
+    private llmConfigService: LLMConfigService,
+    private workspaceService: WorkspaceService,
+    private platformApi: PlatformApiService
   ) {
     this.iconService.registerAll([
       PlayFilled16, Save16, Reset16, ChevronDown16,
@@ -322,6 +348,16 @@ export class GenerateComponent implements OnInit {
     this.loadDatasets();
     // Don't load synthetic data on init - only when user selects a dataset
     this.loadTeacherConfigs();
+
+    this.subs.push(
+      this.workspaceService.activeWorkspace$.subscribe(ws => {
+        if (ws) {
+          this.workspaceId = ws.id;
+          this.loadMCPServers(ws.id);
+          this.loadDatasets();
+        }
+      })
+    );
   }
 
   loadTeacherConfigs(): void {
@@ -372,6 +408,7 @@ export class GenerateComponent implements OnInit {
 
   ngOnDestroy(): void {
     if (this.statusInterval) clearInterval(this.statusInterval);
+    this.subs.forEach(s => s.unsubscribe());
   }
 
   toggleSection(section: string): void {
@@ -566,23 +603,59 @@ export class GenerateComponent implements OnInit {
   }
 
   private buildPayload(): any {
-    // Set output path based on dataset name and version
-    if (this.datasetArchiveName && this.datasetArchiveVersion) {
-      this.dataGenConfig.output_path = `data/datasets/${this.datasetArchiveName}_v${this.datasetArchiveVersion}.jsonl`;
-    } else {
-      this.dataGenConfig.output_path = 'data/synthetic_queries.jsonl';
-    }
+    // Note: Backend handles output_path based on dataset name and version
     
     return {
+      workspace_id: this.workspaceId,
+      queries_per_tool: this.dataGenConfig.queries_per_tool,
+      teacher_model: this.selectedLLMId || this.llmConfig.teacher_model,
       llm: { ...this.llmConfig },
       embedding: { ...this.embeddingConfig },
       vector_store: { ...this.vectorStoreConfig },
-      mcp: { ...this.mcpConfig },
-      data_generation: { ...this.dataGenConfig },
+      mcp: { 
+        ...this.mcpConfig,
+        tool_cache_path: undefined, // Force backend to use workspace path
+        servers: this.getFinalMCPServers()
+      },
+      data_generation: { 
+        ...this.dataGenConfig,
+        output_path: undefined // Force backend to use workspace path
+      },
     };
   }
 
+  private getFinalMCPServers(): Record<string, any> {
+    const finalServers: Record<string, any> = { ...this.mcpConfig.servers };
+    
+    // Add workspace-selected servers
+    this.workspaceMCPServers.forEach(srv => {
+      if (this.selectedMCPServerIds.has(srv.id)) {
+        // Convert Tool model to MCPConfig format
+        finalServers[srv.name] = {
+          command: srv.command || 'python',
+          args: srv.args || [],
+          transport: srv.transport || 'stdio'
+        };
+      }
+    });
+    
+    return finalServers;
+  }
+
   onSubmit(): void {
+    // 1. Dataset Name and Version are now REQUIRED
+    if (!this.datasetArchiveName || !this.datasetArchiveVersion) {
+      this.notification = { 
+        type: 'error', 
+        title: 'Missing Dataset Info', 
+        message: 'Dataset Name and Version are required in the "Dataset Management" tab before starting generation.' 
+      };
+      // Auto-switch to Dataset Management tab to show the user where the fields are
+      // (This requires activeTab to be available or managed in parent)
+      // For now, just show the error.
+      return;
+    }
+
     this.runValidation();
     const hasErrors = Object.values(this.validationResults).some((v) => !v.valid);
     if (hasErrors) {
@@ -642,7 +715,7 @@ export class GenerateComponent implements OnInit {
     this.isDataLoading = true;
     
     // Fetch tools first for the dropdown
-    this.service.getCachedTools().subscribe({
+    this.service.getCachedTools(this.workspaceId).subscribe({
       next: (toolsRes) => {
         this.cachedTools = toolsRes.tools || [];
         
@@ -654,7 +727,7 @@ export class GenerateComponent implements OnInit {
         }));
         
         // Then fetch synthetic data
-        this.service.getSyntheticData().subscribe({
+        this.service.getSyntheticData(this.workspaceId).subscribe({
           next: (res) => {
             this.syntheticData = res.data || [];
             this.isDataLoading = false;
@@ -675,7 +748,7 @@ export class GenerateComponent implements OnInit {
   }
 
   loadDatasets(): void {
-    this.service.getDatasets().subscribe({
+    this.service.getDatasets(this.workspaceId).subscribe({
       next: (res) => {
         if (res.status === 'success') {
           this.availableDatasets = res.datasets || [];
@@ -751,7 +824,7 @@ export class GenerateComponent implements OnInit {
     
     this.isArchivingDataset = true;
     const sourcePath = this.dataGenConfig.output_path || this.currentDatasetPath;
-    this.service.archiveDataset(this.datasetArchiveName, this.datasetArchiveVersion, sourcePath).subscribe({
+    this.service.archiveDataset(this.datasetArchiveName, this.datasetArchiveVersion, sourcePath, this.workspaceId).subscribe({
       next: (res) => {
         this.isArchivingDataset = false;
         this.notification = { type: 'success', title: 'Dataset Archived', message: res.message };
@@ -796,7 +869,7 @@ export class GenerateComponent implements OnInit {
 
   saveData() {
     this.isDataSaving = true;
-    this.service.saveSyntheticData(this.syntheticData).subscribe({
+    this.service.saveSyntheticData(this.syntheticData, this.workspaceId).subscribe({
       next: (res) => {
         this.isDataSaving = false;
         this.notification = { type: 'success', title: 'Data Saved', message: 'Synthetic data updated successfully.' };
@@ -821,5 +894,49 @@ export class GenerateComponent implements OnInit {
       title: 'New Dataset',
       message: 'Configure settings and click "Start Generation" to create a new synthetic dataset.'
     };
+  }
+
+  // ─── Workspace MCP Management ──────────────────────────────────
+
+  loadMCPServers(workspaceId: string): void {
+    this.isLoadingMCPServers = true;
+    this.platformApi.listTools(workspaceId).subscribe({
+      next: (tools) => {
+        this.workspaceMCPServers = tools.filter(
+          (t) => t.type === 'MCP_SERVER' && t.is_enabled
+        );
+        this.isLoadingMCPServers = false;
+      },
+      error: (err) => {
+        console.error('Failed to load MCP servers:', err);
+        this.isLoadingMCPServers = false;
+      },
+    });
+  }
+
+  toggleMCPServer(serverId: string): void {
+    if (this.selectedMCPServerIds.has(serverId)) {
+      this.selectedMCPServerIds.delete(serverId);
+    } else {
+      this.selectedMCPServerIds.add(serverId);
+    }
+  }
+
+  isMCPServerSelected(serverId: string): boolean {
+    return this.selectedMCPServerIds.has(serverId);
+  }
+
+  selectAllMCPServers(): void {
+    this.workspaceMCPServers.forEach((srv) =>
+      this.selectedMCPServerIds.add(srv.id)
+    );
+  }
+
+  deselectAllMCPServers(): void {
+    this.selectedMCPServerIds.clear();
+  }
+
+  getSelectedMCPCount(): number {
+    return this.selectedMCPServerIds.size;
   }
 }

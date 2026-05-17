@@ -82,7 +82,7 @@ import UserAvatar20 from '@carbon/icons/es/user--avatar/20';
   encapsulation: ViewEncapsulation.None
 })
 export class AppComponent implements OnInit {
-  activePhase: 'workflow' | 'dashboard' | 'settings' | 'tools' | 'agents' | 'orchestrator' | 'playground' | 'login' = 'dashboard';
+  activePhase: 'workflow' | 'dashboard' | 'settings' | 'tools' | 'agents' | 'orchestrator' | 'playground' | 'login' | 'neural-router' = 'dashboard';
   sidenavExpanded = false;
   isProfileMenuOpen = false;
   isDark = true;

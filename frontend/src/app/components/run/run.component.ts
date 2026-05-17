@@ -1,4 +1,4 @@
-import { Component, OnInit, NgZone } from '@angular/core';
+import { Component, OnInit, NgZone, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -177,6 +177,10 @@ interface AgentExecutionData {
   styleUrls: ['./run.component.scss'],
 })
 export class RunComponent implements OnInit {
+  @Input() workspaceId: string | undefined;
+  @Input() selectedExpansionLLMId: string | undefined;
+  @Input() selectedHeavyLLMId: string | undefined;
+
   /** Section collapse states */
   sections: Record<string, boolean> = {
     runtimeConfig: false,
@@ -424,7 +428,7 @@ export class RunComponent implements OnInit {
   }
 
   loadModels(): void {
-    this.service.getModels().subscribe({
+    this.service.getModels(this.workspaceId).subscribe({
       next: (res) => {
         if (res.status === 'success') {
           this.availableModels = res.models;
@@ -514,11 +518,22 @@ export class RunComponent implements OnInit {
 
   private buildPayload(): any {
     return {
+      workspace_id: this.workspaceId,
       query: this.queryInput,
       model_path: this.selectedModel || null,
       runtime: { ...this.runtimeConfig },
-      llm: { ...this.runtimeLLMConfig },
+      llm: { 
+        ...this.runtimeLLMConfig,
+        expansion_model: this._getLLMModelName(this.selectedExpansionLLMId) || this.runtimeLLMConfig.expansion_model,
+        heavy_model: this._getLLMModelName(this.selectedHeavyLLMId) || this.runtimeLLMConfig.heavy_model
+      },
     };
+  }
+
+  private _getLLMModelName(configId: string | undefined): string | null {
+    if (!configId) return null;
+    const config = this.llmConfigs.find(c => c.id === configId);
+    return config ? `${config.provider}/${config.model_name}` : null;
   }
 
   async onSubmit(): Promise<void> {
@@ -597,7 +612,7 @@ export class RunComponent implements OnInit {
    * Load available agent scenarios
    */
   loadAgentScenarios(): void {
-    this.service.getAgentScenarios().subscribe({
+    this.service.getAgentScenarios(this.workspaceId).subscribe({
       next: (response) => {
         if (response.status === 'success') {
           this.agentScenarios = response.scenarios;
@@ -674,17 +689,31 @@ export class RunComponent implements OnInit {
     this.currentAgentStep = null;
     this.notification = null;
 
+    const resolvedExpansion = this._getLLMModelName(this.selectedExpansionLLMId) || this.runtimeLLMConfig.expansion_model;
+    const resolvedHeavy = this._getLLMModelName(this.selectedHeavyLLMId) || this.runtimeLLMConfig.heavy_model;
+
+    const llmConfig = {
+      ...this.runtimeLLMConfig,
+      expansion_model: resolvedExpansion,
+      heavy_model: resolvedHeavy,
+      model: resolvedHeavy,
+      heavy_config_id: this.selectedHeavyLLMId,
+      expansion_config_id: this.selectedExpansionLLMId
+    };
+
     try {
       await this.service.executeAgentScenario(
         this.selectedScenarioId,
-        this.runtimeLLMConfig,
+        llmConfig,
         { ...this.runtimeConfig, model_path: this.selectedModel || null },
         (event) => {
           this.ngZone.run(() => {
             this.handleAgentEvent(event);
           });
-        }
+        },
+        this.workspaceId
       );
+
 
       this.ngZone.run(() => {
         if (this.agentExecutionData) {

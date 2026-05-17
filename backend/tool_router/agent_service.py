@@ -158,6 +158,7 @@ class AgentOrchestrator:
     async def execute_scenario(
         self,
         scenario_id: str,
+        workspace_id: Optional[str] = None,
         llm_config: Optional[Dict[str, Any]] = None,
         runtime_config: Optional[Dict[str, Any]] = None
     ) -> AsyncGenerator[AgentEvent, None]:
@@ -166,12 +167,24 @@ class AgentOrchestrator:
         
         Args:
             scenario_id: ID of the scenario to execute
+            workspace_id: Optional ID of the workspace for data/model isolation
             llm_config: LLM configuration (model name, temperature, etc.)
             runtime_config: Runtime configuration options
         
         Yields:
             AgentEvent objects representing execution progress
         """
+        # Update global config for workspace isolation
+        if workspace_id:
+            try:
+                from api.workflow import _update_global_config
+                class ConfigData:
+                    def __init__(self, ws_id):
+                        self.workspace_id = ws_id
+                _update_global_config(ConfigData(workspace_id), "run")
+                logger.info(f"Updated global config for workspace {workspace_id} in execute_scenario")
+            except Exception as e:
+                logger.error(f"Error updating global config: {e}")
         scenario = self.scenarios.get(scenario_id)
         if not scenario:
             yield AgentEvent(

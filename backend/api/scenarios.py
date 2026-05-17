@@ -26,6 +26,7 @@ router = APIRouter(prefix="/api/agents", tags=["Agent Scenarios"])
 
 class AgentExecuteRequest(BaseModel):
     scenario_id: str
+    workspace_id: Optional[str] = None
     llm_config: Optional[Dict[str, Any]] = None
     runtime_config: Optional[Dict[str, Any]] = None
 
@@ -67,6 +68,7 @@ async def execute_agent_scenario(request: AgentExecuteRequest):
             from tool_router.agent_service import agent_orchestrator
             async for event in agent_orchestrator.execute_scenario(
                 scenario_id=request.scenario_id,
+                workspace_id=request.workspace_id,
                 llm_config=request.llm_config,
                 runtime_config=request.runtime_config,
             ):

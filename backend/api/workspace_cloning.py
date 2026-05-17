@@ -27,6 +27,7 @@ from db.models import (
     MCPServerStatus,
     Agent,
     Orchestration,
+    LLMConfig,
 )
 from db.schemas import ToolRead, AgentRead
 from services.embedding_service import embedding_service
@@ -473,3 +474,103 @@ async def clone_single_resource(
         return CloneResult(cloned=1)
 
     raise HTTPException(status_code=400, detail=f"Unknown resource type: {resource_type}")
+
+
+# ---------------------------------------------------------------------------
+# WORKFLOW RESOURCES CLONE
+# ---------------------------------------------------------------------------
+
+class CloneWorkflowResourcesRequest(BaseModel):
+    destination_workspace_id: uuid.UUID
+    phase: Literal["generate", "train", "run"]
+
+
+@router.post("/workflow-resources", response_model=CloneResult)
+async def clone_workflow_resources(
+    body: CloneWorkflowResourcesRequest,
+    session: AsyncSessionDep,
+    user: dict = Depends(get_current_user),
+):
+    """
+    Clone resources required for a specific workflow phase from the Default Workspace.
+    """
+    email = user.get("email")
+    source_ws = await _resolve_source_workspace(session, None)
+    target_ws = await require_workspace_access(
+        body.destination_workspace_id, session, user, require_write=True
+    )
+
+    if source_ws.id == target_ws.id:
+        raise HTTPException(status_code=400, detail="Cannot clone into the default workspace")
+
+    cloned_count = 0
+    skipped_count = 0
+    errors: list[str] = []
+
+    # 1. Clone Tools (for Phase 1 / Generate)
+    # We clone all tools from default to be safe, or just the ones needed for the phase.
+    # The requirement says "select MCP servers that are enabled under his/her workspace".
+    # So we clone all tools from default.
+    result = await session.execute(
+        select(Tool).where(Tool.workspace_id == source_ws.id)
+    )
+    source_tools = result.scalars().all()
+    
+    old_to_new: dict[uuid.UUID, uuid.UUID] = {}
+    # Parents first
+    for tool in [t for t in source_tools if t.parent_id is None]:
+        try:
+            res = await _clone_tool(session, tool, target_ws, email, old_to_new)
+            if res: cloned_count += 1
+            else: skipped_count += 1
+        except Exception as e:
+            errors.append(f"Tool clone failed: {str(e)}")
+    
+    # Children next
+    for tool in [t for t in source_tools if t.parent_id is not None]:
+        try:
+            res = await _clone_tool(session, tool, target_ws, email, old_to_new)
+            if res: cloned_count += 1
+            else: skipped_count += 1
+        except Exception as e:
+            errors.append(f"Child tool clone failed: {str(e)}")
+
+    # 2. Clone LLM Configs (for all phases)
+    llm_result = await session.execute(
+        select(LLMConfig).where(LLMConfig.workspace_id == source_ws.id)
+    )
+    source_llms = llm_result.scalars().all()
+    for llm in source_llms:
+        # Check for duplicate by name
+        exists = await session.execute(
+            select(LLMConfig).where(
+                LLMConfig.workspace_id == target_ws.id,
+                LLMConfig.name == llm.name
+            )
+        )
+        if exists.scalar_one_or_none():
+            skipped_count += 1
+            continue
+            
+        cloned_llm = LLMConfig(
+            workspace_id=target_ws.id,
+            name=llm.name,
+            provider=llm.provider,
+            model_name=llm.model_name,
+            credentials=dict(llm.credentials) if llm.credentials else None,
+            temperature=llm.temperature,
+            max_tokens=llm.max_tokens,
+            created_by=email,
+            updated_by=email
+        )
+        session.add(cloned_llm)
+        cloned_count += 1
+
+    await session.commit()
+
+    logger.info(
+        "Workflow resources cloned for phase %s to workspace %s by %s",
+        body.phase, target_ws.id, email
+    )
+    return CloneResult(cloned=cloned_count, skipped=skipped_count, errors=errors)
+

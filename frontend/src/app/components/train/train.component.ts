@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -100,6 +100,9 @@ interface VectorStoreConfig {
   styleUrls: ['./train.component.scss'],
 })
 export class TrainComponent implements OnInit {
+  @Input() workspaceId: string | undefined;
+  @Input() selectedLLMId: string | undefined;
+
   /** Section collapse states */
   sections: Record<string, boolean> = {
     training: false,
@@ -117,6 +120,15 @@ export class TrainComponent implements OnInit {
     localStorage.setItem('train_viewMode', this.viewMode);
   }
 
+  /** Check if all required fields are present for training */
+  get canStartTraining(): boolean {
+    return !!(
+      !this.isLoading &&
+      this.archiveName?.trim() &&
+      this.archiveVersion?.trim()
+    );
+  }
+
   /** Default snapshots for diff */
   private readonly DEFAULTS = {
     training: {
@@ -127,20 +139,18 @@ export class TrainComponent implements OnInit {
       loss_function: 'MultipleNegativesRankingLoss',
       eval_steps: 100,
       save_steps: 500,
-      training_data_path: 'data/synthetic_queries.jsonl',
-      logging_dir: 'logs/training',
+      // Backend handles training_data_path and logging_dir
     } as TrainingConfig,
     embedding: {
       base_model_name: 'sentence-transformers/all-MiniLM-L6-v2',
-      fine_tuned_model_dir: 'models/fine_tuned_tool_router',
+      // Backend handles fine_tuned_model_dir
       embedding_dim: null,
       device: 'cpu',
     } as EmbeddingConfig,
     vectorStore: {
       store_type: 'faiss',
-      faiss_index_path: 'data/faiss_index.bin',
+      // Backend handles faiss_index_path and chromadb_path
       faiss_index_type: 'IndexFlatIP',
-      chromadb_path: 'data/chromadb',
       chromadb_collection_name: 'tool_embeddings',
       top_k: 3,
       similarity_threshold: 0.3,
@@ -309,7 +319,7 @@ export class TrainComponent implements OnInit {
   }
 
   loadDatasets(): void {
-    this.service.getDatasets().subscribe({
+    this.service.getDatasets(this.workspaceId).subscribe({
       next: (res) => {
         if (res.status === 'success') {
           this.availableDatasets = res.datasets || [];
@@ -394,7 +404,7 @@ export class TrainComponent implements OnInit {
   }
 
   loadModels(): void {
-    this.service.getModels().subscribe({
+    this.service.getModels(this.workspaceId).subscribe({
       next: (res) => {
         if (res.status === 'success') {
           this.availableModels = res.models;
@@ -571,9 +581,21 @@ export class TrainComponent implements OnInit {
     };
     
     return {
-      training: trainingPayload,
-      embedding: embeddingPayload,
-      vectorStore: vectorStorePayload,
+      workspace_id: this.workspaceId,
+      training: { 
+        ...trainingPayload,
+        training_data_path: this.trainingConfig.training_data_path, // Keep current filename
+        logging_dir: undefined 
+      },
+      embedding: { 
+        ...embeddingPayload,
+        fine_tuned_model_dir: undefined 
+      },
+      vectorStore: { 
+        ...vectorStorePayload,
+        faiss_index_path: undefined,
+        chromadb_path: undefined 
+      },
       archive_name: this.archiveName || null,
       archive_version: this.archiveVersion || null,
     };

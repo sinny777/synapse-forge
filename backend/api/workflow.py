@@ -32,6 +32,7 @@ router = APIRouter(prefix="/api", tags=["SynapseForge_Workflow"])
 # ---------------------------------------------------------------------------
 
 class GenerateConfig(BaseModel):
+    workspace_id: Optional[str] = None
     queries_per_tool: Optional[int] = 10
     teacher_model: Optional[str] = "ollama/granite4.1:8b"
     llm: Optional[dict] = None
@@ -42,6 +43,7 @@ class GenerateConfig(BaseModel):
 
 
 class TrainConfig(BaseModel):
+    workspace_id: Optional[str] = None
     training: Optional[dict] = None
     embedding: Optional[dict] = None
     vectorStore: Optional[dict] = None
@@ -50,6 +52,7 @@ class TrainConfig(BaseModel):
 
 
 class RunConfig(BaseModel):
+    workspace_id: Optional[str] = None
     query: str
     enable_query_expansion: bool = True
     max_tool_calls: int = 10
@@ -57,6 +60,7 @@ class RunConfig(BaseModel):
 
 
 class EvaluateConfig(BaseModel):
+    workspace_id: Optional[str] = None
     query: str
     top_k: int = 5
     model_path: Optional[str] = None
@@ -91,6 +95,31 @@ def _update_global_config(config_data, phase: str):
     """Update the global ToolRouter config for a given pipeline phase."""
     from tool_router.config import config
 
+    ws_id = getattr(config_data, "workspace_id", None)
+    ws_root = None
+    if ws_id:
+        ws_root = config.project_root / "data" / "workspaces" / str(ws_id)
+        config.data_dir = ws_root / "data"
+        config.datasets_dir = ws_root / "data" / "datasets"
+        config.models_dir = ws_root / "models"
+        config.logs_dir = ws_root / "logs"
+
+        config.data_dir.mkdir(parents=True, exist_ok=True)
+        config.datasets_dir.mkdir(parents=True, exist_ok=True)
+        config.models_dir.mkdir(parents=True, exist_ok=True)
+        config.logs_dir.mkdir(parents=True, exist_ok=True)
+
+        # Set default isolated paths
+        config.embedding.fine_tuned_model_dir = config.models_dir / "fine_tuned_tool_router"
+        config.training.training_data_path = config.data_dir / "synthetic_queries.jsonl"
+        config.training.logging_dir = config.logs_dir / "training"
+        config.vector_store.faiss_index_path = config.data_dir / "faiss_index.bin"
+        config.vector_store.chromadb_path = config.data_dir / "chromadb"
+        config.mcp.tool_cache_path = config.data_dir / "tool_cache.json"
+        config.data_generation.output_path = config.data_dir / "synthetic_queries.jsonl"
+        config.runtime.log_file = config.logs_dir / "runtime.log"
+
+    # Apply overrides from request
     if phase == "generate":
         if config_data.queries_per_tool:
             config.data_generation.queries_per_tool = config_data.queries_per_tool
@@ -115,9 +144,34 @@ def _update_global_config(config_data, phase: str):
         _apply_dict_to_obj(config_data.embedding, config.embedding)
         _apply_dict_to_obj(config_data.vectorStore, config.vector_store)
 
-    elif phase == "run":
-        config.runtime.enable_query_expansion = config_data.enable_query_expansion
-        config.runtime.max_tool_calls = config_data.max_tool_calls
+    elif phase in ("run", "evaluate"):
+        if hasattr(config_data, "enable_query_expansion"):
+            config.runtime.enable_query_expansion = config_data.enable_query_expansion
+        if hasattr(config_data, "max_tool_calls"):
+            config.runtime.max_tool_calls = config_data.max_tool_calls
+        if hasattr(config_data, "top_k"):
+            config.vector_store.top_k = config_data.top_k
+
+    # RE-ENFORCE workspace isolation after overrides
+    if ws_id and ws_root:
+        # Always force these into workspace, even if frontend sent relative paths
+        config.mcp.tool_cache_path = config.data_dir / "tool_cache.json"
+        config.embedding.fine_tuned_model_dir = config.models_dir / "fine_tuned_tool_router"
+        config.vector_store.faiss_index_path = config.data_dir / "faiss_index.bin"
+        config.vector_store.chromadb_path = config.data_dir / "chromadb"
+        config.training.logging_dir = config.logs_dir / "training"
+        config.runtime.log_file = config.logs_dir / "runtime.log"
+
+        # Special handling for user-provided dataset filenames
+        # If they are strings, we extract the filename and put it in the workspace datasets dir
+        if isinstance(config.data_generation.output_path, (str, Path)):
+            fname = Path(config.data_generation.output_path).name
+            config.data_generation.output_path = config.datasets_dir / fname
+        
+        if isinstance(config.training.training_data_path, (str, Path)):
+            fname = Path(config.training.training_data_path).name
+            # If training data path is just the filename or in data/datasets, move to workspace datasets dir
+            config.training.training_data_path = config.datasets_dir / fname
 
 
 # ---------------------------------------------------------------------------
@@ -320,6 +374,7 @@ async def evaluate_phase(config_data: EvaluateConfig):
     from sentence_transformers import SentenceTransformer
 
     try:
+        _update_global_config(config_data, "evaluate")
         t0 = time.time()
 
         model_dir = (

@@ -10,7 +10,8 @@ import json
 import logging
 import os
 
-from fastapi import APIRouter, HTTPException
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 logger = logging.getLogger("ntr.api.data")
@@ -31,11 +32,14 @@ class SyntheticDataUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("/synthetic")
-async def get_synthetic_data():
+async def get_synthetic_data(workspace_id: Optional[str] = Query(None)):
     """Return the current synthetic training data (JSONL)."""
     from tool_router.config import config
 
     path = config.data_generation.output_path
+    if workspace_id:
+        path = config.project_root / "data" / "workspaces" / workspace_id / "data" / "synthetic_queries.jsonl"
+
     if not os.path.exists(path):
         return {"data": []}
 
@@ -52,11 +56,13 @@ async def get_synthetic_data():
 
 
 @router.post("/synthetic")
-async def save_synthetic_data(update: SyntheticDataUpdate):
+async def save_synthetic_data(update: SyntheticDataUpdate, workspace_id: Optional[str] = Query(None)):
     """Overwrite the synthetic training data file."""
     from tool_router.config import config
 
     path = config.data_generation.output_path
+    if workspace_id:
+        path = config.project_root / "data" / "workspaces" / workspace_id / "data" / "synthetic_queries.jsonl"
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as f:
@@ -73,11 +79,14 @@ async def save_synthetic_data(update: SyntheticDataUpdate):
 # ---------------------------------------------------------------------------
 
 @router.get("/tools")
-async def get_cached_tools():
+async def get_cached_tools(workspace_id: Optional[str] = Query(None)):
     """Return the cached MCP tool schemas (id + name only)."""
     from tool_router.config import config
 
     path = config.mcp.tool_cache_path
+    if workspace_id:
+        path = config.project_root / "data" / "workspaces" / workspace_id / "data" / "tool_cache.json"
+
     if not os.path.exists(path):
         return {"tools": []}
 

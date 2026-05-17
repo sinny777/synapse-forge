@@ -24,6 +24,11 @@
       <button cdsButton="ghost" (click)="resetDefaults()" title="Reset to Defaults">
         <svg cdsIcon="reset" size="16"></svg>
       </button>
+      <button cdsButton="primary" (click)="onSubmit()" 
+        [disabled]="!canStartTraining" 
+        [title]="isLoading ? 'Training...' : (!canStartTraining ? 'Required: Model name and version' : 'Start Training')">
+        <svg cdsIcon="play--filled" size="16"></svg>
+      </button>
     </div>
   </header>
 
@@ -573,13 +578,13 @@
           <div class="config-row">
             <div class="config-field">
               <cds-label>
-                Model Name <span style="color: var(--ibm-support-error);">*</span>
+                Model Name <span style="color: var(--ibm-support-01);">*</span>
                 <input cdsText type="text" [(ngModel)]="archiveName" placeholder="e.g., banking-router" [disabled]="!!selectedTrainingModel" />
               </cds-label>
             </div>
             <div class="config-field">
               <cds-label>
-                Version <span style="color: var(--ibm-support-error);">*</span>
+                Version <span style="color: var(--ibm-support-01);">*</span>
                 <input cdsText type="text" [(ngModel)]="archiveVersion" placeholder="1.0" />
               </cds-label>
             </div>
@@ -858,14 +863,7 @@
     </cds-tab>
     <cds-tab [heading]="monitoringTabHeading" [cacheActive]="true">
       <div class="config-section__body config-section__body--tabs">
-        <!-- Start Training Button -->
-        <div style="margin-bottom: 1.5rem;">
-          <button cdsButton="primary" (click)="onSubmit()" [disabled]="isLoading" size="md">
-            <svg cdsIcon="play--filled" size="16" class="cds--btn__icon"></svg>
-            {{ isLoading ? 'Training...' : 'Start Training' }}
-          </button>
-        </div>
-
+        <!-- Training Progress Monitor -->
         <div class="monitoring-progress">
         <div class="monitoring-progress__header">
           <div class="monitoring-progress__title">

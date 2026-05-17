@@ -11,7 +11,8 @@ import logging
 import shutil
 from pathlib import Path
 
-from fastapi import APIRouter, HTTPException, status
+from typing import Optional
+from fastapi import APIRouter, HTTPException, Query, status
 from pydantic import BaseModel
 
 logger = logging.getLogger("ntr.api.models")
@@ -34,11 +35,13 @@ class ArchiveModelRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 @router.get("")
-async def list_models():
+async def list_models(workspace_id: Optional[str] = Query(None)):
     """List all archived embedding models."""
     from tool_router.config import config
 
     models_dir = config.models_dir
+    if workspace_id:
+        models_dir = config.project_root / "data" / "workspaces" / workspace_id / "models"
     models = []
     if models_dir.exists():
         for item in models_dir.iterdir():
