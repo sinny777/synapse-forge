@@ -86,9 +86,39 @@ REDIS_PASSWORD=ntr_redis_2026
 
 # ── Ollama (Local LLM — default for development) ─
 OLLAMA_API_BASE=http://localhost:11434
+
+# ── IBM Cloud Object Storage (COS) ───────────────
+# Required for production use to store pipeline artifacts
+# If not configured, system runs in MOCK mode (local storage)
+IBM_COS_ENDPOINT=https://s3.us-south.cloud-object-storage.appdomain.cloud
+IBM_COS_API_KEY_ID=your-ibm-cos-api-key
+IBM_COS_SERVICE_INSTANCE_ID=crn:v1:bluemix:public:cloud-object-storage:global:a/your-account-id:your-service-instance-id::
+IBM_COS_BUCKET_NAME=synapse-forge
 ```
 
 > **Note:** LLM provider API keys (OpenAI, Anthropic, Google, etc.) are no longer configured via environment variables. They are managed per-workspace through the **Settings** page in the UI. See [LLM Configuration](#10-llm-configuration) below.
+
+### IBM Cloud Object Storage Setup (Optional but Recommended)
+
+SynapseForge uses IBM Cloud Object Storage (COS) to store all pipeline artifacts:
+- **Phase 1 (Generate)**: Synthetic datasets and tool cache
+- **Phase 2 (Train)**: Fine-tuned models, FAISS indexes, BM25 indexes
+
+**For Development:** If COS credentials are not configured, the system automatically runs in MOCK mode using local directory simulation under `data/cos_mock`. This is suitable for testing but not recommended for production.
+
+**For Production:** See **[SETUP_COS.md](SETUP_COS.md)** for complete setup instructions including:
+- Installing IBM COS SDK
+- Getting credentials (HMAC or IAM)
+- Creating buckets
+- Troubleshooting common issues
+
+**Quick Configuration** in `.env`:
+```bash
+IBM_COS_ENDPOINT=https://s3.us-south.cloud-object-storage.appdomain.cloud
+IBM_COS_BUCKET_NAME=synapse-forge
+IBM_COS_ACCESS_KEY_ID=your_access_key_id_here
+IBM_COS_SECRET_ACCESS_KEY=your_secret_access_key_here
+```
 
 ---
 
@@ -384,6 +414,48 @@ curl -X DELETE http://localhost:8000/api/workspaces/<workspace-id>/llm-configs/<
 ```
 
 > **Note:** The Default Workspace's LLM configs are read-only. The API returns HTTP 403 if you attempt to create, update, or delete configs in the default workspace.
+
+---
+
+## 11. IBM Cloud Object Storage (COS) & Pipeline Integration
+
+SynapseForge utilizes **IBM Cloud Object Storage (COS)** to securely store all pipeline artifacts generated during **Phase 1: Generate** (synthetic datasets, tool caches) and **Phase 2: Train** (fine-tuned model checkpoints, FAISS indexes, BM25 indices).
+
+### Architecture & Pipeline Lifecycle Flow
+
+To maintain a secure, distributed, and pristine server environment:
+1. **Dynamic LLM Configuration Resolution (Phase 1):** The user's active dropdown selection in the global UI header is dynamically sent to the backend as a UUID. The API resolves this `LLMConfig` UUID directly from the PostgreSQL database, extracts the model name, provider (e.g. Watsonx, OpenAI, Anthropic, Ollama), and encrypted API credentials/endpoints, sets them as environment variables, prefixes the model correctly for LiteLLM routing (e.g. `openai/gpt-4o`, `watsonx/meta-llama/...`), and executes synthetic generation.
+2. **Upload & Clean:** As soon as Phase 1 or Phase 2 finishes executing, the generated files (or folders) are uploaded to IBM COS under workspace-specific isolated key paths (`workspaces/{workspace_id}/{phase}/{artifact_type}/{filename}`). Once uploaded, they are registered in the `pipeline_artifacts` database table and instantly deleted from the local disk.
+3. **Pristine Local Disk (Automated Directory Cleanup):** Immediately upon success or error of the generation/training phases, the system runs a deep recursive directory walker under the host's `data/workspaces/{workspace_id}/` workspace folder. It wipes out all empty staging folders (`datasets`, `logs`, `models`, etc.) and removes the workspace folder itself, ensuring no stray local folder structures remain on the filesystem.
+4. **On-Demand Caching:** Before starting model training, running queries, or evaluating performance, the backend checks for local files. If missing, it queries the database for the active COS reference, downloads the files dynamically back to local workspace cache folders, runs the operations, and streams/serves them on-demand!
+5. **Archiving:** Versioned datasets and versioned model archives are automatically synced directly to IBM COS.
+
+### Configuration (`.env`)
+
+
+Add the following variables to your `backend/.env` file to enable IBM Cloud Object Storage:
+
+```bash
+# ── IBM Cloud Object Storage (COS) ────────────────
+# Endpoint URL matching your bucket region (e.g. us-south, eu-gb, etc.)
+IBM_COS_ENDPOINT=https://s3.us-south.cloud-object-storage.appdomain.cloud
+# Default bucket name (will be created automatically if it doesn't exist)
+IBM_COS_BUCKET_NAME=synapse-forge-bucket
+
+# Option A: Standard IBM Cloud IAM API Key Authentication (Preferred)
+IBM_COS_API_KEY_ID=your-ibm-cos-api-key
+IBM_COS_SERVICE_INSTANCE_ID=crn:v1:bluemix:public:cloud-object-storage:global:a/your-account-id:your-service-instance::
+
+# Option B: S3-Compatible HMAC Access Key Authentication (Alternative)
+# IBM_COS_ACCESS_KEY_ID=your-hmac-access-key-id
+# IBM_COS_SECRET_ACCESS_KEY=your-hmac-secret-access-key
+```
+
+### Development Mock Mode
+
+If no credentials are provided in `.env`, the system **automatically falls back to Mock Storage Mode**.
+* Mock mode simulates all bucket creations, file uploads, recursively zipped folders, on-demand downloads, and deletion routines locally inside the `data/cos_mock/` directory.
+* This ensures that developers can start, build, and test the entire SynapseForge platform out-of-the-box without requiring a live IBM Cloud account or active internet connection!
 
 ---
 

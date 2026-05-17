@@ -287,14 +287,63 @@ export class GenerateComponent implements OnInit {
   // Pagination
   paginationModel = new PaginationModel();
 
+  updatePaginationModel(total: number, currentPage: number, pageLength: number) {
+    this.paginationModel.totalDataLength = total;
+    this.paginationModel.currentPage = currentPage;
+    this.paginationModel.pageLength = pageLength;
+  }
+
   get paginatedData() {
+    if (!this.syntheticData || this.syntheticData.length === 0) {
+      return [];
+    }
     const pLen = this.paginationModel.pageLength || 20;
-    const startIndex = (this.paginationModel.currentPage - 1) * pLen;
+    const startIndex = ((this.paginationModel.currentPage || 1) - 1) * pLen;
     return this.syntheticData.slice(startIndex, startIndex + pLen);
   }
   
   onSelectPage(event: any) {
-    this.paginationModel.currentPage = event.page;
+    const page = event?.page || event;
+    this.updatePaginationModel(
+      this.syntheticData.length,
+      page,
+      this.paginationModel.pageLength || 20
+    );
+  }
+
+  onPageLengthChange(event: any) {
+    const limit = event?.length || event;
+    this.updatePaginationModel(
+      this.syntheticData.length,
+      1,
+      Number(limit)
+    );
+  }
+
+  getToolDropdownItems(positiveToolId: string): any[] {
+    return this.cachedTools.map(t => ({
+      content: t.name || t.id,
+      value: t.id,
+      selected: t.id === positiveToolId
+    }));
+  }
+
+  removeQuery(index: number) {
+    const currentPage = this.paginationModel.currentPage || 1;
+    const pageLength = this.paginationModel.pageLength || 20;
+    const globalIndex = (currentPage - 1) * pageLength + index;
+    
+    if (this.syntheticData[globalIndex]) {
+      this.syntheticData.splice(globalIndex, 1);
+      
+      // Recalculate pagination
+      const totalPages = Math.ceil(this.syntheticData.length / pageLength) || 1;
+      const targetPage = Math.min(currentPage, totalPages);
+      
+      this.paginationModel.totalDataLength = this.syntheticData.length;
+      this.paginationModel.currentPage = targetPage;
+      this.paginationModel.pageLength = pageLength;
+    }
   }
 
   /** Check if all required fields are present for generation */
@@ -731,8 +780,10 @@ export class GenerateComponent implements OnInit {
           next: (res) => {
             this.syntheticData = res.data || [];
             this.isDataLoading = false;
+            // Initialize pagination with correct values
             this.paginationModel.totalDataLength = this.syntheticData.length;
-            this.paginationModel.currentPage = 1; // Reset to first page
+            this.paginationModel.currentPage = 1;
+            this.paginationModel.pageLength = this.paginationModel.pageLength || 20;
           },
           error: (err) => {
             console.error("Failed to load synthetic data", err);
@@ -801,12 +852,31 @@ export class GenerateComponent implements OnInit {
         next: (res) => {
           this.syntheticData = res.data || [];
           this.isDataLoading = false;
+          // Initialize pagination properly
           this.paginationModel.totalDataLength = this.syntheticData.length;
           this.paginationModel.currentPage = 1;
+          this.paginationModel.pageLength = this.paginationModel.pageLength || 20;
           this.currentDatasetPath = dataset.path;
           this.datasetArchiveName = dataset.name;
           this.datasetArchiveVersion = dataset.version;
           this.notification = { type: 'success', title: 'Dataset Loaded', message: `Loaded dataset: ${dataset.name} (v${dataset.version})` };
+          
+          // Load tools cache if not already loaded for dropdown
+          if (this.cachedTools.length === 0) {
+            this.service.getCachedTools(this.workspaceId).subscribe({
+              next: (toolsRes) => {
+                this.cachedTools = toolsRes.tools || [];
+                this.toolDropdownItems = this.cachedTools.map(t => ({
+                  content: t.name || t.id,
+                  value: t.id,
+                  selected: false
+                }));
+              },
+              error: (err) => {
+                console.error("Failed to load tools cache", err);
+              }
+            });
+          }
         },
         error: (err) => {
           this.isDataLoading = false;
@@ -851,7 +921,7 @@ export class GenerateComponent implements OnInit {
 
   deleteDataset(datasetName: string): void {
     if (confirm(`Are you sure you want to delete dataset ${datasetName}?`)) {
-      this.service.deleteDataset(datasetName).subscribe({
+      this.service.deleteDataset(datasetName, this.workspaceId).subscribe({
         next: (res) => {
           this.notification = { type: 'success', title: 'Dataset Deleted', message: res.message };
           this.loadDatasets();

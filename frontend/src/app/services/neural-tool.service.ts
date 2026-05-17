@@ -143,8 +143,11 @@ export class NeuralToolService {
     return this.http.post(`${this.apiUrl}/models/archive`, { name, version, source_dir: sourceDir });
   }
 
-  deleteModel(modelName: string): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/models/${modelName}`);
+  deleteModel(modelName: string, workspaceId?: string): Observable<any> {
+    const url = workspaceId
+      ? `${this.apiUrl}/models/${modelName}?workspace_id=${workspaceId}`
+      : `${this.apiUrl}/models/${modelName}`;
+    return this.http.delete(url);
   }
 
   // ============================================================================
@@ -170,8 +173,11 @@ export class NeuralToolService {
   /**
    * Delete a dataset
    */
-  deleteDataset(datasetName: string): Observable<any> {
-    return this.http.delete(`${this.apiUrl}/datasets/${datasetName}`);
+  deleteDataset(datasetName: string, workspaceId?: string): Observable<any> {
+    const url = workspaceId
+      ? `${this.apiUrl}/datasets/${datasetName}?workspace_id=${workspaceId}`
+      : `${this.apiUrl}/datasets/${datasetName}`;
+    return this.http.delete(url);
   }
 
   /**

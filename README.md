@@ -265,6 +265,7 @@ graph LR
 | **LLM Gateway** | LiteLLM | Vendor-agnostic (OpenAI, Anthropic, Google, Ollama) |
 | **Tool Protocol** | Model Context Protocol (MCP) | Standardised tool/data connections |
 | **Container Runtime** | Docker SDK (Python) | Per-workspace isolated environments |
+| **Artifact Storage** | IBM Cloud Object Storage (COS) | Workspace-scoped artifact storage (datasets, models, indexes) with automatic local caching |
 | **Observability** | OpenTelemetry, Langfuse | End-to-end trace propagation |
 
 ---

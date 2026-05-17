@@ -39,6 +39,16 @@ async def get_synthetic_data(workspace_id: Optional[str] = Query(None)):
     path = config.data_generation.output_path
     if workspace_id:
         path = config.project_root / "data" / "workspaces" / workspace_id / "data" / "synthetic_queries.jsonl"
+        
+        # Download from IBM COS on demand if not present locally
+        import uuid
+        from services.artifact_manager import ArtifactManager
+        await ArtifactManager.download_file_if_needed(
+            workspace_id=uuid.UUID(workspace_id),
+            phase="generate",
+            artifact_type="dataset",
+            local_file_path=path
+        )
 
     if not os.path.exists(path):
         return {"data": []}
@@ -53,6 +63,17 @@ async def get_synthetic_data(workspace_id: Optional[str] = Query(None)):
     except Exception as e:
         logger.error(f"Error reading synthetic data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        # Clean up local file copy if it was downloaded/created locally to ensure no files are stored on local filesystem
+        if workspace_id and os.path.exists(path):
+            try:
+                import uuid
+                from services.artifact_manager import ArtifactManager
+                os.remove(path)
+                logger.info(f"✓ Cleaned up local copy of downloaded synthetic data at {path}")
+                ArtifactManager.cleanup_empty_workspace_directories(uuid.UUID(workspace_id))
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to clean up synthetic data local file or dirs: {cleanup_err}")
 
 
 @router.post("/synthetic")
@@ -68,7 +89,23 @@ async def save_synthetic_data(update: SyntheticDataUpdate, workspace_id: Optiona
         with open(path, "w") as f:
             for item in update.data:
                 f.write(json.dumps(item) + "\n")
-        return {"status": "success", "message": "Synthetic data saved."}
+                
+        # Upload to IBM COS and clean up local copy immediately
+        if workspace_id:
+            import uuid
+            from services.artifact_manager import ArtifactManager
+            await ArtifactManager.upload_and_register_file(
+                workspace_id=uuid.UUID(workspace_id),
+                phase="generate",
+                artifact_type="dataset",
+                local_file_path=path
+            )
+            try:
+                ArtifactManager.cleanup_empty_workspace_directories(uuid.UUID(workspace_id))
+            except:
+                pass
+            
+        return {"status": "success", "message": "Synthetic data saved and synced to IBM COS."}
     except Exception as e:
         logger.error(f"Error saving synthetic data: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -86,6 +123,16 @@ async def get_cached_tools(workspace_id: Optional[str] = Query(None)):
     path = config.mcp.tool_cache_path
     if workspace_id:
         path = config.project_root / "data" / "workspaces" / workspace_id / "data" / "tool_cache.json"
+        
+        # Download from IBM COS on demand if not present locally
+        import uuid
+        from services.artifact_manager import ArtifactManager
+        await ArtifactManager.download_file_if_needed(
+            workspace_id=uuid.UUID(workspace_id),
+            phase="generate",
+            artifact_type="tool_cache",
+            local_file_path=path
+        )
 
     if not os.path.exists(path):
         return {"tools": []}
@@ -101,3 +148,14 @@ async def get_cached_tools(workspace_id: Optional[str] = Query(None)):
     except Exception as e:
         logger.error(f"Error reading tool cache: {e}")
         return {"tools": []}
+    finally:
+        # Clean up local file copy if it was downloaded/created locally to ensure no files are stored on local filesystem
+        if workspace_id and os.path.exists(path):
+            try:
+                import uuid
+                from services.artifact_manager import ArtifactManager
+                os.remove(path)
+                logger.info(f"✓ Cleaned up local copy of downloaded tool cache at {path}")
+                ArtifactManager.cleanup_empty_workspace_directories(uuid.UUID(workspace_id))
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to clean up tool cache local file or dirs: {cleanup_err}")

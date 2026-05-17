@@ -121,11 +121,6 @@ def _update_global_config(config_data, phase: str):
 
     # Apply overrides from request
     if phase == "generate":
-        if config_data.queries_per_tool:
-            config.data_generation.queries_per_tool = config_data.queries_per_tool
-        if config_data.teacher_model:
-            config.llm.teacher_model = config_data.teacher_model
-
         _apply_dict_to_obj(config_data.llm, config.llm)
         _apply_dict_to_obj(config_data.embedding, config.embedding)
         _apply_dict_to_obj(config_data.vector_store, config.vector_store)
@@ -138,6 +133,11 @@ def _update_global_config(config_data, phase: str):
             )
             if "servers" in config_data.mcp:
                 config.mcp.servers = config_data.mcp["servers"]
+
+        if config_data.queries_per_tool:
+            config.data_generation.queries_per_tool = config_data.queries_per_tool
+        if config_data.teacher_model:
+            config.llm.teacher_model = config_data.teacher_model
 
     elif phase == "train":
         _apply_dict_to_obj(config_data.training, config.training)
@@ -200,15 +200,147 @@ async def generate_phase(config_data: GenerateConfig):
         message="Initializing generation phase...",
     )
     try:
+        # Resolve user-selected LLM Config from database if teacher_model is a UUID
+        teacher_model_str = config_data.teacher_model
+        if teacher_model_str:
+            import uuid
+            is_uuid = False
+            try:
+                uuid.UUID(str(teacher_model_str))
+                is_uuid = True
+            except ValueError:
+                pass
+
+            if is_uuid:
+                from db.engine import _session_factory
+                from db.models import LLMConfig
+                import os
+
+                async with _session_factory() as session:
+                    config_row = await session.get(LLMConfig, uuid.UUID(str(teacher_model_str)))
+                    if config_row:
+                        provider = config_row.provider.value
+                        model_name = config_row.model_name
+                        credentials = config_row.credentials or {}
+                        
+                        logger.info(f"Using selected LLM Config '{config_row.name}' (provider: {provider}, model: {model_name}) for Phase 1 generation.")
+
+                        # Inject credentials into env vars
+                        if provider == "ibm_watsonx":
+                            api_key = credentials.get("api_key") or credentials.get("apikey")
+                            project_id = credentials.get("project_id")
+                            region = credentials.get("region", "us-south")
+                            
+                            if api_key:
+                                os.environ["WATSONX_APIKEY"] = api_key
+                                os.environ["WATSONX_API_KEY"] = api_key
+                            if project_id:
+                                os.environ["WATSONX_PROJECT_ID"] = project_id
+                            if region:
+                                if region.startswith("http"):
+                                    os.environ["WATSONX_URL"] = region
+                                else:
+                                    os.environ["WATSONX_URL"] = f"https://{region}.ml.cloud.ibm.com"
+                                os.environ["WATSONX_REGION"] = region
+                            
+                            config_data.teacher_model = f"watsonx/{model_name}"
+
+                        elif provider == "openai":
+                            api_key = credentials.get("api_key") or credentials.get("apikey")
+                            api_base = credentials.get("api_base") or credentials.get("url")
+                            if api_key:
+                                os.environ["OPENAI_API_KEY"] = api_key
+                            if api_base:
+                                os.environ["OPENAI_API_BASE"] = api_base
+                            
+                            config_data.teacher_model = f"openai/{model_name}"
+
+                        elif provider == "ollama":
+                            api_base = credentials.get("api_base") or credentials.get("url")
+                            if api_base:
+                                os.environ["OLLAMA_API_BASE"] = api_base
+                            
+                            config_data.teacher_model = f"ollama/{model_name}"
+
+                        elif provider == "anthropic":
+                            api_key = credentials.get("api_key") or credentials.get("apikey")
+                            if api_key:
+                                os.environ["ANTHROPIC_API_KEY"] = api_key
+                            config_data.teacher_model = f"anthropic/{model_name}"
+
+                        elif provider == "google":
+                            api_key = credentials.get("api_key") or credentials.get("apikey")
+                            if api_key:
+                                os.environ["GEMINI_API_KEY"] = api_key
+                            config_data.teacher_model = f"gemini/{model_name}"
+
+                        elif provider == "groq":
+                            api_key = credentials.get("api_key") or credentials.get("apikey")
+                            if api_key:
+                                os.environ["GROQ_API_KEY"] = api_key
+                            config_data.teacher_model = f"groq/{model_name}"
+                        else:
+                            config_data.teacher_model = f"{provider}/{model_name}"
+                    else:
+                        logger.warning(f"Selected LLM Config with ID {teacher_model_str} not found in database. Using default/fallback model.")
+
         _update_global_config(config_data, "generate")
         from tool_router.generator import main as phase1_main
         await phase1_main()
+
+        # Upload and register generated artifacts to IBM COS and clean up local copy
+        ws_id = getattr(config_data, "workspace_id", None)
+        if ws_id:
+            import uuid
+            from services.artifact_manager import ArtifactManager
+            from tool_router.config import config as tr_config
+
+            ws_uuid = uuid.UUID(str(ws_id))
+            update_status(
+                status="running", progress=0.96,
+                message="Uploading artifacts to IBM Cloud Object Storage...",
+            )
+
+            # Upload synthetic queries JSONL (as raw_dataset, not dataset)
+            # This prevents it from appearing in the archived datasets list
+            # Users must explicitly archive it to make it available for training
+            output_path = Path(tr_config.data_generation.output_path)
+            await ArtifactManager.upload_and_register_file(
+                workspace_id=ws_uuid,
+                phase="generate",
+                artifact_type="raw_dataset",  # Changed from "dataset" to "raw_dataset"
+                local_file_path=output_path
+            )
+
+            # Upload tool cache JSON
+            tool_cache_path = Path(tr_config.mcp.tool_cache_path)
+            await ArtifactManager.upload_and_register_file(
+                workspace_id=ws_uuid,
+                phase="generate",
+                artifact_type="tool_cache",
+                local_file_path=tool_cache_path
+            )
+
+            # Clean up all empty temporary directories in the workspace
+            try:
+                ArtifactManager.cleanup_empty_workspace_directories(ws_uuid)
+            except Exception as cleanup_err:
+                logger.warning(f"Failed to clean up empty workspace directories: {cleanup_err}")
+
         update_status(
             status="completed", progress=1.0,
-            message="Generation phase completed successfully.",
+            message="Generation phase completed successfully. Artifacts uploaded to IBM COS.",
         )
         return {"status": "success", "message": "Generation phase completed."}
     except Exception as e:
+        ws_id = getattr(config_data, "workspace_id", None)
+        if ws_id:
+            try:
+                import uuid
+                from services.artifact_manager import ArtifactManager
+                ArtifactManager.cleanup_empty_workspace_directories(uuid.UUID(str(ws_id)))
+            except:
+                pass
         update_status(status="error", message=f"Generation failed: {str(e)}")
         logger.error(f"Generate phase failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -260,7 +392,7 @@ async def train_stream():
 
 
 @router.post("/train")
-def train_phase(config_data: TrainConfig):
+async def train_phase(config_data: TrainConfig):
     """Start the embedding model training phase (runs in background thread)."""
     from tool_router.status_tracker import update_status, reset_status
     from tool_router.config import config
@@ -271,15 +403,59 @@ def train_phase(config_data: TrainConfig):
         phase="train", status="running", progress=0.0,
         message="Initializing training phase...",
     )
+    
+    # Pre-download files from COS in the main async context BEFORE starting the background thread
+    workspace_id = getattr(config_data, "workspace_id", None)
+    if workspace_id:
+        import uuid
+        from services.artifact_manager import ArtifactManager
+        
+        # Temporarily update config to get correct paths
+        _update_global_config(config_data, "train")
+        
+        ws_uuid = uuid.UUID(str(workspace_id))
+        
+        update_status(
+            status="running", progress=0.05,
+            message="Downloading training data and tool cache from IBM COS...",
+        )
+        
+        # Download files in the main async context
+        await ArtifactManager.download_file_if_needed(
+            workspace_id=ws_uuid,
+            phase="generate",
+            artifact_type="tool_cache",
+            local_file_path=config.mcp.tool_cache_path
+        )
+        # Try raw_dataset first (newly generated), then dataset (archived)
+        downloaded = await ArtifactManager.download_file_if_needed(
+            workspace_id=ws_uuid,
+            phase="generate",
+            artifact_type="raw_dataset",
+            local_file_path=config.training.training_data_path
+        )
+        if not downloaded:
+            # Fallback to archived dataset
+            await ArtifactManager.download_file_if_needed(
+                workspace_id=ws_uuid,
+                phase="generate",
+                artifact_type="dataset",
+                local_file_path=config.training.training_data_path
+            )
 
     def run_training():
         try:
-            _update_global_config(config_data, "train")
+            # Config already updated above, just proceed with training
+
             from tool_router.trainer import main as phase2_main
             phase2_main()
 
             # Auto-archive the trained model
             source_path = config.embedding.fine_tuned_model_dir
+            target_path = None
+            target_name = None
+            model_existed = False
+
             if source_path.exists():
                 if config_data.archive_name and config_data.archive_version:
                     model_name = config_data.archive_name
@@ -297,25 +473,118 @@ def train_phase(config_data: TrainConfig):
                     if model_existed:
                         shutil.rmtree(target_path)
                     shutil.copytree(source_path, target_path)
+                    
+                    # Delete the source fine_tuned_tool_router directory after successful copy
+                    # to avoid duplicate model entries
+                    if source_path.exists() and source_path != target_path:
+                        shutil.rmtree(source_path)
+                        logger.info(f"Cleaned up temporary training directory: {source_path}")
 
                     action = "updated" if model_existed else "archived"
                     logger.info(f"Model {action} as {target_name}")
-                    update_status(
-                        status="completed", progress=1.0,
-                        message=f"Training completed. Model {action} as {target_name}",
-                    )
                 except Exception as archive_error:
                     logger.warning(f"Training completed but archiving failed: {archive_error}")
-                    update_status(
-                        status="completed", progress=1.0,
-                        message="Training completed but auto-archiving failed.",
-                    )
-            else:
+                    target_path = None
+
+            # 2. Post-training: upload all Phase 2 artifacts to IBM COS and clean up local copies
+            if workspace_id:
+                import uuid
+                from services.artifact_manager import ArtifactManager
+                ws_uuid = uuid.UUID(str(workspace_id))
+                
                 update_status(
-                    status="completed", progress=1.0,
-                    message="Training phase completed successfully.",
+                    status="running", progress=0.95,
+                    message="Uploading model and retrieval indexes to IBM COS...",
                 )
+                
+                def upload_training_files_sync():
+                    """Synchronous wrapper for COS uploads using the sync upload methods"""
+                    # Upload FAISS index files
+                    faiss_path = Path(config.vector_store.faiss_index_path)
+                    if faiss_path.exists():
+                        ArtifactManager.upload_and_register_file_sync(
+                            workspace_id=ws_uuid,
+                            phase="train",
+                            artifact_type="faiss_index",
+                            local_file_path=faiss_path
+                        )
+                        faiss_json = faiss_path.with_suffix('.json')
+                        if faiss_json.exists():
+                            ArtifactManager.upload_and_register_file_sync(
+                                workspace_id=ws_uuid,
+                                phase="train",
+                                artifact_type="faiss_index_mapping",
+                                local_file_path=faiss_json
+                            )
+                            
+                    # Upload BM25 index files
+                    bm25_path = faiss_path.parent / "bm25_index.pkl"
+                    if bm25_path.exists():
+                        ArtifactManager.upload_and_register_file_sync(
+                            workspace_id=ws_uuid,
+                            phase="train",
+                            artifact_type="bm25_index",
+                            local_file_path=bm25_path
+                        )
+                        bm25_json = bm25_path.with_suffix('.json')
+                        if bm25_json.exists():
+                            ArtifactManager.upload_and_register_file_sync(
+                                workspace_id=ws_uuid,
+                                phase="train",
+                                artifact_type="bm25_index_mapping",
+                                local_file_path=bm25_json
+                            )
+                            
+                    # Only upload the archived model directory (user-named), not the fine_tuned_tool_router
+                    if target_path and target_path.exists():
+                        ArtifactManager.upload_and_register_directory_sync(
+                            workspace_id=ws_uuid,
+                            phase="train",
+                            artifact_type="archived_model",
+                            local_dir_path=target_path,
+                            dir_name=target_name
+                        )
+                
+                # Call synchronous upload function
+                try:
+                    upload_training_files_sync()
+                except Exception as upload_err:
+                    logger.error(f"Failed to upload training artifacts: {upload_err}")
+                    raise
+
+                # Clean up downloaded input files used for training
+                try:
+                    for p in [config.mcp.tool_cache_path, config.training.training_data_path]:
+                        file_path = Path(p)
+                        if file_path.exists():
+                            file_path.unlink()
+                            logger.info(f"✓ Cleaned up local training input file: {file_path}")
+                except Exception as cleanup_input_err:
+                    logger.warning(f"Failed to delete training input files: {cleanup_input_err}")
+
+                # Clean up all empty temporary directories in the workspace
+                try:
+                    ArtifactManager.cleanup_empty_workspace_directories(ws_uuid)
+                except Exception as cleanup_err:
+                    logger.warning(f"Failed to clean up empty workspace directories after training: {cleanup_err}")
+
+            # Update final status
+            if target_name:
+                action = "updated" if model_existed else "archived"
+                msg = f"Training completed. Model {action} as {target_name} and uploaded to IBM COS."
+            else:
+                msg = "Training phase completed successfully. Artifacts uploaded to IBM COS."
+                
+            update_status(status="completed", progress=1.0, message=msg)
         except Exception as e:
+            ws_id = getattr(config_data, "workspace_id", None)
+            if ws_id:
+                try:
+                    import uuid
+                    from services.artifact_manager import ArtifactManager
+                    ArtifactManager.cleanup_empty_workspace_directories(uuid.UUID(str(ws_id)))
+                except:
+                    pass
             update_status(status="error", message=f"Training failed: {str(e)}")
             logger.error(f"Train phase failed: {e}")
 
@@ -332,11 +601,101 @@ def train_phase(config_data: TrainConfig):
 # RUN
 # ---------------------------------------------------------------------------
 
+async def _ensure_run_artifacts_downloaded(workspace_id: str, model_name: str = None):
+    """Ensures tool cache, fine-tuned model, and search indexes are cached locally from COS.
+    
+    Returns:
+        Path: The local directory path where the model was downloaded
+    """
+    import uuid
+    from services.artifact_manager import ArtifactManager
+    from tool_router.config import config
+    
+    if not workspace_id:
+        return config.embedding.fine_tuned_model_dir
+    
+    ws_uuid = uuid.UUID(str(workspace_id))
+    
+    # Download tool cache JSON
+    await ArtifactManager.download_file_if_needed(
+        workspace_id=ws_uuid,
+        phase="generate",
+        artifact_type="tool_cache",
+        local_file_path=config.mcp.tool_cache_path
+    )
+    
+    # Download fine-tuned model directory
+    # If a specific model name is provided, download to models_dir/model_name
+    # Otherwise, use the default fine_tuned_model_dir
+    if model_name:
+        local_model_dir = config.models_dir / model_name
+        dir_name = model_name
+    else:
+        local_model_dir = config.embedding.fine_tuned_model_dir
+        dir_name = config.embedding.fine_tuned_model_dir.name
+    
+    # Try archived_model first (new format), then fall back to fine_tuned_model (old format)
+    downloaded = await ArtifactManager.download_directory_if_needed(
+        workspace_id=ws_uuid,
+        phase="train",
+        artifact_type="archived_model",
+        local_dir_path=local_model_dir,
+        dir_name=dir_name
+    )
+    if not downloaded:
+        # Fall back to old artifact type for backward compatibility
+        await ArtifactManager.download_directory_if_needed(
+            workspace_id=ws_uuid,
+            phase="train",
+            artifact_type="fine_tuned_model",
+            local_dir_path=local_model_dir,
+            dir_name=dir_name
+        )
+    
+    return local_model_dir
+    
+    # Download FAISS index files
+    faiss_path = Path(config.vector_store.faiss_index_path)
+    await ArtifactManager.download_file_if_needed(
+        workspace_id=ws_uuid,
+        phase="train",
+        artifact_type="faiss_index",
+        local_file_path=faiss_path
+    )
+    await ArtifactManager.download_file_if_needed(
+        workspace_id=ws_uuid,
+        phase="train",
+        artifact_type="faiss_index_mapping",
+        local_file_path=faiss_path.with_suffix('.json')
+    )
+    
+    # Download BM25 index files
+    bm25_path = faiss_path.parent / "bm25_index.pkl"
+    await ArtifactManager.download_file_if_needed(
+        workspace_id=ws_uuid,
+        phase="train",
+        artifact_type="bm25_index",
+        local_file_path=bm25_path
+    )
+    await ArtifactManager.download_file_if_needed(
+        workspace_id=ws_uuid,
+        phase="train",
+        artifact_type="bm25_index_mapping",
+        local_file_path=bm25_path.with_suffix('.json')
+    )
+
+
 @router.post("/run")
 async def run_phase(config_data: RunConfig):
     """Run the agentic tool-routing loop (streaming NDJSON)."""
     try:
         _update_global_config(config_data, "run")
+        if config_data.workspace_id:
+            # Extract model name from model_path if provided
+            model_name = None
+            if config_data.model_path:
+                model_name = Path(config_data.model_path).name
+            await _ensure_run_artifacts_downloaded(config_data.workspace_id, model_name)
         if config_data.model_path:
             from tool_router.config import config
             config.embedding.fine_tuned_model_dir = Path(config_data.model_path)
@@ -375,14 +734,19 @@ async def evaluate_phase(config_data: EvaluateConfig):
 
     try:
         _update_global_config(config_data, "evaluate")
+        
+        # Extract model name from model_path if provided (COS URL)
+        model_name = None
+        if config_data.model_path:
+            # Extract model name from COS URL (e.g., "multi-router-model_v1.0" from the path)
+            model_name = Path(config_data.model_path).name
+        
+        # Download artifacts and get the local model directory path
+        model_dir = await _ensure_run_artifacts_downloaded(config_data.workspace_id, model_name)
+        
         t0 = time.time()
-
-        model_dir = (
-            config_data.model_path
-            if config_data.model_path
-            else str(config.embedding.fine_tuned_model_dir)
-        )
-        model = SentenceTransformer(model_dir, device=config.embedding.device)
+        
+        model = SentenceTransformer(str(model_dir), device=config.embedding.device)
 
         semantic_router = SemanticRouter(model, config.vector_store)
 

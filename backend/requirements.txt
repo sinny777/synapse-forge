@@ -41,6 +41,8 @@ asyncpg>=0.29.0          # Async PostgreSQL driver
 pgvector>=0.3.0          # pgvector SQLAlchemy integration
 # alembic & psycopg2-binary removed — using reset_db.py for schema management
 redis>=5.0.0             # redis.asyncio for caching & checkpoints
+boto3>=1.26.0
+ibm-cos-sdk>=2.13.0
 
 # Docker Control Plane (Phase 3)
 docker>=7.0.0            # Docker SDK for workspace container orchestration

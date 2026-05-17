@@ -476,7 +476,7 @@ export class TrainComponent implements OnInit {
 
   deleteModel(modelName: string): void {
     if (confirm(`Are you sure you want to delete model ${modelName}?`)) {
-      this.service.deleteModel(modelName).subscribe({
+      this.service.deleteModel(modelName, this.workspaceId).subscribe({
         next: (res) => {
           this.notification = { type: 'success', title: 'Model Deleted', message: res.message };
           this.loadModels();

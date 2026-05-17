@@ -196,12 +196,8 @@ class ToolRouterConfig:
     logs_dir: Path = field(default_factory=lambda: Path(__file__).parent.parent / "logs")
     
     def __post_init__(self):
-        """Create necessary directories."""
-        self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.datasets_dir.mkdir(parents=True, exist_ok=True)
-        self.models_dir.mkdir(parents=True, exist_ok=True)
-        self.logs_dir.mkdir(parents=True, exist_ok=True)
-        self.training.logging_dir.mkdir(parents=True, exist_ok=True)
+        """No-op to prevent premature global directory creation on import/startup."""
+        pass
     
     def validate(self) -> bool:
         """Validate configuration settings."""

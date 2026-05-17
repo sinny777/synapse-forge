@@ -373,4 +373,39 @@ class LLMConfig(Base, AuditMixin):
     def __repr__(self) -> str:
         return f"<LLMConfig id={self.id!s} name={self.name!r} provider={self.provider.value}>"
 
+
+class PipelineArtifact(Base, AuditMixin):
+    """
+    Tracks metadata and IBM Cloud Object Storage (COS) references
+    for artifacts generated during SynapseForge pipeline phases (Generate and Train).
+    """
+    __tablename__ = "pipeline_artifacts"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
+    )
+    phase: Mapped[str] = mapped_column(String(50), nullable=False) # 'generate' or 'train'
+    artifact_type: Mapped[str] = mapped_column(String(100), nullable=False) # 'dataset', 'tool_cache', 'fine_tuned_model', 'faiss_index', 'bm25_index'
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    cos_bucket: Mapped[str] = mapped_column(String(255), nullable=False)
+    cos_key: Mapped[str] = mapped_column(String(1024), nullable=False) # Key path or directory prefix
+    cos_endpoint: Mapped[str] = mapped_column(String(500), nullable=False)
+    url: Mapped[str | None] = mapped_column(Text, nullable=True) # Full S3/COS reference URL
+
+    # Relationships
+    workspace = relationship("Workspace")
+
+    __table_args__ = (
+        Index("ix_pipeline_artifacts_workspace_id", "workspace_id"),
+        Index("ix_pipeline_artifacts_phase", "phase"),
+        Index("ix_pipeline_artifacts_artifact_type", "artifact_type"),
+    )
+
+    def __repr__(self) -> str:
+        return f"<PipelineArtifact id={self.id!s} workspace_id={self.workspace_id!s} phase={self.phase!r} type={self.artifact_type!r}>"
+
+
 # Made with Bob

@@ -525,13 +525,13 @@
                   [appendInline]="true"
                   size="sm"
                   [(ngModel)]="item.positive_tool_id"
-                  (selected)="onToolChange($event, i)"
+                  (selected)="onToolChange($event, (paginationModel.currentPage - 1) * (paginationModel.pageLength || 20) + i)"
                   style="width: 100%; min-width: 200px;">
-                  <cds-dropdown-list [items]="toolDropdownItems"></cds-dropdown-list>
+                  <cds-dropdown-list [items]="getToolDropdownItems(item.positive_tool_id)"></cds-dropdown-list>
                 </cds-dropdown>
               </td>
               <td>
-                <button cdsButton="danger--ghost" size="sm" (click)="syntheticData.splice((paginationModel.currentPage-1)*(paginationModel.pageLength || 20) + i, 1); paginationModel.totalDataLength = syntheticData.length" title="Remove query">
+                <button cdsButton="danger--ghost" size="sm" (click)="removeQuery(i)" title="Remove query">
                   <svg cdsIcon="trash-can" size="16"></svg>
                 </button>
               </td>
@@ -539,11 +539,12 @@
           </tbody>
         </table>
       </div>
-
+ 
       <!-- Pagination Controls -->
       <cds-pagination
         [model]="paginationModel"
-        (selectPage)="onSelectPage($event)">
+        (selectPage)="onSelectPage($event)"
+        (selectPageLength)="onPageLengthChange($event)">
       </cds-pagination>
     </div>
   </section>
