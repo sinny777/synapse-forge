@@ -434,9 +434,9 @@ export class TrainComponent implements OnInit {
 
   updateEvaluationModelDropdownItems(): void {
     this.evaluationModelDropdownItems = this.availableModels.map(model => ({
-      content: model.name,
-      value: model.path,
-      selected: model.path === this.selectedEvaluationModel
+      content: `${model.name} (v${model.version})`,
+      value: model.name,
+      selected: model.name === this.selectedEvaluationModel
     }));
   }
 
@@ -767,11 +767,9 @@ export class TrainComponent implements OnInit {
     this.evaluationResult = null;
     this.evaluationError = null;
 
-    // Find the model object to get its path
-    const model = this.availableModels.find(m => m.name === this.selectedEvaluationModel);
-    const modelPath = model ? model.path : this.selectedEvaluationModel;
-
-    this.service.evaluate(this.evaluationQuery, 5, modelPath).subscribe({
+    // selectedEvaluationModel now contains the model name directly
+    // The backend expects the model name to download from COS
+    this.service.evaluate(this.evaluationQuery, 5, this.selectedEvaluationModel, this.workspaceId).subscribe({
       next: (res) => {
         this.isEvaluating = false;
         this.evaluationResult = res.data;

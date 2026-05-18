@@ -111,8 +111,8 @@ export class NeuralToolService {
     }
   }
 
-  evaluate(query: string, top_k: number = 5, model_path?: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/evaluate`, { query, top_k, model_path });
+  evaluate(query: string, top_k: number = 5, model_path?: string, workspace_id?: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/evaluate`, { query, top_k, model_path, workspace_id });
   }
 
   getStatus(): Observable<any> {

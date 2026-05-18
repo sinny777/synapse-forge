@@ -652,8 +652,6 @@ async def _ensure_run_artifacts_downloaded(workspace_id: str, model_name: str = 
             dir_name=dir_name
         )
     
-    return local_model_dir
-    
     # Download FAISS index files
     faiss_path = Path(config.vector_store.faiss_index_path)
     await ArtifactManager.download_file_if_needed(
@@ -683,6 +681,8 @@ async def _ensure_run_artifacts_downloaded(workspace_id: str, model_name: str = 
         artifact_type="bm25_index_mapping",
         local_file_path=bm25_path.with_suffix('.json')
     )
+    
+    return local_model_dir
 
 
 @router.post("/run")
