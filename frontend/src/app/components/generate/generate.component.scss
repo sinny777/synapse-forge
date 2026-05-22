@@ -4,9 +4,11 @@
 
 // ─── Page Container ───────────────────────────────────────────────
 .generate-page {
-  max-width: 1312px;
-  margin: 0 auto;
-  padding: 0 1rem 3rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0 3rem;
+  box-sizing: border-box;
 }
 
 .cds--css-grid {
@@ -457,6 +459,35 @@
   .mcp-add-row {
     flex-direction: column;
   }
+
+  .phase-generate-toolbar {
+    &__body {
+      padding: 1rem;
+    }
+
+    &__row,
+    &__fields,
+    &__actions {
+      width: 100%;
+    }
+
+    &__actions {
+      margin-left: 0;
+      justify-content: stretch;
+
+      button {
+        width: 100%;
+      }
+    }
+
+    &__field {
+      min-width: 100%;
+
+      &--dataset {
+        max-width: 100%;
+      }
+    }
+  }
 }
 
 @media (min-width: 673px) and (max-width: 1056px) {
@@ -615,7 +646,9 @@
   border-top: none;
   padding: 2rem;
   animation: fadeIn 0.3s ease-out;
-  max-width: 1200px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 @keyframes fadeIn {
@@ -746,4 +779,85 @@
   display: flex;
   gap: 0.5rem;
   margin-top: auto;
+}
+
+.phase-generate-toolbar {
+  margin-bottom: 1rem;
+
+  &:hover {
+    box-shadow: none;
+  }
+
+  &__body {
+    padding: 1.5rem;
+    border-top: none;
+  }
+
+  &__row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    flex-wrap: wrap;
+  }
+
+  &__fields {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  &__field {
+    flex: 1 1 18rem;
+    min-width: 16rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+
+    &--dataset {
+      max-width: 28rem;
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    margin-left: auto;
+  }
+
+  &__delete {
+    align-self: flex-end;
+  }
+}
+
+.missing-config-msg {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3rem;
+  padding: 1rem;
+  background-color: rgba(241, 194, 27, 0.1);
+  border-left: 4px solid var(--cds-support-warning, #f1c21b);
+  color: var(--cds-text-primary, #f4f4f4);
+  font-size: 0.875rem;
+
+  .warning-icon {
+    fill: var(--cds-support-warning, #f1c21b);
+    flex-shrink: 0;
+  }
+
+  .config-link {
+    color: var(--cds-link-primary, #78a9ff);
+    text-decoration: underline;
+    cursor: pointer;
+    font-weight: 600;
+
+    &:hover {
+      color: var(--cds-link-primary-hover, #a5c8ff);
+    }
+  }
 }

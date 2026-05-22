@@ -26,6 +26,7 @@ import View16 from '@carbon/icons/es/view/16';
 import ViewOff16 from '@carbon/icons/es/view--off/16';
 import InformationFilled16 from '@carbon/icons/es/information--filled/16';
 
+import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
 import { LLMConfigService } from '../../services/llm-config.service';
 import { WorkspaceService } from '../../services/workspace.service';
 import { Workspace } from '../../models/platform.model';
@@ -54,7 +55,8 @@ import {
     TagModule,
     DropdownModule,
     IconModule,
-    TooltipModule
+    TooltipModule,
+    PageWrapperComponent
   ],
   templateUrl: './llm-config.component.html',
   styleUrls: ['./llm-config.component.scss']

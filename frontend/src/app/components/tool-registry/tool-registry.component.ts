@@ -30,6 +30,8 @@ import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
 import { Tool, ToolCreate, Workspace } from '../../models/platform.model';
 import { MCPServerFormComponent } from './mcp-server-form.component';
+import { PageHeaderComponent } from '../shared/page-header/page-header.component';
+import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
 
 import Add16 from '@carbon/icons/es/add/16';
 import TrashCan16 from '@carbon/icons/es/trash-can/16';
@@ -50,6 +52,7 @@ import Copy16 from '@carbon/icons/es/copy/16';
     TabsModule, ButtonModule, NotificationModule, IconModule,
     TagModule, ModalModule, InputModule, DropdownModule, CheckboxModule,
     SearchModule, LoadingModule, SelectModule, ToggleModule, MCPServerFormComponent,
+    PageHeaderComponent, PageWrapperComponent,
   ],
   templateUrl: './tool-registry.component.html',
   styleUrls: ['./tool-registry.component.scss'],

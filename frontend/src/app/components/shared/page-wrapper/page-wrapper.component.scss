@@ -1,0 +1,25 @@
+.page-wrapper {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--cds-background, #161616);
+}
+
+// Global page content styling
+:host ::ng-deep {
+  .page-content {
+    flex: 1;
+    padding: 1.5rem 1.5rem 1.5rem 1.25rem; // 20px left padding (1.25rem)
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  // For pages that need full width content (like tables)
+  .page-content-full {
+    flex: 1;
+    padding: 0;
+    max-width: 100%;
+  }
+}
+
+// Made with Bob

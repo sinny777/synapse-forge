@@ -18,6 +18,8 @@ import { Subscription } from 'rxjs';
 import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
 import { Agent, AgentCreate, Tool, Workspace } from '../../models/platform.model';
+import { PageHeaderComponent } from '../shared/page-header/page-header.component';
+import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
 
 import Add16 from '@carbon/icons/es/add/16';
 import TrashCan16 from '@carbon/icons/es/trash-can/16';
@@ -36,6 +38,7 @@ import Copy16 from '@carbon/icons/es/copy/16';
     ButtonModule, NotificationModule, IconModule,
     TagModule, ModalModule, InputModule, DropdownModule, TabsModule,
     LoadingModule,
+    PageHeaderComponent, PageWrapperComponent,
   ],
   templateUrl: './agent-studio.component.html',
   styleUrls: ['./agent-studio.component.scss'],

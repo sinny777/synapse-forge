@@ -5,9 +5,11 @@
 
 // ─── Page Container ───────────────────────────────────────────────
 .train-page {
-  max-width: 1312px;
-  margin: 0 auto;
-  padding: 0 1rem 3rem;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 0 3rem;
+  box-sizing: border-box;
 }
 
 .cds--css-grid {
@@ -556,7 +558,9 @@
   border-top: none;
   padding: 2rem;
   animation: fadeIn 0.3s ease-out;
-  max-width: 1200px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 @keyframes fadeIn {

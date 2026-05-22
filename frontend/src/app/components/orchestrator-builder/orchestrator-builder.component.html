@@ -1,13 +1,10 @@
-<div class="builder-container">
-  <!-- Header -->
-  <div class="builder-header">
-    <div class="header-left">
-      <h2 class="page-title">Orchestrator Builder</h2>
-      <p class="page-subtitle" *ngIf="activeWorkspace">
-        Designing workflows for <strong>{{ activeWorkspace.name }}</strong>
-      </p>
-    </div>
-    <div class="header-actions">
+<app-page-wrapper>
+  <!-- Page Header -->
+  <app-page-header
+    title="Orchestrator Builder"
+    [subtitle]="activeWorkspace ? 'Designing workflows for ' + activeWorkspace.name : undefined"
+    [breadcrumbs]="[{label: 'Resource list', route: '/'}, {label: 'Orchestrator Builder'}]">
+    <div actions>
       <button cdsButton="ghost" size="sm" (click)="loadOrchestrations()" title="Refresh">
         <svg cdsIcon="renew" size="16" class="cds--btn__icon"></svg>
         Refresh
@@ -17,10 +14,12 @@
         New Orchestration
       </button>
     </div>
-  </div>
+  </app-page-header>
 
-  <!-- Notification -->
-  <div class="notification-area" *ngIf="notification">
+  <!-- Page Content -->
+  <div class="page-content">
+    <!-- Notification -->
+    <div class="notification-area" *ngIf="notification">
     <cds-inline-notification [notificationObj]="{
         type: notification.type,
         title: notification.title,
@@ -151,3 +150,4 @@
     </button>
   </cds-modal-footer>
 </cds-modal>
+</app-page-wrapper>

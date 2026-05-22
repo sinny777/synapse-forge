@@ -1,9 +1,11 @@
 .cds--content {
   margin-top: 3rem; // 48px header offset
   margin-left: 3rem; // Prevent overlap with 48px rail
-  padding: 2rem;
+  padding: 0; // Remove default padding, let pages control their own padding
   height: calc(100vh - 3rem);
   overflow-y: auto;
+  max-width: 100vw; // Ensure full width
+  width: calc(100vw - 3rem); // Full width minus sidenav rail
 }
 
 // Override Carbon default behavior that hides the hamburger on large screens

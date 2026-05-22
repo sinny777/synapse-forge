@@ -21,6 +21,8 @@ import {
   Orchestration, OrchestrationCreate, Agent, Workspace,
   FrameworkType, ArchitectureType,
 } from '../../models/platform.model';
+import { PageHeaderComponent } from '../shared/page-header/page-header.component';
+import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
 
 import Add16 from '@carbon/icons/es/add/16';
 import TrashCan16 from '@carbon/icons/es/trash-can/16';
@@ -37,6 +39,7 @@ import Play16 from '@carbon/icons/es/play/16';
     ButtonModule, NotificationModule, IconModule,
     TagModule, ModalModule, InputModule, DropdownModule,
     LoadingModule,
+    PageHeaderComponent, PageWrapperComponent,
   ],
   templateUrl: './orchestrator-builder.component.html',
   styleUrls: ['./orchestrator-builder.component.scss'],

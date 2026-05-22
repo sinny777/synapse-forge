@@ -1,6 +1,8 @@
-<div class="llm-config-container">
-  <!-- Header -->
-  <div class="config-header">
+<app-page-wrapper>
+  <div class="page-content">
+    <div class="llm-config-container">
+      <!-- Header -->
+      <div class="config-header">
     <div class="header-content">
       <h2 class="config-title">LLM Configurations</h2>
       <p class="config-subtitle">
@@ -248,17 +250,19 @@
     </cds-modal-footer>
   </cds-modal>
 
-  <!-- Notification -->
-  <cds-inline-notification
-    *ngIf="notification"
-    [notificationObj]="{
-      type: notification.type,
-      title: notification.title,
-      subtitle: notification.message,
-      caption: '',
-      showClose: true,
-      lowContrast: false
-    }"
-    (close)="closeNotification()">
-  </cds-inline-notification>
-</div>
+      <!-- Notification -->
+      <cds-inline-notification
+        *ngIf="notification"
+        [notificationObj]="{
+          type: notification.type,
+          title: notification.title,
+          subtitle: notification.message,
+          caption: '',
+          showClose: true,
+          lowContrast: false
+        }"
+        (close)="closeNotification()">
+      </cds-inline-notification>
+    </div>
+  </div>
+</app-page-wrapper>

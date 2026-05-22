@@ -1,4 +1,4 @@
-import { Component, OnInit, Input } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
@@ -140,6 +140,14 @@ interface MCPServerEntry {
 export class GenerateComponent implements OnInit {
   @Input() workspaceId: string | undefined;
   @Input() selectedLLMId: string | undefined;
+  @Input() generateLLMItems: any[] = [];
+  @Input() hasLLMConfigs = false;
+  @Input() selectedLLMName = 'Not selected';
+  @Input() isCloningResources = false;
+  @Input() isDefaultWorkspace = false;
+  @Output() selectLLM = new EventEmitter<any>();
+  @Output() openLLMConfigRequest = new EventEmitter<void>();
+  @Output() cloneResourcesRequest = new EventEmitter<void>();
 
   /** Section collapse states (false = collapsed by default) */
 
@@ -617,6 +625,18 @@ export class GenerateComponent implements OnInit {
     if (this.syntheticData[index]) {
       this.syntheticData[index].positive_tool_id = value;
     }
+  }
+
+  onGenerateLLMSelect(event: any): void {
+    this.selectLLM.emit(event);
+  }
+
+  openLLMConfig(): void {
+    this.openLLMConfigRequest.emit();
+  }
+
+  cloneDefaultResources(): void {
+    this.cloneResourcesRequest.emit();
   }
 
   // ─── Common ─────────────────────────────────────────────────────

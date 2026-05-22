@@ -1,68 +1,13 @@
-<div class="workflow-container">
+<app-page-wrapper>
+  <!-- Page Header -->
+  <app-page-header
+    title="NeuralToolRouter"
+    [subtitle]="activeWorkspace ? 'Workspace: ' + activeWorkspace.name : undefined"
+    [breadcrumbs]="[{label: 'Resource list', route: '/'}, {label: 'NeuralToolRouter'}]">
+  </app-page-header>
 
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- Workflow Title Bar                                              -->
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <div class="workflow-title-wrapper">
-    <div class="workflow-title">
-      <div class="workflow-title__left">
-        <h1>NeuralToolRouter</h1>
-        <p class="workflow-title__subtitle" *ngIf="activeWorkspace">
-          <span class="ws-label">Workspace:</span>
-          <strong>{{ activeWorkspace.name }}</strong>
-          <cds-tag *ngIf="isDefaultWorkspace()" type="blue" size="sm">Read Only</cds-tag>
-        </p>
-      </div>
-    </div>
-  </div>
-
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <!-- Toolbar: Profile Dropdown + Import/Export + Sync Tag            -->
-  <!-- ═══════════════════════════════════════════════════════════════ -->
-  <div class="workflow-toolbar">
-    <!-- Profile Selector — Carbon Dropdown -->
-    <div class="toolbar-group toolbar-group--profile">
-      <cds-dropdown label="Configuration Profile" placeholder="Select a profile" [appendInline]="true" size="md"
-        (selected)="onProfileChange($event)">
-        <cds-dropdown-list [items]="profileItems"></cds-dropdown-list>
-      </cds-dropdown>
-    </div>
-
-    <!-- Actions -->
-    <div class="toolbar-group toolbar-group--actions">
-      <!-- LLM Configuration -->
-      <button cdsButton="tertiary" size="sm" (click)="openLLMConfig()" title="Configure LLM Models">
-        <svg cdsIcon="settings--adjust" size="16"></svg>
-        LLM Config
-      </button>
-
-      <!-- Import -->
-      <input type="file" #fileInput accept=".json" style="display: none" (change)="onFileSelected($event)" />
-      <button cdsButton="ghost" size="sm" (click)="triggerImport()" title="Import Configuration from JSON">
-        <svg cdsIcon="upload" size="16"></svg>
-      </button>
-
-      <!-- Export -->
-      <button cdsButton="ghost" size="sm" (click)="onExport()" title="Export Configuration as JSON">
-        <svg cdsIcon="download" size="16"></svg>
-      </button>
-
-      <!-- Save As -->
-      <button cdsButton="ghost" size="sm" (click)="saveCurrentAsProfile()" title="Save Current Config as New Profile">
-        <svg cdsIcon="save" size="16"></svg>
-      </button>
-
-      <!-- Delete -->
-      <button cdsButton="danger--ghost" size="sm" (click)="deleteCurrentProfile()" *ngIf="isCustomProfileSelected()" title="Delete Custom Profile">
-        <svg cdsIcon="trash-can" size="16"></svg>
-      </button>
-
-      <!-- Sync Status — Carbon Tag -->
-      <cds-tag [type]="getSyncTagType()" size="sm">
-        {{ getSyncLabel() }}
-      </cds-tag>
-    </div>
-  </div>
+  <!-- Page Content -->
+  <div class="page-content">
 
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- Notification                                                    -->
@@ -144,48 +89,18 @@
     <!-- ═══════════════════════════════════════════════════════════ -->
     <div [hidden]="activeTab !== 0">
 
-      <!-- Phase Header with LLM Selection & Clone -->
-      <div class="phase-header">
-        <div class="phase-header__config">
-          <div class="phase-config-item" *ngIf="!hasLLMConfigs()">
-            <div class="missing-config-msg">
-              <svg cdsIcon="warning--alt--filled" size="20" class="warning-icon"></svg>
-              <span>No LLM configurations found. Please <a (click)="openLLMConfig()" class="config-link">Configure LLM settings</a> in Settings.</span>
-            </div>
-          </div>
-          <div class="phase-config-item" *ngIf="hasLLMConfigs()">
-            <label class="cds--label">LLM for Generation</label>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-              <cds-dropdown
-                label="Select LLM Configuration"
-                placeholder="Choose a configured LLM..."
-                [appendInline]="true"
-                size="md"
-                (selected)="onGenerateLLMSelect($event)"
-                style="min-width: 300px;">
-                <cds-dropdown-list [items]="getGenerateLLMItems()"></cds-dropdown-list>
-              </cds-dropdown>
-              <cds-tag type="blue" size="sm" *ngIf="selectedGenerateLLMId">
-                Active: {{ getSelectedLLMName('generate') }}
-              </cds-tag>
-            </div>
-          </div>
-        </div>
-        <div class="phase-header__actions">
-          <button cdsButton="tertiary" size="sm"
-                  (click)="clonePhaseResources('generate')"
-                  [disabled]="isCloningPhase1 || isDefaultWorkspace()"
-                  title="Clone default workspace tools and MCP servers into this workspace">
-            <svg cdsIcon="copy" size="16"></svg>
-            {{ isCloningPhase1 ? 'Cloning...' : 'Clone Default Resources' }}
-          </button>
-        </div>
-      </div>
-
       <!-- Embedded Generate Component -->
-      <app-generate 
-        [workspaceId]="activeWorkspace?.id" 
-        [selectedLLMId]="selectedGenerateLLMId">
+      <app-generate
+        [workspaceId]="activeWorkspace?.id"
+        [selectedLLMId]="selectedGenerateLLMId"
+        [generateLLMItems]="getGenerateLLMItems()"
+        [hasLLMConfigs]="hasLLMConfigs()"
+        [selectedLLMName]="getSelectedLLMName('generate')"
+        [isCloningResources]="isCloningPhase1"
+        [isDefaultWorkspace]="isDefaultWorkspace()"
+        (selectLLM)="onGenerateLLMSelect($event)"
+        (openLLMConfigRequest)="openLLMConfig()"
+        (cloneResourcesRequest)="clonePhaseResources('generate')">
       </app-generate>
     </div>
 
@@ -269,5 +184,8 @@
     </div>
 
   </div>
+  <!-- End workflow-content -->
 
-</div>
+  </div>
+  <!-- End page-content -->
+</app-page-wrapper>

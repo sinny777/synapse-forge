@@ -1,0 +1,23 @@
+<div class="page-header-wrapper">
+  <!-- Breadcrumbs -->
+  <div class="breadcrumb-section" *ngIf="breadcrumbs && breadcrumbs.length > 0">
+    <nav class="breadcrumb-nav">
+      <span *ngFor="let crumb of breadcrumbs; let last = last" class="breadcrumb-item">
+        <a *ngIf="crumb.route && !last" [href]="crumb.route" class="breadcrumb-link">{{ crumb.label }}</a>
+        <span *ngIf="!crumb.route || last" class="breadcrumb-current">{{ crumb.label }}</span>
+        <span *ngIf="!last" class="breadcrumb-separator">/</span>
+      </span>
+    </nav>
+  </div>
+
+  <!-- Page Title Section -->
+  <div class="page-title-section">
+    <div class="title-content">
+      <h1 class="page-title">{{ title }}</h1>
+      <p class="page-subtitle" *ngIf="subtitle">{{ subtitle }}</p>
+    </div>
+    <div class="title-actions">
+      <ng-content select="[actions]"></ng-content>
+    </div>
+  </div>
+</div>

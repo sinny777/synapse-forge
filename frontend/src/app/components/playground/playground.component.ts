@@ -21,6 +21,8 @@ import { PlatformApiService } from '../../services/platform-api.service';
 import {
   Workspace, Orchestration, PlaygroundMessage, TraceEvent,
 } from '../../models/platform.model';
+import { PageHeaderComponent } from '../shared/page-header/page-header.component';
+import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
 
 import Send16 from '@carbon/icons/es/send/16';
 import Renew16 from '@carbon/icons/es/renew/16';
@@ -35,6 +37,7 @@ import UserAvatar16 from '@carbon/icons/es/user--avatar/16';
     CommonModule, FormsModule,
     ButtonModule, NotificationModule, IconModule,
     TagModule, DropdownModule,
+    PageHeaderComponent, PageWrapperComponent,
   ],
   templateUrl: './playground.component.html',
   styleUrls: ['./playground.component.scss'],

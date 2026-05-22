@@ -43,24 +43,63 @@
   <!-- ═══════════════════════════════════════════════════════════════ -->
   <!-- Dataset Selector                                                -->
   <!-- ═══════════════════════════════════════════════════════════════ -->
-  <section class="config-section" style="margin-bottom: 0;">
-    <div class="config-section__header" style="cursor: default; background: var(--ibm-ui-01);">
-      <div class="config-section__header-left" style="flex: 1;">
-        <div style="display: flex; align-items: center; width: 100%; gap: 0.5rem;">
-          <div style="flex: 1; min-width: 300px; max-width: 500px;">
+  <section class="config-section phase-generate-toolbar">
+    <div class="config-section__body phase-generate-toolbar__body">
+      <div class="phase-generate-toolbar__row">
+        <div class="phase-generate-toolbar__fields">
+          <div class="phase-generate-toolbar__field" *ngIf="hasLLMConfigs; else missingLLMConfig">
+            <cds-dropdown
+              label="Select LLM Configuration"
+              placeholder="Choose a configured LLM..."
+              [appendInline]="true"
+              size="md"
+              (selected)="onGenerateLLMSelect($event)">
+              <cds-dropdown-list [items]="generateLLMItems"></cds-dropdown-list>
+            </cds-dropdown>
+            <cds-tag type="blue" size="sm" *ngIf="selectedLLMId">
+              Active: {{ selectedLLMName }}
+            </cds-tag>
+          </div>
+
+          <ng-template #missingLLMConfig>
+            <div class="missing-config-msg">
+              <svg cdsIcon="warning--alt--filled" size="20" class="warning-icon"></svg>
+              <span>No LLM configurations found. Please <a (click)="openLLMConfig()" class="config-link">configure LLM settings</a> in Settings.</span>
+            </div>
+          </ng-template>
+
+          <div class="phase-generate-toolbar__field phase-generate-toolbar__field--dataset">
             <cds-dropdown
               label="Select Synthetic Dataset"
               placeholder="Select a dataset"
               [appendInline]="true"
               size="md"
               [(ngModel)]="selectedDataset"
-              (selected)="onDatasetSelectFromDropdown($event)"
-              style="width: 100%;">
+              (selected)="onDatasetSelectFromDropdown($event)">
               <cds-dropdown-list [items]="datasetDropdownItems"></cds-dropdown-list>
             </cds-dropdown>
           </div>
-          <button cdsButton="danger--ghost" size="sm" (click)="deleteDataset(selectedDataset)" [disabled]="!selectedDataset" title="Delete Selected Dataset" style="margin-top: 1.5rem;">
+
+          <button
+            cdsButton="danger--ghost"
+            size="sm"
+            class="phase-generate-toolbar__delete"
+            (click)="deleteDataset(selectedDataset)"
+            [disabled]="!selectedDataset"
+            title="Delete Selected Dataset">
             <svg cdsIcon="trash-can" size="16"></svg>
+          </button>
+        </div>
+
+        <div class="phase-generate-toolbar__actions">
+          <button
+            cdsButton="tertiary"
+            size="sm"
+            (click)="cloneDefaultResources()"
+            [disabled]="isCloningResources || isDefaultWorkspace"
+            title="Clone default workspace tools and MCP servers into this workspace">
+            <svg cdsIcon="copy" size="16"></svg>
+            {{ isCloningResources ? 'Cloning...' : 'Clone Default Resources' }}
           </button>
         </div>
       </div>

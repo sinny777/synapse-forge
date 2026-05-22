@@ -1,11 +1,10 @@
-<div class="playground-container">
-  <!-- Header Bar -->
-  <div class="playground-header">
-    <div class="header-left">
-      <h2 class="page-title">Playground</h2>
-      <span class="page-subtitle" *ngIf="activeWorkspace">{{ activeWorkspace.name }}</span>
-    </div>
-    <div class="header-controls">
+<app-page-wrapper>
+  <!-- Page Header -->
+  <app-page-header
+    title="Playground"
+    [subtitle]="activeWorkspace ? activeWorkspace.name : undefined"
+    [breadcrumbs]="[{label: 'Resource list', route: '/'}, {label: 'Playground'}]">
+    <div actions>
       <!-- Orchestration Selector -->
       <div class="orch-selector">
         <label class="selector-label">Orchestration:</label>
@@ -25,10 +24,12 @@
         Clear
       </button>
     </div>
-  </div>
+  </app-page-header>
 
-  <!-- Notification -->
-  <div *ngIf="notification" class="notification-wrapper">
+  <!-- Page Content (Full Width for Chat Layout) -->
+  <div class="page-content-full">
+    <!-- Notification -->
+    <div *ngIf="notification" class="notification-wrapper">
     <cds-inline-notification [notificationObj]="{
         type: notification.type,
         title: notification.title,
@@ -144,4 +145,5 @@
       </ng-template>
     </div>
   </div>
-</div>
+  </div>
+</app-page-wrapper>

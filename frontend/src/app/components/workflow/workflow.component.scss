@@ -136,19 +136,36 @@
 
 // ─── Content Area ─────────────────────────────────────────────────
 .workflow-content {
+  width: 100%;
   padding-top: 0.5rem;
 
+  > div[hidden] {
+    display: none !important;
+  }
+
+  > div:not([hidden]) {
+    width: 100%;
+  }
+
   :host ::ng-deep {
+    .generate-page,
+    .train-page,
+    .run-page,
+    .vertical-tabs-container,
+    .config-section__body--tabs {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
 
     .generate-page,
     .train-page,
     .run-page {
-      max-width: 100%;
       padding-left: 0;
       padding-right: 0;
+      margin: 0;
     }
   }
-
 }
 
 // ─── Responsive ───────────────────────────────────────────────────
