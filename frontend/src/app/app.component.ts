@@ -1,13 +1,8 @@
 import { Component, ViewEncapsulation, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { WorkflowComponent } from './components/workflow/workflow.component';
-import { LLMConfigComponent } from './components/llm-config/llm-config.component';
-import { ToolRegistryComponent } from './components/tool-registry/tool-registry.component';
-import { AgentStudioComponent } from './components/agent-studio/agent-studio.component';
-import { OrchestratorBuilderComponent } from './components/orchestrator-builder/orchestrator-builder.component';
-import { PlaygroundComponent } from './components/playground/playground.component';
-import { LoginComponent } from './components/login/login.component';
+import { Router, RouterOutlet, NavigationEnd } from '@angular/router';
+import { filter } from 'rxjs/operators';
 import { AuthService } from './services/auth.service';
 import {
   UIShellModule,
@@ -62,13 +57,7 @@ import UserAvatar20 from '@carbon/icons/es/user--avatar/20';
   imports: [
     CommonModule,
     FormsModule,
-    WorkflowComponent,
-    LLMConfigComponent,
-    ToolRegistryComponent,
-    AgentStudioComponent,
-    OrchestratorBuilderComponent,
-    PlaygroundComponent,
-    LoginComponent,
+    RouterOutlet,
     UIShellModule,
     PlaceholderModule,
     ModalModule,
@@ -82,7 +71,7 @@ import UserAvatar20 from '@carbon/icons/es/user--avatar/20';
   encapsulation: ViewEncapsulation.None
 })
 export class AppComponent implements OnInit {
-  activePhase: 'workflow' | 'dashboard' | 'settings' | 'tools' | 'agents' | 'orchestrator' | 'playground' | 'login' | 'neural-router' = 'dashboard';
+  currentRoute = '';
   sidenavExpanded = false;
   isProfileMenuOpen = false;
   isDark = true;
@@ -164,6 +153,7 @@ export class AppComponent implements OnInit {
     protected iconService: IconService,
     public workspaceService: WorkspaceService,
     public authService: AuthService,
+    private router: Router
   ) {
     this.iconService.registerAll([
       Dashboard16,
@@ -208,9 +198,16 @@ export class AppComponent implements OnInit {
     this.isDark = savedTheme !== 'light';
     this.applyTheme();
     
+    // Track current route
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: any) => {
+      this.currentRoute = event.urlAfterRedirects;
+    });
+
     // Listen for navigation events from child components
     window.addEventListener('navigate-to-settings', () => {
-      this.setActivePhase('settings');
+      this.router.navigate(['/settings']);
     });
 
     // Load workspaces from backend
@@ -220,10 +217,8 @@ export class AppComponent implements OnInit {
 
     // Authentication check
     this.authService.checkAuth().subscribe(user => {
-      if (!user) {
-        this.setActivePhase('login');
-      } else if (this.activePhase === 'login') {
-        this.setActivePhase('dashboard');
+      if (!user && this.currentRoute !== '/login' && this.currentRoute !== '/') {
+        this.router.navigate(['/login']);
       }
     });
   }
@@ -243,12 +238,17 @@ export class AppComponent implements OnInit {
   logout(): void {
     this.authService.logout().subscribe(() => {
       this.isProfileMenuOpen = false;
-      this.setActivePhase('login');
+      this.router.navigate(['/login']);
     });
   }
 
-  setActivePhase(phase: typeof this.activePhase): void {
-    this.activePhase = phase;
+  navigateTo(route: string): void {
+    this.router.navigate([route]);
+    this.closeSidenav();
+  }
+
+  isActiveRoute(route: string): boolean {
+    return this.currentRoute === route || this.currentRoute.startsWith(route + '/');
   }
 
   toggleTheme(): void {
