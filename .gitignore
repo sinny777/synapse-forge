@@ -46,7 +46,7 @@ venv.bak/
 .env.*.local
 
 # Model files and data
-models/
+# models/
 *.pth
 *.pt
 *.ckpt
