@@ -258,15 +258,15 @@ export class AppComponent implements OnInit {
   }
 
   private applyTheme(): void {
-    if (this.isDark) {
-      document.body.classList.remove('cds--white');
-      document.body.classList.add('cds--g100');
-      document.documentElement.setAttribute('data-carbon-theme', 'g100');
-    } else {
-      document.body.classList.remove('cds--g100');
-      document.body.classList.add('cds--white');
-      document.documentElement.setAttribute('data-carbon-theme', 'white');
-    }
+    const html = document.documentElement;
+    const body = document.body;
+
+    html.classList.toggle('dark', this.isDark);
+    html.removeAttribute('data-carbon-theme');
+
+    body.classList.remove('cds--white', 'cds--g100');
+    body.classList.add('cds--g100');
+    body.setAttribute('data-carbon-theme', 'g100');
   }
 
   // ─── Workspace Management ──────────────────────────────────────

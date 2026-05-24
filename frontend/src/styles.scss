@@ -6,10 +6,14 @@
 @use '@carbon/styles';
 @import '@carbon/charts/styles.css';
 
+html[data-carbon-theme='white'],
+body[data-carbon-theme='white'],
 [data-carbon-theme='white'] {
   @include theme.theme(themes.$white);
 }
 
+html[data-carbon-theme='g100'],
+body[data-carbon-theme='g100'],
 [data-carbon-theme='g100'] {
   @include theme.theme(themes.$g100);
 }
@@ -18,8 +22,8 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
-  background-color: var(--cds-background, #161616);
-  color: var(--cds-text-primary, #f4f4f4);
+  background-color: var(--cds-background, #ffffff);
+  color: var(--cds-text-primary, #161616);
 }
 
 // Force hamburger to display if hidden by default

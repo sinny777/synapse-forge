@@ -100,25 +100,52 @@
     <div class="cards-grid metrics-grid">
       <div class="dashboard-card metric-card glass-card">
         <div class="metric-chart">
-          <p class="metric-value">94%</p>
+          <div class="metric-visual metric-visual--ring" aria-hidden="true">
+            <div class="metric-ring">
+              <div class="metric-ring__inner">94%</div>
+            </div>
+          </div>
         </div>
         <p class="metric-label">Context Reduction</p>
       </div>
       <div class="dashboard-card metric-card glass-card">
         <div class="metric-chart">
-          <p class="metric-value">3.7x</p>
+          <div class="metric-visual metric-visual--bars" aria-hidden="true">
+            <div class="metric-bars">
+              <span class="metric-bar metric-bar--legacy"></span>
+              <span class="metric-bar metric-bar--modern"></span>
+            </div>
+            <p class="metric-value">3.7x</p>
+          </div>
         </div>
         <p class="metric-label">Faster TTFT</p>
       </div>
       <div class="dashboard-card metric-card glass-card">
         <div class="metric-chart">
-          <p class="metric-value">90%</p>
+          <div class="metric-visual metric-visual--savings" aria-hidden="true">
+            <div class="metric-stack">
+              <span class="metric-stack__layer"></span>
+              <span class="metric-stack__layer"></span>
+              <span class="metric-stack__layer"></span>
+            </div>
+            <p class="metric-value">90%</p>
+          </div>
         </div>
         <p class="metric-label">Cost Savings</p>
       </div>
       <div class="dashboard-card metric-card glass-card">
         <div class="metric-chart">
-          <p class="metric-value">O(1)</p>
+          <div class="metric-visual metric-visual--trend" aria-hidden="true">
+            <svg class="metric-trend" viewBox="0 0 120 72" role="img" aria-label="Search latency trend">
+              <polyline points="8,58 34,40 58,28 84,20 112,16"></polyline>
+              <circle cx="8" cy="58" r="3"></circle>
+              <circle cx="34" cy="40" r="3"></circle>
+              <circle cx="58" cy="28" r="3"></circle>
+              <circle cx="84" cy="20" r="3"></circle>
+              <circle cx="112" cy="16" r="3"></circle>
+            </svg>
+            <p class="metric-value">O(1)</p>
+          </div>
         </div>
         <p class="metric-label">Search Latency</p>
       </div>

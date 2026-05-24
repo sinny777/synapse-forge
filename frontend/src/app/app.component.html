@@ -1,5 +1,5 @@
 <!-- Carbon UI Shell: Top Header -->
-<cds-header name="SynapseForge" [brand]="''" *ngIf="currentRoute !== '/login'">
+<cds-header name="SynapseForge" [brand]="''" *ngIf="currentRoute !== '/login'" data-carbon-theme="g100">
   <cds-hamburger [active]="sidenavExpanded" (selected)="toggleSidenav()"></cds-hamburger>
 
   <!-- Navigation area -->
@@ -42,9 +42,14 @@
     </cds-header-action>
 
     <!-- Theme Toggle -->
-    <cds-header-action [title]="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'" (click)="toggleTheme()">
+    <button
+      type="button"
+      class="cds--header__action app-theme-toggle"
+      [attr.aria-label]="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
+      [title]="isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'"
+      (click)="toggleTheme()">
       <span style="font-size: 1rem; padding: 0 8px;">{{ isDark ? '☀️' : '🌙' }}</span>
-    </cds-header-action>
+    </button>
   </cds-header-global>
 </cds-header>
 
@@ -52,7 +57,7 @@
 
 
 <!-- IBM Carbon Sidenav -->
-<cds-sidenav [expanded]="sidenavExpanded" [rail]="true" *ngIf="currentRoute !== '/login'">
+<cds-sidenav [expanded]="sidenavExpanded" [rail]="true" *ngIf="currentRoute !== '/login'" data-carbon-theme="g100">
 
   <cds-sidenav-item (click)="navigateTo('/')" [active]="currentRoute === '/'">
     <svg icon cdsIcon="dashboard" size="16"></svg>
@@ -136,7 +141,7 @@
 <div *ngIf="sidenavExpanded" class="sidenav-overlay" (click)="closeSidenav()"></div>
 
 <!-- Main Content Area -->
-<div class="cds--content" style="height: 100vh; overflow-y: auto;">
+<div class="cds--content" [ngClass]="isDark ? 'cds--g100' : 'cds--white'" style="height: 100vh; overflow-y: auto;">
   <!-- Notifications area -->
   <div class="notifications-container" style="position: fixed; top: 3rem; right: 1rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem;">
     <cds-inline-notification
