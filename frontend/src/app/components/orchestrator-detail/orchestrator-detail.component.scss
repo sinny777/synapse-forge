@@ -1,0 +1,420 @@
+.page-content {
+  max-width: 100%;
+  margin: 0;
+  padding: 2rem 3rem;
+}
+
+.notification-area {
+  margin-bottom: 1.5rem;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  gap: 1rem;
+  color: var(--cds-text-secondary);
+}
+
+.orchestrator-config {
+  background: var(--cds-layer-01);
+  border-radius: 4px;
+  padding: 1.5rem;
+}
+
+.tab-content {
+  padding: 1.5rem 0;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+  }
+
+  .required {
+    color: var(--cds-support-error);
+    margin-left: 0.25rem;
+  }
+
+  .helper-text {
+    margin-top: 0.5rem;
+    font-size: 0.875rem;
+    color: var(--cds-text-secondary);
+  }
+
+  .full-width {
+    width: 100%;
+  }
+}
+
+.framework-badge {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--cds-layer-01);
+  border-radius: 4px;
+
+  .helper-text {
+    margin: 0;
+  }
+}
+
+// Workflow Type Section
+.workflow-type-section {
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .section-description {
+    color: var(--cds-text-secondary);
+    margin-bottom: 1.5rem;
+  }
+}
+
+.workflow-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.workflow-card {
+  padding: 1.5rem;
+  border: 2px solid var(--cds-border-subtle);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: var(--cds-layer-01);
+
+  &:hover {
+    border-color: var(--cds-border-interactive);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  &.selected {
+    border-color: var(--cds-interactive);
+    background: var(--cds-layer-accent);
+    box-shadow: 0 0 0 2px var(--cds-focus);
+  }
+
+  .workflow-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+
+    .workflow-icon {
+      font-size: 1.5rem;
+    }
+
+    strong {
+      font-size: 1.125rem;
+      color: var(--cds-text-primary);
+    }
+  }
+
+  .workflow-description {
+    color: var(--cds-text-secondary);
+    margin-bottom: 1rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .workflow-features {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .workflow-usecases {
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--cds-border-subtle);
+
+    small {
+      color: var(--cds-text-secondary);
+      font-size: 0.8125rem;
+      line-height: 1.4;
+    }
+  }
+}
+
+// Capabilities Section
+.capabilities-section {
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .section-description {
+    color: var(--cds-text-secondary);
+    margin-bottom: 1.5rem;
+  }
+}
+
+.capability-card {
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  background: var(--cds-layer-01);
+  border: 1px solid var(--cds-border-subtle);
+  border-radius: 8px;
+
+  .capability-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .capability-description {
+    color: var(--cds-text-secondary);
+    margin: 0 0 1rem 0;
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+
+  .capability-config {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--cds-border-subtle);
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+    }
+
+    select {
+      width: 100%;
+      max-width: 400px;
+    }
+  }
+}
+
+// Agents Section
+.agents-section {
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .section-description {
+    color: var(--cds-text-secondary);
+    margin-bottom: 1.5rem;
+  }
+}
+
+.agent-selection {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+  }
+}
+
+.available-agents {
+  .agent-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .agent-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--cds-layer-01);
+    border: 2px solid var(--cds-border-subtle);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+
+    &:hover {
+      border-color: var(--cds-border-interactive);
+    }
+
+    &.selected {
+      border-color: var(--cds-interactive);
+      background: var(--cds-layer-accent);
+    }
+
+    .agent-info {
+      flex: 1;
+
+      strong {
+        display: block;
+        margin-bottom: 0.25rem;
+        color: var(--cds-text-primary);
+      }
+
+      .agent-description {
+        margin: 0;
+        font-size: 0.875rem;
+        color: var(--cds-text-secondary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+}
+
+.selected-agents {
+  .selected-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 1rem;
+    background: var(--cds-layer-01);
+    border: 1px solid var(--cds-border-subtle);
+    border-radius: 8px;
+    min-height: 100px;
+
+    .empty-state {
+      width: 100%;
+      text-align: center;
+      color: var(--cds-text-secondary);
+      font-size: 0.875rem;
+      margin: 2rem 0;
+    }
+  }
+}
+
+// Visual Builder Section
+.visual-builder-section {
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .section-description {
+    color: var(--cds-text-secondary);
+    margin-bottom: 1.5rem;
+  }
+}
+
+.builder-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  background: var(--cds-layer-01);
+  border: 2px dashed var(--cds-border-subtle);
+  border-radius: 8px;
+
+  .placeholder-content {
+    text-align: center;
+    max-width: 400px;
+    padding: 2rem;
+
+    svg {
+      color: var(--cds-icon-secondary);
+      margin-bottom: 1rem;
+    }
+
+    h4 {
+      font-size: 1.125rem;
+      font-weight: 600;
+      margin: 0 0 0.5rem 0;
+      color: var(--cds-text-primary);
+    }
+
+    p {
+      color: var(--cds-text-secondary);
+      margin: 0;
+      line-height: 1.5;
+    }
+  }
+}
+
+// Configuration Section
+.config-section {
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem 0;
+  }
+
+  .section-description {
+    color: var(--cds-text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .code-textarea {
+    font-family: 'IBM Plex Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 0.875rem;
+    width: 100%;
+  }
+}
+
+.config-examples {
+  margin-top: 2rem;
+
+  h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 0 0 1rem 0;
+  }
+
+  .example-card {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: var(--cds-layer-01);
+    border: 1px solid var(--cds-border-subtle);
+    border-radius: 8px;
+
+    strong {
+      display: block;
+      margin-bottom: 0.5rem;
+      color: var(--cds-text-primary);
+    }
+
+    pre {
+      margin: 0;
+      padding: 0.75rem;
+      background: var(--cds-layer-02);
+      border-radius: 4px;
+      overflow-x: auto;
+
+      code {
+        font-family: 'IBM Plex Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+        font-size: 0.8125rem;
+        color: var(--cds-text-primary);
+      }
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .page-content {
+    padding: 1rem;
+  }
+
+  .workflow-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .agent-selection {
+    grid-template-columns: 1fr;
+  }
+}
+
+// Made with Bob

@@ -49,13 +49,14 @@
     <div *ngFor="let orch of orchestrations" class="orch-card">
       <div class="orch-card__header">
         <div class="orch-card__icon">
-          <span class="fw-emoji">{{ getFrameworkIcon(orch.framework) }}</span>
+          <span class="fw-emoji">{{ getWorkflowTypeIcon(orch.workflow_type || 'sequential') }}</span>
         </div>
         <div class="orch-card__info">
           <h4 class="orch-card__name">{{ orch.name }}</h4>
           <div class="orch-card__tags">
-            <cds-tag type="purple" size="sm">{{ getFrameworkLabel(orch.framework) }}</cds-tag>
-            <cds-tag type="cyan" size="sm">{{ getArchLabel(orch.architecture_type) }}</cds-tag>
+            <cds-tag type="cyan" size="sm">{{ getWorkflowTypeLabel(orch.workflow_type || 'sequential') }}</cds-tag>
+            <cds-tag *ngIf="orch.enable_checkpointing" type="green" size="sm">Checkpointing</cds-tag>
+            <cds-tag *ngIf="orch.requires_approval" type="purple" size="sm">Approval Required</cds-tag>
           </div>
         </div>
         <div class="orch-card__actions">
@@ -84,70 +85,4 @@
     <p>Loading orchestrations...</p>
   </div>
 </div>
-
-<!-- Create/Edit Modal -->
-<cds-modal [open]="showModal" (overlaySelected)="closeModal()" size="lg">
-  <cds-modal-header (closeSelect)="closeModal()">
-    <p cdsModalHeaderLabel>Orchestration Configuration</p>
-    <h3 cdsModalHeaderHeading>{{ editingOrch ? 'Edit Orchestration' : 'New Orchestration' }}</h3>
-  </cds-modal-header>
-
-  <section cdsModalContent>
-    <div class="modal-form">
-      <!-- Name -->
-      <div class="cds--form-item">
-        <cds-label>Orchestration Name <span class="required">*</span></cds-label>
-        <input cdsText [(ngModel)]="formData.name" placeholder="e.g. UHNW Banking Flow" />
-      </div>
-
-      <!-- Framework Selector -->
-      <div class="cds--form-item">
-        <cds-label>Framework</cds-label>
-        <div class="framework-selector">
-          <div *ngFor="let fw of frameworks"
-               class="fw-option"
-               [class.selected]="formData.framework === fw.value"
-               (click)="formData.framework = fw.value">
-            <span class="fw-option__icon">{{ fw.icon }}</span>
-            <div class="fw-option__content">
-              <strong>{{ fw.label }}</strong>
-              <small>{{ fw.description }}</small>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Architecture Selector -->
-      <div class="cds--form-item">
-        <cds-label>Architecture Pattern</cds-label>
-        <div class="arch-selector">
-          <div *ngFor="let arch of architectures"
-               class="arch-option"
-               [class.selected]="formData.architecture_type === arch.value"
-               (click)="formData.architecture_type = arch.value">
-            <strong>{{ arch.label }}</strong>
-            <small>{{ arch.description }}</small>
-          </div>
-        </div>
-      </div>
-
-      <!-- Config JSON -->
-      <div class="cds--form-item">
-        <cds-label>Config (JSONB)</cds-label>
-        <textarea cdsTextArea class="code-textarea" rows="8" [(ngModel)]="configJson"
-          placeholder='{"supervisor_agent_id": "...", "worker_agents": [...]}'></textarea>
-        <p class="config-hint" *ngIf="agents.length > 0">
-          Available agents: {{ agents.length }} ({{ getAgentNames() }})
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <cds-modal-footer>
-    <button cdsButton="secondary" (click)="closeModal()">Cancel</button>
-    <button cdsButton="primary" (click)="saveOrchestration()" [disabled]="!formData.name">
-      {{ editingOrch ? 'Update' : 'Create Orchestration' }}
-    </button>
-  </cds-modal-footer>
-</cds-modal>
 </app-page-wrapper>

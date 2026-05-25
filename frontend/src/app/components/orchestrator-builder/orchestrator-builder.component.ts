@@ -8,6 +8,7 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import {
   ButtonModule, NotificationModule, IconModule,
   TagModule, ModalModule, InputModule, DropdownModule,
@@ -61,18 +62,71 @@ export class OrchestratorBuilderComponent implements OnInit, OnDestroy {
   };
   configJson = '{}';
 
-  // Framework/Architecture options
-  frameworks: { label: string; value: FrameworkType; icon: string; description: string }[] = [
-    { label: 'LangGraph', value: 'LANGGRAPH', icon: '🔗', description: 'Stateful graph-based orchestration with checkpointing' },
-    { label: 'CrewAI', value: 'CREWAI', icon: '👥', description: 'Role-based agent crews with delegation' },
-    { label: 'AutoGen', value: 'AUTOGEN', icon: '🤖', description: 'Microsoft AutoGen multi-agent conversations' },
+  // Removed framework selection - backend always uses LangGraph
+  // Users select capabilities, not frameworks
+
+  // Workflow types - capability-based, framework-agnostic
+  workflowTypes = [
+    {
+      id: 'sequential',
+      name: 'Sequential',
+      description: 'Execute agents one after another in order',
+      icon: '➡️',
+      features: ['Error handling', 'Output chaining', 'Progress tracking'],
+      useCases: ['Data processing pipelines', 'Step-by-step analysis']
+    },
+    {
+      id: 'parallel',
+      name: 'Parallel',
+      description: 'Run multiple agents at the same time',
+      icon: '⚡',
+      features: ['Concurrent execution', 'Result aggregation', 'Timeout handling'],
+      useCases: ['Parallel research', 'Multi-source data gathering']
+    },
+    {
+      id: 'conditional',
+      name: 'Conditional',
+      description: 'Route to different agents based on conditions',
+      icon: '🔀',
+      features: ['Dynamic routing', 'Multiple branches', 'Fallback paths'],
+      useCases: ['Decision trees', 'Adaptive workflows']
+    },
+    {
+      id: 'hitl',
+      name: 'Human-in-the-Loop',
+      description: 'Require human approval at key stages',
+      icon: '👤',
+      features: ['Approval gates', 'Notifications', 'Timeout escalation'],
+      useCases: ['Compliance workflows', 'Quality control']
+    },
+    {
+      id: 'long_running',
+      name: 'Long-Running',
+      description: 'Workflows that can pause and resume',
+      icon: '⏱️',
+      features: ['Checkpointing', 'Resume capability', 'Progress tracking'],
+      useCases: ['Multi-day processes', 'Scheduled tasks']
+    },
+    {
+      id: 'event_driven',
+      name: 'Event-Driven',
+      description: 'React to events and triggers',
+      icon: '📡',
+      features: ['Event subscriptions', 'Async execution', 'Event replay'],
+      useCases: ['Real-time monitoring', 'Reactive systems']
+    },
   ];
 
-  architectures: { label: string; value: ArchitectureType; description: string }[] = [
-    { label: 'ReAct', value: 'REACT', description: 'Reasoning + Acting loop — single agent with tool use' },
-    { label: 'Supervisor', value: 'SUPERVISOR', description: 'Central supervisor delegates to worker agents' },
-    { label: 'Planner', value: 'PLANNER', description: 'Plan-then-execute with dynamic task decomposition' },
-  ];
+  // Capability toggles (replaces framework/architecture selection)
+  capabilities = {
+    enableCheckpointing: true,
+    enableApprovalGates: false,
+    enableParallelExecution: false,
+    enableConditionalRouting: false,
+    checkpointBackend: 'redis' as 'redis' | 'postgres',
+  };
+
+  selectedWorkflowType: string | null = null;
 
   activeWorkspace: Workspace | null = null;
   private subs: Subscription[] = [];
@@ -81,6 +135,7 @@ export class OrchestratorBuilderComponent implements OnInit, OnDestroy {
     private workspaceService: WorkspaceService,
     private platformApi: PlatformApiService,
     private iconService: IconService,
+    private router: Router,
   ) {
     this.iconService.registerAll([
       Add16, TrashCan16, Edit16, Renew16, FlowData16, Play16,
@@ -128,33 +183,18 @@ export class OrchestratorBuilderComponent implements OnInit, OnDestroy {
     });
   }
 
-  // ─── Modal ─────────────────────────────────────────────────────
+  // ─── Navigation ────────────────────────────────────────────────
 
   openCreateModal(): void {
-    this.editingOrch = null;
-    this.formData = {
-      name: '',
-      framework: 'LANGGRAPH',
-      architecture_type: 'REACT',
-      config: {},
-    };
-    this.configJson = '{}';
-    this.showModal = true;
+    this.router.navigate(['/orchestrator', 'new']);
   }
 
   openEditModal(orch: Orchestration): void {
-    this.editingOrch = orch;
-    this.formData = {
-      name: orch.name,
-      framework: orch.framework,
-      architecture_type: orch.architecture_type,
-      config: orch.config || {},
-    };
-    this.configJson = JSON.stringify(orch.config || {}, null, 2);
-    this.showModal = true;
+    this.router.navigate(['/orchestrator', orch.id]);
   }
 
   closeModal(): void {
+    // No longer needed - kept for compatibility
     this.showModal = false;
     this.editingOrch = null;
   }
@@ -162,6 +202,7 @@ export class OrchestratorBuilderComponent implements OnInit, OnDestroy {
   // ─── Save ──────────────────────────────────────────────────────
 
   saveOrchestration(): void {
+    // No longer needed - saving is handled in orchestrator-detail component
     if (!this.activeWorkspace) return;
 
     try {
@@ -215,20 +256,12 @@ export class OrchestratorBuilderComponent implements OnInit, OnDestroy {
     });
   }
 
-  getFrameworkLabel(value: string): string {
-    return this.frameworks.find((f) => f.value === value)?.label || value;
+  getWorkflowTypeLabel(type: string): string {
+    return this.workflowTypes.find((wf) => wf.id === type)?.name || type;
   }
 
-  getArchLabel(value: string): string {
-    return this.architectures.find((a) => a.value === value)?.label || value;
-  }
-
-  getFrameworkIcon(value: string): string {
-    return this.frameworks.find((f) => f.value === value)?.icon || '🔗';
-  }
-
-  getArchDescription(): string {
-    return this.architectures.find((a) => a.value === this.formData.architecture_type)?.description || '';
+  getWorkflowTypeIcon(type: string): string {
+    return this.workflowTypes.find((wf) => wf.id === type)?.icon || '🔗';
   }
 
   getAgentNames(): string {

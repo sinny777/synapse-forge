@@ -1,0 +1,316 @@
+<app-page-wrapper>
+  <!-- Page Header -->
+  <app-page-header
+    [title]="isEditMode ? 'Edit Orchestrator' : 'Create Orchestrator'"
+    [subtitle]="activeWorkspace ? 'Configuring workflow for ' + activeWorkspace.name : 'Configure workflow orchestration with agents, tools, and execution patterns'"
+    [breadcrumbs]="[{label: 'Resource list', route: '/'}, {label: 'Orchestrator Builder', route: '/orchestrator'}, {label: isEditMode ? 'Edit' : 'Create'}]">
+    <div actions>
+      <button cdsButton="ghost" size="sm" (click)="cancel()">
+        Cancel
+      </button>
+      <button cdsButton="primary" size="sm" (click)="saveOrchestrator()" [disabled]="!orchestration.name || saving">
+        <svg cdsIcon="save" size="16" class="cds--btn__icon"></svg>
+        {{ saving ? 'Saving...' : (isEditMode ? 'Update' : 'Create') }}
+      </button>
+    </div>
+  </app-page-header>
+
+  <!-- Page Content -->
+  <div class="page-content">
+    <!-- Orchestrator Configuration Form -->
+    <div class="orchestrator-config">
+      <cds-tabs [followFocus]="true" (selected)="onTabChange($event)">
+      <cds-tab heading="Basic Info">
+        <div class="tab-content">
+          <!-- Orchestrator Name -->
+          <div class="form-group">
+            <label cdsLabel>
+              Orchestrator Name
+              <span class="required">*</span>
+            </label>
+            <input
+              cdsText
+              [(ngModel)]="orchestration.name"
+              placeholder="e.g., Customer Support Workflow"
+              class="full-width"
+            />
+            <p class="helper-text">A descriptive name for this orchestration workflow</p>
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label cdsLabel>Description</label>
+            <textarea
+              cdsTextArea
+              [(ngModel)]="orchestration.config!['description']"
+              placeholder="Describe the purpose and flow of this orchestration..."
+              rows="3"
+              class="full-width"
+            ></textarea>
+          </div>
+
+          <!-- Framework (Read-only, always LangGraph) -->
+          <div class="form-group">
+            <label cdsLabel>Backend Framework</label>
+            <div class="framework-badge">
+              <cds-tag type="blue" size="md">
+                🔷 LangGraph (Phase 1)
+              </cds-tag>
+              <p class="helper-text">
+                All orchestrations use LangGraph in Phase 1. Future phases will support additional frameworks.
+              </p>
+            </div>
+          </div>
+        </div>
+      </cds-tab>
+
+      <cds-tab heading="Workflow Type">
+        <div class="tab-content">
+          <div class="workflow-type-section">
+            <h3>Select Workflow Pattern</h3>
+            <p class="section-description">
+              Choose the execution pattern that best fits your use case. Each pattern provides different capabilities for agent coordination.
+            </p>
+
+            <div class="workflow-grid">
+              <div
+                *ngFor="let wf of workflowTypes"
+                class="workflow-card"
+                [class.selected]="selectedWorkflowType === wf.id"
+                (click)="selectWorkflowType(wf.id)"
+              >
+                <div class="workflow-header">
+                  <span class="workflow-icon">{{ wf.icon }}</span>
+                  <strong>{{ wf.name }}</strong>
+                </div>
+                <p class="workflow-description">{{ wf.description }}</p>
+                <div class="workflow-features">
+                  <cds-tag *ngFor="let feature of wf.features" type="cool-gray" size="sm">
+                    {{ feature }}
+                  </cds-tag>
+                </div>
+                <div class="workflow-usecases" *ngIf="wf.useCases">
+                  <small><strong>Use cases:</strong> {{ wf.useCases.join(', ') }}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </cds-tab>
+
+      <cds-tab heading="Capabilities">
+        <div class="tab-content">
+          <div class="capabilities-section">
+            <h3>Workflow Capabilities</h3>
+            <p class="section-description">
+              Enable advanced features for your workflow. These capabilities are framework-agnostic and will be implemented using LangGraph.
+            </p>
+
+            <!-- Checkpointing -->
+            <div class="capability-card">
+              <div class="capability-header">
+                <cds-toggle [(ngModel)]="capabilities.enableCheckpointing">
+                  Enable Checkpointing
+                </cds-toggle>
+              </div>
+              <p class="capability-description">
+                Save workflow state at each step for recovery and debugging. Essential for long-running workflows.
+              </p>
+              <div class="capability-config" *ngIf="capabilities.enableCheckpointing">
+                <label cdsLabel>Checkpoint Storage Backend</label>
+                <select class="cds--select-input" [(ngModel)]="capabilities.checkpointBackend">
+                  <option value="redis">Redis (Fast, in-memory)</option>
+                  <option value="postgres">PostgreSQL (Persistent, durable)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Human Approval -->
+            <div class="capability-card">
+              <div class="capability-header">
+                <cds-toggle [(ngModel)]="capabilities.enableApprovalGates">
+                  Require Human Approval
+                </cds-toggle>
+              </div>
+              <p class="capability-description">
+                Pause workflow for human review at critical decision points. Ideal for sensitive operations.
+              </p>
+            </div>
+
+            <!-- Parallel Execution -->
+            <div class="capability-card" *ngIf="selectedWorkflowType === 'parallel'">
+              <div class="capability-header">
+                <cds-toggle [(ngModel)]="capabilities.enableParallelExecution" [disabled]="true">
+                  Parallel Execution
+                </cds-toggle>
+                <cds-tag type="green" size="sm">Auto-enabled</cds-tag>
+              </div>
+              <p class="capability-description">
+                Execute multiple agents simultaneously. Automatically enabled for parallel workflows.
+              </p>
+            </div>
+
+            <!-- Conditional Routing -->
+            <div class="capability-card" *ngIf="selectedWorkflowType === 'conditional'">
+              <div class="capability-header">
+                <cds-toggle [(ngModel)]="capabilities.enableConditionalRouting" [disabled]="true">
+                  Conditional Routing
+                </cds-toggle>
+                <cds-tag type="green" size="sm">Auto-enabled</cds-tag>
+              </div>
+              <p class="capability-description">
+                Route execution based on conditions. Automatically enabled for conditional workflows.
+              </p>
+            </div>
+
+            <!-- Event-Driven -->
+            <div class="capability-card" *ngIf="selectedWorkflowType === 'event_driven'">
+              <div class="capability-header">
+                <cds-toggle [(ngModel)]="capabilities.enableEventDriven" [disabled]="true">
+                  Event-Driven Processing
+                </cds-toggle>
+                <cds-tag type="green" size="sm">Auto-enabled</cds-tag>
+              </div>
+              <p class="capability-description">
+                React to external events in real-time. Automatically enabled for event-driven workflows.
+              </p>
+            </div>
+
+            <!-- Long-Running -->
+            <div class="capability-card" *ngIf="selectedWorkflowType === 'long_running'">
+              <div class="capability-header">
+                <cds-toggle [(ngModel)]="capabilities.enableLongRunning" [disabled]="true">
+                  Long-Running Support
+                </cds-toggle>
+                <cds-tag type="green" size="sm">Auto-enabled</cds-tag>
+              </div>
+              <p class="capability-description">
+                Handle workflows spanning hours or days. Automatically enabled for long-running workflows.
+              </p>
+            </div>
+          </div>
+        </div>
+      </cds-tab>
+
+      <cds-tab heading="Agents">
+        <div class="tab-content">
+          <div class="agents-section">
+            <h3>Select Agents</h3>
+            <p class="section-description">
+              Choose the agents that will participate in this orchestration workflow.
+            </p>
+
+            <div class="agent-selection">
+              <div class="available-agents">
+                <h4>Available Agents ({{ agents.length }})</h4>
+                <div class="agent-list">
+                  <div
+                    *ngFor="let agent of agents"
+                    class="agent-item"
+                    [class.selected]="selectedAgents.includes(agent.id)"
+                    (click)="toggleAgentSelection(agent.id)"
+                  >
+                    <div class="agent-info">
+                      <strong>{{ agent.name }}</strong>
+                      <p class="agent-description">{{ agent.system_prompt || 'No description' }}</p>
+                    </div>
+                    <cds-tag *ngIf="selectedAgents.includes(agent.id)" type="blue" size="sm">
+                      Selected
+                    </cds-tag>
+                  </div>
+                </div>
+              </div>
+
+              <div class="selected-agents">
+                <h4>Selected Agents ({{ selectedAgents.length }})</h4>
+                <div class="selected-list">
+                  <cds-tag
+                    *ngFor="let agentId of selectedAgents"
+                    type="blue"
+                    size="md"
+                    [title]="getAgentName(agentId)"
+                  >
+                    {{ getAgentName(agentId) }}
+                  </cds-tag>
+                  <p *ngIf="selectedAgents.length === 0" class="empty-state">
+                    No agents selected yet
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </cds-tab>
+
+      <cds-tab heading="Visual Builder">
+        <div class="tab-content">
+          <div class="visual-builder-section">
+            <h3>Visual Workflow Builder</h3>
+            <p class="section-description">
+              Design your workflow visually by connecting agents and defining execution paths.
+            </p>
+
+            <div class="builder-placeholder">
+              <div class="placeholder-content">
+                <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+                  <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+                  <line x1="12" y1="22.08" x2="12" y2="12"></line>
+                </svg>
+                <h4>Visual Builder Coming Soon</h4>
+                <p>
+                  Drag-and-drop workflow designer will be available in the next release.
+                  For now, configure your workflow using the tabs above.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </cds-tab>
+
+      <cds-tab heading="Configuration">
+        <div class="tab-content">
+          <div class="config-section">
+            <h3>Advanced Configuration</h3>
+            <p class="section-description">
+              Provide additional configuration in JSON format. This will be merged with capability settings.
+            </p>
+
+            <div class="form-group">
+              <label cdsLabel>Configuration (JSON)</label>
+              <textarea
+                cdsTextArea
+                [(ngModel)]="configJson"
+                placeholder='{"supervisor_agent_id": "...", "worker_agents": [...]}'
+                rows="12"
+                class="code-textarea"
+              ></textarea>
+              <p class="helper-text">
+                <strong>Available agents:</strong> {{ getAgentNames() || 'None' }}
+              </p>
+            </div>
+
+            <div class="config-examples">
+              <h4>Configuration Examples</h4>
+              <div class="example-card">
+                <strong>Sequential Workflow:</strong>
+                <pre><code>{{ '{' }}
+  "agents": ["agent-1", "agent-2", "agent-3"],
+  "error_handling": "continue"
+{{ '}' }}</code></pre>
+              </div>
+              <div class="example-card">
+                <strong>Supervisor Pattern:</strong>
+                <pre><code>{{ '{' }}
+  "supervisor_agent_id": "supervisor-agent-id",
+  "worker_agents": ["worker-1", "worker-2"]
+{{ '}' }}</code></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+      </cds-tab>
+      </cds-tabs>
+    </div>
+  </div>
+</app-page-wrapper>

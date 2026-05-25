@@ -253,6 +253,127 @@
     font-size: 0.6875rem;
     line-height: 1.3;
   }
+.arch-icon {
+  font-size: 1.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.arch-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+// ─── Workflow Type Grid ──────────────────────────────────────────
+.workflow-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.workflow-card {
+  background: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 6px;
+  padding: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--cds-layer-hover, rgba(255, 255, 255, 0.04));
+    border-color: var(--cds-border-strong, rgba(255, 255, 255, 0.16));
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  &.selected {
+    background: rgba(0, 157, 224, 0.1);
+    border-color: rgba(0, 157, 224, 0.5);
+    box-shadow: 0 0 0 2px rgba(0, 157, 224, 0.2);
+  }
+}
+
+.workflow-card__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+
+  strong {
+    font-size: 1rem;
+    color: var(--cds-text-primary, #f4f4f4);
+  }
+}
+
+.workflow-icon {
+  font-size: 1.5rem;
+}
+
+.workflow-description {
+  font-size: 0.875rem;
+  color: var(--cds-text-secondary, #a8a8a8);
+  margin: 0 0 0.75rem 0;
+  line-height: 1.4;
+}
+
+
+// ─── Capability Configuration ────────────────────────────────────
+.helper-text {
+  font-size: 0.875rem;
+  color: var(--cds-text-secondary, #a8a8a8);
+  margin: 0.25rem 0 1rem 0;
+}
+
+.capabilities-section {
+  background: var(--cds-layer, #262626);
+  border: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.08));
+  border-radius: 4px;
+  padding: 1rem;
+  margin-top: 0.5rem;
+}
+
+.capability-toggle {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.06));
+
+  &:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  small {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--cds-text-helper, #6f6f6f);
+  }
+
+  .cds--select-input {
+    margin-top: 0.5rem;
+  }
+}
+
+.workflow-usecases {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--cds-border-subtle, rgba(255, 255, 255, 0.06));
+
+  small {
+    font-size: 0.75rem;
+    color: var(--cds-text-helper, #6f6f6f);
+    font-style: italic;
+  }
+}
+
+.workflow-features {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
 }
 
 .config-hint {

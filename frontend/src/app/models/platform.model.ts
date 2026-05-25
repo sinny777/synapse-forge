@@ -146,7 +146,10 @@ export interface Orchestration {
   name: string;
   framework: FrameworkType;
   architecture_type: ArchitectureType;
+  workflow_type?: string; // sequential, parallel, conditional, hitl, long_running, event_driven
   config?: Record<string, any>;
+  enable_checkpointing?: boolean;
+  requires_approval?: boolean;
   created_at: string;
   updated_at: string;
 }

@@ -45,8 +45,18 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'agents/:id',
+    loadComponent: () => import('./components/agent-detail/agent-detail.component').then(m => m.AgentDetailComponent),
+    canActivate: [authGuard]
+  },
+  {
     path: 'orchestrator',
     component: OrchestratorBuilderComponent,
+    canActivate: [authGuard]
+  },
+  {
+    path: 'orchestrator/:id',
+    loadComponent: () => import('./components/orchestrator-detail/orchestrator-detail.component').then(m => m.OrchestratorDetailComponent),
     canActivate: [authGuard]
   },
   {
