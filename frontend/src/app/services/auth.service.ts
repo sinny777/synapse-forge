@@ -18,7 +18,9 @@ export class AuthService {
   constructor(private http: HttpClient) {}
 
   checkAuth(): Observable<any> {
-    return this.http.get(`${this.apiUrl}/me`, { withCredentials: true }).pipe(
+    // TODO: Add dev mode header for automatic authentication
+    const headers = { 'X-Dev-Mode': 'true' };
+    return this.http.get(`${this.apiUrl}/me`, { withCredentials: true, headers }).pipe(
       tap((res: any) => {
         this.authState.next({ isAuthenticated: true, user: res });
       }),

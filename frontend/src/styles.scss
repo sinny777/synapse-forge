@@ -214,3 +214,32 @@ cds-toggletip {
 .cds--search-input {
   padding-left: 2.5rem !important;
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// ─── Remove Tab Focus Outline ─────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════
+// Remove the border highlight when clicking on tab content
+.cds--tabs__nav-item,
+.cds--tabs__nav-link,
+.cds--tab--list button,
+.cds--tabs-vertical__nav-item,
+.cds--tabs-vertical__nav-link {
+  outline: none !important;
+  
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}
+
+// Also remove focus outline from tab content panels
+.cds--tab-content,
+.cds--tabs__panel {
+  outline: none !important;
+  
+  &:focus,
+  &:focus-visible {
+    outline: none !important;
+  }
+}

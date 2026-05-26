@@ -10,7 +10,8 @@
 :host ::ng-deep {
   .page-content {
     flex: 1;
-    padding: 1.5rem 1.5rem 1.5rem 1.25rem; // 20px left padding (1.25rem)
+    // padding: 1.5rem 1.5rem 1.5rem 1.25rem; // 20px left padding (1.25rem)
+    padding: 1.5rem;
     max-width: 100%;
     overflow-x: hidden;
   }

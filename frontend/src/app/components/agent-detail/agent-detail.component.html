@@ -8,9 +8,13 @@
       <button cdsButton="ghost" size="sm" (click)="cancel()">
         Cancel
       </button>
-      <button cdsButton="ghost" size="sm" (click)="testAgent()" [disabled]="!formData.name">
-        <svg cdsIcon="play" size="16" class="cds--btn__icon"></svg>
-        Test
+      <button cdsButton="ghost" size="sm" (click)="discoverAgents()" [disabled]="!formData.name">
+        <svg cdsIcon="template" size="16"></svg>
+        Discover
+      </button>
+      <button cdsButton="ghost" size="sm" (click)="toggleA2AImport()">
+        <svg cdsIcon="upload" size="16" class="cds--btn__icon"></svg>
+        Import
       </button>
       <button *ngIf="isEditMode" cdsButton="ghost" size="sm" (click)="cloneAgent()">
         <svg cdsIcon="copy" size="16" class="cds--btn__icon"></svg>
@@ -53,23 +57,6 @@
         <!-- Basic Information Tab -->
         <cds-tab heading="Basic Info">
           <div class="tab-content">
-            <!-- Template Selection -->
-            <div class="section">
-              <h4 class="section-title">
-                <svg cdsIcon="template" size="16"></svg>
-                Start from Template
-              </h4>
-              <div class="template-grid">
-                <div *ngFor="let template of templates" 
-                     class="template-card"
-                     (click)="applyTemplate(template)">
-                  <div class="template-icon">{{ template.icon }}</div>
-                  <h5>{{ template.name }}</h5>
-                  <p>{{ template.description }}</p>
-                </div>
-              </div>
-            </div>
-
             <!-- Basic Fields -->
             <div class="section">
               <div class="cds--form-item">
@@ -80,13 +67,13 @@
 
               <div class="cds--form-item">
                 <cds-label>Description</cds-label>
-                <textarea cdsTextArea rows="2" [(ngModel)]="description"
+                <textarea cdsTextArea rows="5" cols="170" [(ngModel)]="description"
                   placeholder="Brief description of what this agent does..."></textarea>
               </div>
             </div>
 
             <!-- A2A Import -->
-            <div class="section">
+            <!-- <div class="section">
               <button cdsButton="ghost" size="sm" (click)="toggleA2AImport()">
                 <svg cdsIcon="upload" size="16" class="cds--btn__icon"></svg>
                 Import from A2A Protocol
@@ -100,7 +87,7 @@
                 </div>
                 <button cdsButton="primary" size="sm" (click)="importA2A()">Import</button>
               </div>
-            </div>
+            </div> -->
           </div>
         </cds-tab>
 
@@ -111,7 +98,7 @@
               <h4 class="section-title">System Prompt Engineering</h4>
               <div class="cds--form-item">
                 <cds-label>System Prompt</cds-label>
-                <textarea cdsTextArea rows="12" [(ngModel)]="formData.system_prompt"
+                <textarea cdsTextArea rows="8" cols="170" [(ngModel)]="formData.system_prompt"
                   placeholder="You are a helpful AI assistant..."></textarea>
                 <div class="cds--form__helper-text">
                   Define the agent's role, behavior, and capabilities. Use clear instructions and examples.

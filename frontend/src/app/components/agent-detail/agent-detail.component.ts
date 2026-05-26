@@ -87,38 +87,6 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   tools: Tool[] = [];
   selectedToolIds: Set<string> = new Set();
 
-  // Templates
-  templates = [
-    {
-      id: 'research',
-      name: 'Research Assistant',
-      description: 'Conducts web research and synthesizes information',
-      systemPrompt: 'You are a research assistant specialized in finding and synthesizing information from multiple sources. Always cite your sources and provide comprehensive answers.',
-      icon: '🔍',
-    },
-    {
-      id: 'rag',
-      name: 'RAG Agent',
-      description: 'Retrieval-Augmented Generation for document Q&A',
-      systemPrompt: 'You are a RAG agent that answers questions based on retrieved documents. Always ground your answers in the provided context and indicate when information is not available.',
-      icon: '📚',
-    },
-    {
-      id: 'coding',
-      name: 'Coding Assistant',
-      description: 'Helps with code generation and debugging',
-      systemPrompt: 'You are an expert coding assistant. Provide clean, well-documented code with explanations. Follow best practices and consider edge cases.',
-      icon: '💻',
-    },
-    {
-      id: 'customer_service',
-      name: 'Customer Service',
-      description: 'Handles customer inquiries professionally',
-      systemPrompt: 'You are a professional customer service agent. Be empathetic, clear, and solution-oriented. Always maintain a friendly and helpful tone.',
-      icon: '🎧',
-    },
-  ];
-
   // LLM Configuration
   llmProviders = [
     { content: 'OpenAI', id: 'openai' },
@@ -211,20 +179,6 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
       next: (tools) => this.tools = tools,
       error: () => {},
     });
-  }
-
-  // ─── Template Selection ────────────────────────────────────────
-
-  applyTemplate(template: any): void {
-    this.formData.system_prompt = template.systemPrompt;
-    if (!this.formData.name) {
-      this.formData.name = template.name;
-    }
-    this.notification = {
-      type: 'success',
-      title: 'Template Applied',
-      message: `${template.name} template has been applied.`,
-    };
   }
 
   // ─── Tool Management ───────────────────────────────────────────
@@ -355,11 +309,11 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  testAgent(): void {
+  discoverAgents(): void {
     this.notification = {
       type: 'info',
-      title: 'Test Agent',
-      message: 'Agent testing functionality coming soon.',
+      title: 'Discover Agents',
+      message: 'Discover Agents functionality coming soon.',
     };
   }
 
