@@ -21,11 +21,79 @@
 .agent-config {
   background: var(--cds-layer-01);
   border-radius: 4px;
-  padding: 1.5rem;
+  overflow: hidden;
+}
+
+// ─── Vertical Tabs Layout ────────────────────────────────────────
+.vertical-tabs-container {
+  display: flex;
+  min-height: 600px;
+}
+
+.vertical-tabs {
+  display: flex;
+  flex-direction: column;
+  width: 220px;
+  background: var(--cds-layer-02);
+  border-right: 1px solid var(--cds-border-subtle);
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.vertical-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1.5rem;
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--cds-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  width: 100%;
+
+  svg {
+    fill: var(--cds-icon-secondary);
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background: var(--cds-layer-hover);
+    color: var(--cds-text-primary);
+
+    svg {
+      fill: var(--cds-icon-primary);
+    }
+  }
+
+  &.active {
+    background: var(--cds-layer-selected);
+    border-left-color: var(--cds-interactive-01);
+    color: var(--cds-text-primary);
+    font-weight: 600;
+
+    svg {
+      fill: var(--cds-interactive-01);
+    }
+  }
+
+  span {
+    flex: 1;
+  }
+}
+
+.tab-content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
 }
 
 .tab-content {
-  padding: 1.5rem 0;
+  max-width: 900px;
 }
 
 .section {
@@ -47,6 +115,10 @@
 
   svg {
     fill: var(--cds-icon-primary);
+  }
+
+  cds-toggletip {
+    margin-left: 0.5rem;
   }
 }
 
@@ -94,7 +166,12 @@
 
 // Form Elements
 .cds--form-item {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.bottom-padding{
+  padding-bottom: 0;
+  margin-bottom: 0;
 }
 
 .form-row {
@@ -113,7 +190,7 @@
 
 .cds--form__helper-text {
   margin-top: 0.25rem;
-  font-size: 0.875rem;
+  // font-size: 0.875rem;
   color: var(--cds-text-secondary);
 }
 
@@ -171,6 +248,20 @@
 
 .toggle-row {
   margin-bottom: 1rem;
+}
+
+.toggle-label-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+
+  .cds--label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+    margin-bottom: 0;
+  }
 }
 
 .router-config {
@@ -277,15 +368,15 @@
 
 // Prompt Tips
 .prompt-tips {
-  margin-top: 1rem;
-  padding: 1rem;
-  background: var(--cds-layer-accent);
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  background: var(--cds-layer-02);
   border-left: 4px solid var(--cds-interactive-01);
   border-radius: 4px;
 
   h5 {
-    margin: 0 0 0.5rem 0;
-    font-size: 1rem;
+    margin: 0 0 0.75rem 0;
+    font-size: 0.875rem;
     font-weight: 600;
     color: var(--cds-text-primary);
   }
@@ -298,6 +389,7 @@
       margin-bottom: 0.5rem;
       font-size: 0.875rem;
       color: var(--cds-text-secondary);
+      line-height: 1.5;
 
       &:last-child {
         margin-bottom: 0;
@@ -359,6 +451,43 @@
 }
 
 // Responsive
+@media (max-width: 992px) {
+  .vertical-tabs-container {
+    flex-direction: column;
+  }
+
+  .vertical-tabs {
+    width: 100%;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: none;
+    border-bottom: 1px solid var(--cds-border-subtle);
+    padding: 0;
+  }
+
+  .vertical-tab {
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    border-left: none;
+    border-bottom: 3px solid transparent;
+    white-space: nowrap;
+
+    &.active {
+      border-left-color: transparent;
+      border-bottom-color: var(--cds-interactive-01);
+    }
+
+    span {
+      font-size: 0.75rem;
+    }
+  }
+
+  .tab-content-area {
+    padding: 1.5rem;
+  }
+}
+
 @media (max-width: 768px) {
   .page-content {
     padding: 1rem;
@@ -370,6 +499,10 @@
 
   .template-grid {
     grid-template-columns: 1fr;
+  }
+
+  .tab-content-area {
+    padding: 1rem;
   }
 }
 

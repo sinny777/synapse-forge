@@ -1,7 +1,7 @@
 <app-page-wrapper>
   <!-- Page Header -->
   <app-page-header
-    [title]="isEditMode ? 'Edit Agent' : 'Create Agent'"
+    [title]="getPageTitle()"
     [subtitle]="activeWorkspace ? 'Configuring agent for ' + activeWorkspace.name : undefined"
     [breadcrumbs]="[{label: 'Resource list', route: '/'}, {label: 'Agent Studio', route: '/agents'}, {label: isEditMode ? 'Edit' : 'Create'}]">
     <div actions>
@@ -53,117 +53,85 @@
 
     <!-- Agent Configuration Form -->
     <div *ngIf="!loading" class="agent-config">
-      <cds-tabs>
-        <!-- Basic Information Tab -->
-        <cds-tab heading="Basic Info">
-          <div class="tab-content">
-            <!-- Basic Fields -->
+      <div class="vertical-tabs-container">
+        <div class="vertical-tabs">
+          <button
+            *ngFor="let tab of tabs; let i = index"
+            class="vertical-tab"
+            [class.active]="activeTabIndex === i"
+            (click)="activeTabIndex = i">
+            <svg cdsIcon="{{ tab.icon }}" size="16"></svg>
+            <span>{{ tab.label }}</span>
+          </button>
+        </div>
+
+        <div class="tab-content-area">
+          <!-- Basic Info Tab -->
+          <div *ngIf="activeTabIndex === 0" class="tab-content">
             <div class="section">
-              <div class="cds--form-item">
-                <cds-label>Agent Name <span class="required">*</span></cds-label>
-                <input cdsText [(ngModel)]="formData.name" placeholder="e.g. Banking Assistant" />
-                <div class="cds--form__helper-text">A descriptive name for your agent</div>
-              </div>
-
-              <div class="cds--form-item">
-                <cds-label>Description</cds-label>
-                <textarea cdsTextArea rows="5" cols="170" [(ngModel)]="description"
-                  placeholder="Brief description of what this agent does..."></textarea>
-              </div>
-            </div>
-
-            <!-- A2A Import -->
-            <!-- <div class="section">
-              <button cdsButton="ghost" size="sm" (click)="toggleA2AImport()">
-                <svg cdsIcon="upload" size="16" class="cds--btn__icon"></svg>
-                Import from A2A Protocol
-              </button>
-
-              <div *ngIf="showA2AImport" class="a2a-import">
-                <div class="cds--form-item">
-                  <cds-label>A2A JSON Specification</cds-label>
-                  <textarea cdsTextArea rows="8" [(ngModel)]="a2aJson"
-                    placeholder='{"name": "Agent Name", "system_prompt": "...", ...}'></textarea>
-                </div>
-                <button cdsButton="primary" size="sm" (click)="importA2A()">Import</button>
-              </div>
-            </div> -->
-          </div>
-        </cds-tab>
-
-        <!-- System Prompt Tab -->
-        <cds-tab heading="System Prompt">
-          <div class="tab-content">
-            <div class="section">
-              <h4 class="section-title">System Prompt Engineering</h4>
-              <div class="cds--form-item">
-                <cds-label>System Prompt</cds-label>
-                <textarea cdsTextArea rows="8" cols="170" [(ngModel)]="formData.system_prompt"
-                  placeholder="You are a helpful AI assistant..."></textarea>
-                <div class="cds--form__helper-text">
-                  Define the agent's role, behavior, and capabilities. Use clear instructions and examples.
-                </div>
-              </div>
-
-              <div class="prompt-tips">
-                <h5>💡 Best Practices</h5>
-                <ul>
-                  <li>Be specific about the agent's role and expertise</li>
-                  <li>Include examples of desired behavior</li>
-                  <li>Set clear boundaries and limitations</li>
-                  <li>Use variables like {{"{{workspace_name}}"}} for dynamic content</li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </cds-tab>
-
-        <!-- LLM Configuration Tab -->
-        <cds-tab heading="LLM Config">
-          <div class="tab-content">
-            <div class="section">
-              <h4 class="section-title">Language Model Configuration</h4>
+              <h4 class="section-title">
+                Agent Profile
+                <cds-toggletip align="bottom">
+                  <button cdsToggletipButton ariaLabel="Best Practices">
+                    <svg cdsIcon="help" size="16"></svg>
+                  </button>
+                  <p cdsToggletipContent>
+                    <strong>💡 Best Practices:</strong><br>
+                    • Be specific about the agent's role and expertise<br>
+                    • Include examples of desired behavior<br>
+                    • Set clear boundaries and limitations<br>
+                    • Use variables like {{"{{workspace_name}}"}} for dynamic content
+                  </p>
+                </cds-toggletip>
+              </h4>
               
-              <div class="form-row">
-                <div class="cds--form-item form-half">
-                  <cds-label>LLM Provider</cds-label>
-                  <select class="cds--select-input" [(ngModel)]="formData.llm_provider" 
-                          (change)="onProviderChange({item: {id: formData.llm_provider}})">
-                    <option *ngFor="let p of llmProviders" [value]="p.id">{{ p.content }}</option>
-                  </select>
-                </div>
-                <div class="cds--form-item form-half">
-                  <cds-label>LLM Model</cds-label>
-                  <select class="cds--select-input" [(ngModel)]="formData.llm_model">
-                    <option *ngFor="let m of getAvailableModels()" [value]="m">{{ m }}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div class="cost-estimate">
-                <cds-tag type="green" size="sm">Estimated Cost: {{ estimateCost() }}</cds-tag>
+              <div class="cds--form-item">
+                <cds-label>
+                  Agent Name <span class="required">*</span>
+                  <input cdsText [(ngModel)]="formData.name" placeholder="e.g. Banking Assistant" />
+                </cds-label>
+                <p class="cds--form__helper-text">A descriptive name for your agent</p>
               </div>
 
               <div class="cds--form-item">
-                <cds-label>Temperature ({{ temperature }})</cds-label>
-                <input type="range" min="0" max="2" step="0.1" [(ngModel)]="temperature" class="temperature-slider" />
-                <div class="cds--form__helper-text">
-                  Lower values (0.0-0.3) for focused responses, higher values (0.7-2.0) for creative responses
-                </div>
+                <cds-label>
+                  Description
+                  <textarea cdsTextArea rows="5" cols="120" [(ngModel)]="formData.description"
+                    placeholder="Brief description of what this agent does..."></textarea>
+                </cds-label>
+                <p class="cds--form__helper-text">Describe your agent, including its purpose, tools, and agents, to help other agents and users know when to use it.</p>
               </div>
 
               <div class="cds--form-item">
-                <cds-label>Max Tokens (Optional)</cds-label>
-                <input cdsText type="number" [(ngModel)]="maxTokens" placeholder="e.g. 2000" />
-                <div class="cds--form__helper-text">Maximum tokens in the response. Leave empty for model default.</div>
+                <cds-dropdown
+                  label="LLM Configuration *"
+                  placeholder="Select an LLM configuration"
+                  [appendInline]="true"
+                  size="md"
+                  (selected)="onLLMConfigSelect($event)">
+                  <cds-dropdown-list [items]="llmConfigDropdownItems"></cds-dropdown-list>
+                </cds-dropdown>
+                <p class="cds--form__helper-text">
+                  Select a pre-configured LLM from Settings.
+                  <a href="/settings" target="_blank">Configure LLMs</a>
+                </p>
+              </div>
+
+              <div class="cds--form-item">
+                <cds-label>
+                  System Prompt
+                  <textarea cdsTextArea rows="5" cols="120" [(ngModel)]="formData.system_prompt"
+                    placeholder="You are a helpful AI assistant..."></textarea>                  
+                </cds-label>
+                <p class="cds--form__helper-text">
+                  Define the agent's role, behavior, and capabilities. Use clear instructions and examples.
+                </p>
               </div>
             </div>
           </div>
-        </cds-tab>
 
-        <!-- Tools Tab -->
-        <cds-tab heading="Tools">
-          <div class="tab-content">
+          <!-- Tools Tab -->
+          <div *ngIf="activeTabIndex === 1" class="tab-content">
             <div class="section">
               <h4 class="section-title">
                 <svg cdsIcon="link" size="16"></svg>
@@ -173,15 +141,38 @@
               <!-- Neural Router Toggle -->
               <div class="neural-router-section">
                 <div class="toggle-row">
-                  <cds-toggle [(ngModel)]="useNeuralRouter">
-                    Use NeuralToolRouter (Semantic Tool Selection)
-                  </cds-toggle>
+                  <div class="toggle-label-wrapper">
+                    <label class="cds--label">Enable NeuralToolRouter AI Model</label>
+                    <cds-toggle
+                      [(ngModel)]="formData.use_neural_router"
+                      [disabled]="availableRouterModels.length === 0">
+                      Use trained AI model for semantic tool selection
+                    </cds-toggle>
+                  </div>
+                  <p class="cds--form__helper-text" *ngIf="availableRouterModels.length === 0">
+                    No fine-tuned models available.
+                    <a href="/train" target="_blank">Train a new model</a> in the Neural Tool Router page to enable this feature.
+                  </p>
                 </div>
 
-                <div *ngIf="useNeuralRouter" class="router-config">
+                <div *ngIf="formData.use_neural_router" class="router-config">
                   <div class="cds--form-item">
-                    <cds-label>Top-K Tools ({{ routerTopK }})</cds-label>
-                    <input type="range" min="1" max="20" step="1" [(ngModel)]="routerTopK" class="slider" />
+                    <cds-dropdown
+                      label="Fine-tuned Model *"
+                      placeholder="Select a fine-tuned model"
+                      [appendInline]="true"
+                      size="md"
+                      (selected)="onRouterModelSelect($event)">
+                      <cds-dropdown-list [items]="routerModelDropdownItems"></cds-dropdown-list>
+                    </cds-dropdown>
+                    <p class="cds--form__helper-text">
+                      Select a trained model for semantic tool routing
+                    </p>
+                  </div>
+
+                  <div class="cds--form-item">
+                    <cds-label>Top-K Tools ({{ formData.router_top_k }})</cds-label>
+                    <input type="range" min="1" max="20" step="1" [(ngModel)]="formData.router_top_k" class="slider" />
                     <div class="cds--form__helper-text">
                       Number of most relevant tools to inject into LLM context
                     </div>
@@ -195,7 +186,7 @@
               </div>
 
               <!-- Manual Tool Selection -->
-              <div *ngIf="!useNeuralRouter" class="manual-tools">
+              <div *ngIf="!formData.use_neural_router" class="manual-tools">
                 <cds-label>Select Tools ({{ selectedToolIds.size }} selected)</cds-label>
                 <div class="tool-selector" *ngIf="tools.length > 0; else noToolsMsg">
                   <div *ngFor="let tool of tools"
@@ -218,29 +209,87 @@
               </div>
             </div>
           </div>
-        </cds-tab>
 
-        <!-- Memory & Behavior Tab -->
-        <cds-tab heading="Memory & Behavior">
-          <div class="tab-content">
+          <!-- Collaborators Tab -->
+          <div *ngIf="activeTabIndex === 2" class="tab-content">
+            <div class="section">
+                <h4 class="section-title">
+                  <svg cdsIcon="bot" size="16"></svg>
+                  Collaborators
+                </h4>
+                <p class="cds--form__helper-text">
+                  Add sub-agents or collaborators that this agent can delegate to or work with.
+                </p>
+
+                <div class="cds--form-item">
+                  <cds-label>
+                    Search Available Agents
+                    <input
+                      cdsText
+                      [(ngModel)]="collaboratorSearchTerm"
+                      placeholder="Search by agent name or description" />
+                  </cds-label>
+                </div>
+
+                <div class="manual-tools">
+                  <cds-label>Selected Collaborators ({{ selectedCollaboratorIds.size }})</cds-label>
+
+                  <div *ngIf="selectedCollaborators.length > 0" class="selected-tools">
+                    <cds-tag
+                      *ngFor="let collaborator of selectedCollaborators"
+                      type="blue"
+                      size="md"
+                      [title]="collaborator.description || collaborator.name"
+                      (click)="toggleCollaborator(collaborator.id)">
+                      {{ collaborator.name }}
+                    </cds-tag>
+                  </div>
+
+                  <div class="tool-selector" *ngIf="filteredCollaborators.length > 0; else noCollaboratorsMsg">
+                    <div *ngFor="let collaborator of filteredCollaborators"
+                         class="tool-option"
+                         [class.selected]="isCollaboratorSelected(collaborator.id)"
+                         (click)="toggleCollaborator(collaborator.id)">
+                      <span class="tool-option__check">{{ isCollaboratorSelected(collaborator.id) ? '✓' : '' }}</span>
+                      <div class="tool-option__info">
+                        <span class="tool-option__name">{{ collaborator.name }}</span>
+                        <span class="tool-option__desc">{{ collaborator.description || collaborator.system_prompt || 'No description available' }}</span>
+                      </div>
+                      <cds-tag [type]="isCollaboratorSelected(collaborator.id) ? 'blue' : 'gray'" size="sm">
+                        {{ isCollaboratorSelected(collaborator.id) ? 'Selected' : 'Available' }}
+                      </cds-tag>
+                    </div>
+                  </div>
+
+                  <ng-template #noCollaboratorsMsg>
+                    <p class="no-tools-hint">No other agents are available in this workspace yet.</p>
+                  </ng-template>
+                </div>
+            </div>
+          </div>
+
+          <!-- Memory & Behavior Tab -->
+          <div *ngIf="activeTabIndex === 3" class="tab-content">
             <div class="section">
               <h4 class="section-title">Memory Configuration</h4>
               
               <div class="cds--form-item">
-                <cds-label>Memory Type</cds-label>
-                <select class="cds--select-input" [(ngModel)]="memoryType">
-                  <option value="buffer">Buffer (Recent messages)</option>
-                  <option value="summary">Summary (Condensed history)</option>
-                  <option value="vector">Vector (Semantic search)</option>
-                </select>
-                <div class="cds--form__helper-text">
+                <cds-dropdown
+                  label="Memory Type"
+                  placeholder="Select memory type"
+                  [appendInline]="true"
+                  size="md"
+                  (selected)="onMemoryTypeSelect($event)">
+                  <cds-dropdown-list [items]="memoryTypeDropdownItems"></cds-dropdown-list>
+                </cds-dropdown>
+                <p class="cds--form__helper-text">
                   How the agent maintains conversation context
-                </div>
+                </p>
               </div>
 
               <div class="cds--form-item">
                 <cds-label>Memory Window</cds-label>
-                <input cdsText type="number" [(ngModel)]="memoryWindow" placeholder="10" />
+                <input cdsText type="number" [(ngModel)]="formData.memory_window" placeholder="10" />
                 <div class="cds--form__helper-text">Number of recent messages to retain</div>
               </div>
             </div>
@@ -250,24 +299,22 @@
               
               <div class="cds--form-item">
                 <cds-label>Max Iterations</cds-label>
-                <input cdsText type="number" [(ngModel)]="maxIterations" placeholder="10" />
+                <input cdsText type="number" [(ngModel)]="formData.max_iterations" placeholder="10" />
                 <div class="cds--form__helper-text">Maximum reasoning loops before stopping</div>
               </div>
 
               <div class="cds--form-item">
                 <cds-label>Timeout (seconds)</cds-label>
-                <input cdsText type="number" [(ngModel)]="timeoutSeconds" placeholder="300" />
+                <input cdsText type="number" [(ngModel)]="formData.timeout_seconds" placeholder="300" />
                 <div class="cds--form__helper-text">Maximum execution time</div>
               </div>
             </div>
           </div>
-        </cds-tab>
 
-        <!-- Testing Tab -->
-        <cds-tab heading="Testing">
-          <div class="tab-content">
+          <!-- Test Agent Tab -->
+          <div *ngIf="activeTabIndex === 4" class="tab-content">
             <div class="section">
-              <h4 class="section-title">Test Your Agent</h4>
+              <h4 class="section-title">Test Agent</h4>
               <p>Test your agent configuration with sample inputs before deploying.</p>
               
               <div class="test-section">
@@ -287,8 +334,8 @@
               </div>
             </div>
           </div>
-        </cds-tab>
-      </cds-tabs>
+        </div>
+      </div>
 
       <!-- Danger Zone -->
       <div *ngIf="isEditMode" class="danger-zone">

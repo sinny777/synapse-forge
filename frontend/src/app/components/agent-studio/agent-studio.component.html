@@ -54,8 +54,8 @@
         <div class="agent-card__info">
           <h4 class="agent-card__name">{{ agent.name }}</h4>
           <div class="agent-card__llm">
-            <cds-tag type="teal" size="sm">{{ agent.llm_provider || 'N/A' }}</cds-tag>
-            <span class="model-name">{{ agent.llm_model || 'N/A' }}</span>
+            <cds-tag type="teal" size="sm">{{ agent.llm_config_id ? 'LLM Configured' : 'No LLM' }}</cds-tag>
+            <span class="model-name">{{ agent.use_neural_router ? '🧠 Neural Router' : 'Manual Tools' }}</span>
           </div>
         </div>
         <div class="agent-card__actions">
@@ -69,7 +69,7 @@
         </div>
       </div>
 
-      <p class="agent-card__prompt">{{ agent.system_prompt || 'No system prompt' }}</p>
+      <p class="agent-card__prompt">{{ agent.description || agent.system_prompt || 'No agent description available' }}</p>
 
       <div class="agent-card__tools" *ngIf="agent.attached_tool_ids?.length">
         <span class="tools-label">

@@ -107,32 +107,65 @@ export interface ToolUpdate {
 
 // ========================== AGENT ==========================================
 
+export interface CollaboratorAgent {
+  id: string;
+  workspace_id: string;
+  name: string;
+  description?: string;
+  system_prompt?: string;
+}
+
 export interface Agent {
   id: string;
   workspace_id: string;
   name: string;
+  description?: string;
   system_prompt?: string;
-  llm_provider?: string;
-  llm_model?: string;
+  llm_config_id?: string;
+  use_neural_router: boolean;
+  router_model_id?: string;
+  router_top_k?: number;
+  memory_type?: string;
+  memory_window?: number;
+  max_iterations?: number;
+  timeout_seconds?: number;
   attached_tool_ids?: string[];
+  collaborator_agent_ids?: string[];
+  collaborators?: CollaboratorAgent[];
   created_at: string;
   updated_at: string;
 }
 
 export interface AgentCreate {
   name: string;
+  description?: string;
   system_prompt?: string;
-  llm_provider?: string;
-  llm_model?: string;
+  llm_config_id?: string;
+  use_neural_router?: boolean;
+  router_model_id?: string;
+  router_top_k?: number;
+  memory_type?: string;
+  memory_window?: number;
+  max_iterations?: number;
+  timeout_seconds?: number;
   attached_tool_ids?: string[];
+  collaborator_agent_ids?: string[];
 }
 
 export interface AgentUpdate {
   name?: string;
+  description?: string;
   system_prompt?: string;
-  llm_provider?: string;
-  llm_model?: string;
+  llm_config_id?: string;
+  use_neural_router?: boolean;
+  router_model_id?: string;
+  router_top_k?: number;
+  memory_type?: string;
+  memory_window?: number;
+  max_iterations?: number;
+  timeout_seconds?: number;
   attached_tool_ids?: string[];
+  collaborator_agent_ids?: string[];
 }
 
 // ========================== ORCHESTRATION ==================================

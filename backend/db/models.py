@@ -271,18 +271,34 @@ class Agent(Base, AuditMixin):
         UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
-    llm_provider: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    llm_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    attached_tool_ids: Mapped[list[str] | None] = mapped_column(
+    llm_config_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("llm_configs.id", ondelete="SET NULL"), nullable=True
+    )
+    use_neural_router: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="false"
+    )
+    router_model_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    router_top_k: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    memory_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    memory_window: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    max_iterations: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attached_tool_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), nullable=True
+    )
+    collaborator_agent_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
         ARRAY(UUID(as_uuid=True)), nullable=True
     )
 
     # Relationships
     workspace = relationship("Workspace", back_populates="agents")
+    llm_config = relationship("LLMConfig")
 
     __table_args__ = (
         Index("ix_agents_workspace_id", "workspace_id"),
+        Index("ix_agents_llm_config_id", "llm_config_id"),
     )
 
     def __repr__(self) -> str:

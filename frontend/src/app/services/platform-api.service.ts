@@ -211,6 +211,14 @@ export class PlatformApiService {
     );
   }
 
+  // ========================== NEURAL TOOL ROUTER MODELS ====================
+
+  listRouterModels(workspaceId: string): Observable<any> {
+    return this.http.get<any>(
+      `${API_BASE}/models?workspace_id=${workspaceId}`
+    );
+  }
+
   // ========================== PLAYGROUND EXECUTE ===========================
 
   /**

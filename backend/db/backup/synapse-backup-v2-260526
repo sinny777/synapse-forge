@@ -1,0 +1,690 @@
+--
+-- PostgreSQL database dump
+--
+
+\restrict BA4HUUxjh5BparoQGQUNeSb1tmsqX5HjcJI3M2kzf46hoo3WXKWcASKYceeBJnF
+
+-- Dumped from database version 16.13 (Debian 16.13-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3
+
+-- Started on 2026-05-26 17:38:37 IST
+
+SET statement_timeout = 0;
+SET lock_timeout = 0;
+SET idle_in_transaction_session_timeout = 0;
+SET transaction_timeout = 0;
+SET client_encoding = 'UTF8';
+SET standard_conforming_strings = on;
+SELECT pg_catalog.set_config('search_path', '', false);
+SET check_function_bodies = false;
+SET xmloption = content;
+SET client_min_messages = warning;
+SET row_security = off;
+
+--
+-- TOC entry 3 (class 3079 OID 32022)
+-- Name: uuid-ossp; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA public;
+
+
+--
+-- TOC entry 3759 (class 0 OID 0)
+-- Dependencies: 3
+-- Name: EXTENSION "uuid-ossp"; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION "uuid-ossp" IS 'generate universally unique identifiers (UUIDs)';
+
+
+--
+-- TOC entry 2 (class 3079 OID 31694)
+-- Name: vector; Type: EXTENSION; Schema: -; Owner: -
+--
+
+CREATE EXTENSION IF NOT EXISTS vector WITH SCHEMA public;
+
+
+--
+-- TOC entry 3760 (class 0 OID 0)
+-- Dependencies: 2
+-- Name: EXTENSION vector; Type: COMMENT; Schema: -; Owner: -
+--
+
+COMMENT ON EXTENSION vector IS 'vector data type and ivfflat and hnsw access methods';
+
+
+--
+-- TOC entry 996 (class 1247 OID 43042)
+-- Name: architecture_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.architecture_type AS ENUM (
+    'REACT',
+    'SUPERVISOR',
+    'PLANNER'
+);
+
+
+--
+-- TOC entry 999 (class 1247 OID 43050)
+-- Name: llm_provider_enum; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.llm_provider_enum AS ENUM (
+    'OLLAMA',
+    'OPENAI',
+    'ANTHROPIC',
+    'GOOGLE',
+    'IBM_WATSONX',
+    'GROQ',
+    'AZURE',
+    'COHERE',
+    'BEDROCK',
+    'VERTEX_AI'
+);
+
+
+--
+-- TOC entry 990 (class 1247 OID 43026)
+-- Name: mcp_server_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.mcp_server_status AS ENUM (
+    'ACTIVE',
+    'DISABLED',
+    'ERROR'
+);
+
+
+--
+-- TOC entry 987 (class 1247 OID 43020)
+-- Name: mcp_transport_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.mcp_transport_type AS ENUM (
+    'STDIO',
+    'SSE'
+);
+
+
+--
+-- TOC entry 993 (class 1247 OID 43034)
+-- Name: orchestration_framework; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.orchestration_framework AS ENUM (
+    'LANGGRAPH',
+    'CREWAI',
+    'AUTOGEN'
+);
+
+
+--
+-- TOC entry 984 (class 1247 OID 43012)
+-- Name: tool_type; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.tool_type AS ENUM (
+    'REST',
+    'MCP_SERVER',
+    'MCP_TOOL'
+);
+
+
+--
+-- TOC entry 981 (class 1247 OID 43004)
+-- Name: workspace_status; Type: TYPE; Schema: public; Owner: -
+--
+
+CREATE TYPE public.workspace_status AS ENUM (
+    'STOPPED',
+    'RUNNING',
+    'FAILED'
+);
+
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- TOC entry 223 (class 1259 OID 43148)
+-- Name: agents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.agents (
+    id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    system_prompt text,
+    llm_config_id uuid,
+    use_neural_router boolean DEFAULT false NOT NULL,
+    router_top_k integer,
+    memory_type character varying(50),
+    memory_window integer,
+    max_iterations integer,
+    timeout_seconds integer,
+    attached_tool_ids uuid[],
+    collaborator_agent_ids uuid[],
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    created_by character varying(255),
+    updated_by character varying(255)
+);
+
+
+--
+-- TOC entry 217 (class 1259 OID 33114)
+-- Name: alembic_version; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.alembic_version (
+    version_num character varying(32) NOT NULL
+);
+
+
+--
+-- TOC entry 221 (class 1259 OID 43118)
+-- Name: llm_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.llm_configs (
+    id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    name character varying(255) NOT NULL,
+    provider public.llm_provider_enum NOT NULL,
+    model_name character varying(255) NOT NULL,
+    credentials jsonb,
+    temperature double precision DEFAULT '0.7'::double precision NOT NULL,
+    max_tokens integer DEFAULT 2048 NOT NULL,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    created_by character varying(255),
+    updated_by character varying(255)
+);
+
+
+--
+-- TOC entry 220 (class 1259 OID 43105)
+-- Name: orchestrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.orchestrations (
+    id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    name character varying(255) NOT NULL,
+    framework public.orchestration_framework NOT NULL,
+    architecture_type public.architecture_type NOT NULL,
+    config jsonb,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    created_by character varying(255),
+    updated_by character varying(255)
+);
+
+
+--
+-- TOC entry 222 (class 1259 OID 43133)
+-- Name: pipeline_artifacts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.pipeline_artifacts (
+    id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    phase character varying(50) NOT NULL,
+    artifact_type character varying(100) NOT NULL,
+    name character varying(255) NOT NULL,
+    cos_bucket character varying(255) NOT NULL,
+    cos_key character varying(1024) NOT NULL,
+    cos_endpoint character varying(500) NOT NULL,
+    url text,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    created_by character varying(255),
+    updated_by character varying(255)
+);
+
+
+--
+-- TOC entry 219 (class 1259 OID 43084)
+-- Name: tools; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.tools (
+    id uuid NOT NULL,
+    workspace_id uuid NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    type public.tool_type NOT NULL,
+    is_enabled boolean NOT NULL,
+    connection_config jsonb,
+    schema jsonb,
+    transport public.mcp_transport_type,
+    command character varying(500),
+    args character varying[],
+    env jsonb,
+    url character varying(500),
+    status public.mcp_server_status NOT NULL,
+    last_error text,
+    parent_id uuid,
+    embedding public.vector,
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    created_by character varying(255),
+    updated_by character varying(255)
+);
+
+
+--
+-- TOC entry 218 (class 1259 OID 43071)
+-- Name: workspaces; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.workspaces (
+    id uuid NOT NULL,
+    name character varying(255) NOT NULL,
+    description text,
+    embedding_model character varying(255) DEFAULT 'sentence-transformers/all-MiniLM-L6-v2'::character varying NOT NULL,
+    embedding_dim integer DEFAULT 384 NOT NULL,
+    is_default boolean DEFAULT false NOT NULL,
+    status public.workspace_status DEFAULT 'STOPPED'::public.workspace_status NOT NULL,
+    shared_with character varying[],
+    created_at timestamp with time zone NOT NULL,
+    updated_at timestamp with time zone NOT NULL,
+    created_by character varying(255),
+    updated_by character varying(255)
+);
+
+
+--
+-- TOC entry 3753 (class 0 OID 43148)
+-- Dependencies: 223
+-- Data for Name: agents; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('eb9b84cb-3512-46e3-aab5-89e73dd8c9e3', '00000000-0000-0000-0000-000000000001', 'Policy Agent', 'Insurance policy specialist that validates member coverage, exclusions, co-pay terms, and treatment eligibility before downstream claim decisions.', 'You are the Policy Agent specialised in insurance policy verification. Your role is to fetch insurance policy details and check coverage limits for specific treatments. Use the get_policy_details tool to retrieve policy information and the check_coverage_limits tool to verify whether a treatment type is covered and what the coverage limits are. Always present findings clearly with policy numbers, coverage status, limits, and co-pay percentages.', 'c70234a9-6e48-4afb-8308-ea07dd20a997', false, NULL, 'buffer', 10, 8, 180, '{c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3}', NULL, '2026-05-26 11:39:36.378233+00', '2026-05-26 11:39:36.378237+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('c2187bcf-7b28-478f-9aab-9b762c805218', '00000000-0000-0000-0000-000000000001', 'Billing Agent', 'Hospital billing analyst that reviews discharge records and itemized bills to validate admissible medical expenses before claim adjudication.', 'You are the Billing Agent responsible for verifying hospital bills and discharge summaries. Use the fetch_discharge_summary tool to retrieve patient hospitalisation details including diagnosis, admission and discharge dates. Use the verify_hospital_bills tool to get itemized bill breakdowns including surgery costs, room charges, medicines, and diagnostics. Present all financial details clearly with line-item totals.', 'bb435049-cf5a-4331-90f4-1a8b0cd1a28d', false, NULL, 'buffer', 10, 8, 180, '{c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3}', NULL, '2026-05-26 11:39:36.381005+00', '2026-05-26 11:39:36.381008+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('d8a67d8e-5d7e-4011-9da2-a514b5f4f92d', '00000000-0000-0000-0000-000000000001', 'Portfolio Manager Agent', 'Senior wealth portfolio analyst focused on holdings, exposure, performance, and unrealized gains or losses for UHNW client portfolios.', 'You are the Portfolio Manager Agent for Ultra High Net Worth private banking. You analyze the client''s holdings and performance. Use the get_portfolio_summary tool to retrieve portfolio details including total AUM, YTD performance, and individual holdings. Use the get_unrealized_gains_losses tool to assess open positions and their profit/loss status. You must output results directly to the user with clear formatting of financial figures. When using tools, invoke them then provide the final answer.', 'c70234a9-6e48-4afb-8308-ea07dd20a997', false, NULL, 'summary', 12, 8, 180, '{da8f443b-387f-488c-9626-b1f7d1c0b101}', NULL, '2026-05-26 11:39:36.383113+00', '2026-05-26 11:39:36.383114+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('fef11f1f-8885-430e-a6af-26f0fb411b76', '00000000-0000-0000-0000-000000000001', 'Trading & Market Analyst Agent', 'Capital markets specialist that combines live market data, sentiment, and trade execution support for wealth management decisions.', 'You are the Trading & Market Analyst Agent. You fetch market data, news sentiment, and execute trades on behalf of UHNW clients. Use the get_live_market_data tool for real-time price, P/E ratios, and analyst ratings. Use the get_market_news tool for breaking news sentiment on sectors or tickers. Use the execute_trade tool to place buy or sell orders. Always confirm trade details with the client before execution and present market data clearly.', 'bb435049-cf5a-4331-90f4-1a8b0cd1a28d', false, NULL, 'buffer', 8, 8, 180, '{da8f443b-387f-488c-9626-b1f7d1c0b101}', NULL, '2026-05-26 11:39:36.384135+00', '2026-05-26 11:39:36.384137+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('6f931f02-32d1-45f1-89b0-9546729fc9b8', '00000000-0000-0000-0000-000000000001', 'Tax & Compliance Officer Agent', 'Risk and compliance specialist for tax impact analysis, loss harvesting, and AML checks on sensitive private banking operations.', 'You are the Tax & Compliance Officer Agent. You handle capital gains simulations, tax loss harvesting recommendations, and Anti-Money Laundering (AML) compliance checks. Use the simulate_capital_gains_tax tool to estimate tax implications of proposed sales. Use the get_tax_loss_harvesting_options tool to identify losing positions that can offset gains. Use the run_aml_transaction_check tool for large outbound wire compliance screening. Present all tax figures and compliance results with clear breakdowns.', 'e1a44a2d-a20c-4150-bdec-2318ff3a9d95', false, NULL, 'summary', 10, 10, 240, '{da8f443b-387f-488c-9626-b1f7d1c0b101}', NULL, '2026-05-26 11:39:36.385145+00', '2026-05-26 11:39:36.385147+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('cb5e86ad-727c-4d90-a706-d94c9141c4b6', '00000000-0000-0000-0000-000000000001', 'Premium Concierge Agent', 'High-touch banking concierge for card limits, wire instructions, and sensitive service requests that require confirmation and precision.', 'You are the Premium Concierge Agent for UHNW private banking clients. You handle lifestyle banking requests including credit card limit adjustments and wire transfers. Use the update_card_limit tool to temporarily raise spending limits. Use the initiate_wire_transfer tool to send money to external accounts. Always confirm sensitive operations and provide clear confirmation details including amounts, recipients, and reference numbers.', 'bb435049-cf5a-4331-90f4-1a8b0cd1a28d', false, NULL, 'buffer', 8, 8, 180, '{da8f443b-387f-488c-9626-b1f7d1c0b101}', NULL, '2026-05-26 11:39:36.386229+00', '2026-05-26 11:39:36.386231+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('40d5d91d-20d9-426f-af05-1e5bf9f81236', '00000000-0000-0000-0000-000000000001', 'Banking Supervisor Agent', 'Supervisor and routing agent that decides which specialist agent should act next and when the private banking request is fully resolved.', 'You are the Supervisor for a UHNW Private Banking Concierge. Given the conversation, decide who should act next.
+Options:
+- PortfolioManager: For portfolio queries, holdings, performance.
+- TradingAnalyst: For executing trades, fetching market data or news.
+- TaxCompliance: For tax simulations, harvesting, or AML compliance checks on large wires.
+- Concierge: For credit card limits, wire transfers, lifestyle.
+- FINISH: When the user''s request has been fully resolved by the agents and a final response is ready.
+
+IMPORTANT: If the user''s core question has been fully answered by previous agents in the conversation history, you MUST output FINISH. Do not route to other agents unnecessarily.', 'c70234a9-6e48-4afb-8308-ea07dd20a997', true, 5, 'summary', 14, 12, 240, NULL, '{d8a67d8e-5d7e-4011-9da2-a514b5f4f92d,fef11f1f-8885-430e-a6af-26f0fb411b76,6f931f02-32d1-45f1-89b0-9546729fc9b8,cb5e86ad-727c-4d90-a706-d94c9141c4b6}', '2026-05-26 11:39:36.387396+00', '2026-05-26 11:39:36.390561+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('8e27c031-7752-4ef2-b7bb-909982356d61', '00000000-0000-0000-0000-000000000001', 'Claim Processing Agent', 'Claims decision agent that computes payable amounts, explains deductions, and submits completed mediclaim requests with full audit-ready breakdowns.', 'You are the Claim Processing Agent responsible for calculating final claimable amounts and submitting mediclaims. You receive context from the Policy Agent (coverage details) and the Billing Agent (verified bills). Use the calculate_claimable_amount tool to compute the final amount after applying coverage limits and co-pay deductions. Then use the submit_mediclaim tool to submit the claim for processing. Always present the full calculation breakdown and confirmation details.', 'e1a44a2d-a20c-4150-bdec-2318ff3a9d95', false, NULL, 'summary', 12, 10, 240, '{c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3}', '{eb9b84cb-3512-46e3-aab5-89e73dd8c9e3,c2187bcf-7b28-478f-9aab-9b762c805218}', '2026-05-26 11:39:36.382084+00', '2026-05-26 11:39:36.390564+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('d82efc6e-ff32-4ac9-aac4-208ed46464a5', '00000000-0000-0000-0000-000000000002', 'Policy Agent', 'Insurance policy specialist that validates member coverage, exclusions, co-pay terms, and treatment eligibility before downstream claim decisions.', 'You are the Policy Agent specialised in insurance policy verification. Your role is to fetch insurance policy details and check coverage limits for specific treatments. Use the get_policy_details tool to retrieve policy information and the check_coverage_limits tool to verify whether a treatment type is covered and what the coverage limits are. Always present findings clearly with policy numbers, coverage status, limits, and co-pay percentages.', 'ff21c29c-6802-4fdd-a9c6-478dc04c5af2', false, NULL, 'buffer', 10, 8, 180, '{922b9c29-54f9-46d5-860a-b7ef699481d3}', NULL, '2026-05-26 11:39:36.4225+00', '2026-05-26 11:39:36.422501+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('5b35861f-24b8-45fb-9a33-beb3f46ec262', '00000000-0000-0000-0000-000000000002', 'Billing Agent', 'Hospital billing analyst that reviews discharge records and itemized bills to validate admissible medical expenses before claim adjudication.', 'You are the Billing Agent responsible for verifying hospital bills and discharge summaries. Use the fetch_discharge_summary tool to retrieve patient hospitalisation details including diagnosis, admission and discharge dates. Use the verify_hospital_bills tool to get itemized bill breakdowns including surgery costs, room charges, medicines, and diagnostics. Present all financial details clearly with line-item totals.', '5443fad5-787a-479f-b112-fe3189d5b865', false, NULL, 'buffer', 10, 8, 180, '{922b9c29-54f9-46d5-860a-b7ef699481d3}', NULL, '2026-05-26 11:39:36.42347+00', '2026-05-26 11:39:36.423472+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('5d4ac1bf-4930-4749-88a3-66951c8308f8', '00000000-0000-0000-0000-000000000002', 'Portfolio Manager Agent', 'Senior wealth portfolio analyst focused on holdings, exposure, performance, and unrealized gains or losses for UHNW client portfolios.', 'You are the Portfolio Manager Agent for Ultra High Net Worth private banking. You analyze the client''s holdings and performance. Use the get_portfolio_summary tool to retrieve portfolio details including total AUM, YTD performance, and individual holdings. Use the get_unrealized_gains_losses tool to assess open positions and their profit/loss status. You must output results directly to the user with clear formatting of financial figures. When using tools, invoke them then provide the final answer.', 'ff21c29c-6802-4fdd-a9c6-478dc04c5af2', false, NULL, 'summary', 12, 8, 180, '{4ba8b6ad-04d1-46a3-ab4a-47744e5c077b}', NULL, '2026-05-26 11:39:36.427144+00', '2026-05-26 11:39:36.427146+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('5fb95a57-8aae-44c9-a74c-e797603c730f', '00000000-0000-0000-0000-000000000002', 'Trading & Market Analyst Agent', 'Capital markets specialist that combines live market data, sentiment, and trade execution support for wealth management decisions.', 'You are the Trading & Market Analyst Agent. You fetch market data, news sentiment, and execute trades on behalf of UHNW clients. Use the get_live_market_data tool for real-time price, P/E ratios, and analyst ratings. Use the get_market_news tool for breaking news sentiment on sectors or tickers. Use the execute_trade tool to place buy or sell orders. Always confirm trade details with the client before execution and present market data clearly.', '5443fad5-787a-479f-b112-fe3189d5b865', false, NULL, 'buffer', 8, 8, 180, '{4ba8b6ad-04d1-46a3-ab4a-47744e5c077b}', NULL, '2026-05-26 11:39:36.428373+00', '2026-05-26 11:39:36.428375+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('1e03a280-c75f-491c-a35a-17f76b84458d', '00000000-0000-0000-0000-000000000002', 'Premium Concierge Agent', 'High-touch banking concierge for card limits, wire instructions, and sensitive service requests that require confirmation and precision.', 'You are the Premium Concierge Agent for UHNW private banking clients. You handle lifestyle banking requests including credit card limit adjustments and wire transfers. Use the update_card_limit tool to temporarily raise spending limits. Use the initiate_wire_transfer tool to send money to external accounts. Always confirm sensitive operations and provide clear confirmation details including amounts, recipients, and reference numbers.', '5443fad5-787a-479f-b112-fe3189d5b865', false, NULL, 'buffer', 8, 8, 180, '{4ba8b6ad-04d1-46a3-ab4a-47744e5c077b}', NULL, '2026-05-26 11:39:36.430698+00', '2026-05-26 11:39:36.4307+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('a424ebbf-899f-448f-9c5e-f5e15338d05f', '00000000-0000-0000-0000-000000000002', 'Tax & Compliance Officer Agent', 'Risk and compliance specialist for tax impact analysis, loss harvesting, and AML checks on sensitive private banking operations.', 'You are the Tax & Compliance Officer Agent. You handle capital gains simulations, tax loss harvesting recommendations, and Anti-Money Laundering (AML) compliance checks. Use the simulate_capital_gains_tax tool to estimate tax implications of proposed sales. Use the get_tax_loss_harvesting_options tool to identify losing positions that can offset gains. Use the run_aml_transaction_check tool for large outbound wire compliance screening. Present all tax figures and compliance results with clear breakdowns.', NULL, false, NULL, 'summary', 10, 10, 240, '{4ba8b6ad-04d1-46a3-ab4a-47744e5c077b}', NULL, '2026-05-26 11:39:36.429564+00', '2026-05-26 11:39:36.429566+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('593bca15-b3d8-4bf2-92ba-bec24a5d1f17', '00000000-0000-0000-0000-000000000002', 'Banking Supervisor Agent', 'Supervisor and routing agent that decides which specialist agent should act next and when the private banking request is fully resolved.', 'You are the Supervisor for a UHNW Private Banking Concierge. Given the conversation, decide who should act next.
+Options:
+- PortfolioManager: For portfolio queries, holdings, performance.
+- TradingAnalyst: For executing trades, fetching market data or news.
+- TaxCompliance: For tax simulations, harvesting, or AML compliance checks on large wires.
+- Concierge: For credit card limits, wire transfers, lifestyle.
+- FINISH: When the user''s request has been fully resolved by the agents and a final response is ready.
+
+IMPORTANT: If the user''s core question has been fully answered by previous agents in the conversation history, you MUST output FINISH. Do not route to other agents unnecessarily.', 'ff21c29c-6802-4fdd-a9c6-478dc04c5af2', true, 5, 'summary', 14, 12, 240, NULL, '{5d4ac1bf-4930-4749-88a3-66951c8308f8,5fb95a57-8aae-44c9-a74c-e797603c730f,a424ebbf-899f-448f-9c5e-f5e15338d05f,1e03a280-c75f-491c-a35a-17f76b84458d}', '2026-05-26 11:39:36.431627+00', '2026-05-26 11:39:36.433784+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('15be7d3f-ab0a-47ac-9d2c-b25cbf93e27b', '00000000-0000-0000-0000-000000000002', 'Claim Processing Agent', 'Claims decision agent that computes payable amounts, explains deductions, and submits completed mediclaim requests with full audit-ready breakdowns.', 'You are the Claim Processing Agent responsible for calculating final claimable amounts and submitting mediclaims. You receive context from the Policy Agent (coverage details) and the Billing Agent (verified bills). Use the calculate_claimable_amount tool to compute the final amount after applying coverage limits and co-pay deductions. Then use the submit_mediclaim tool to submit the claim for processing. Always present the full calculation breakdown and confirmation details.', 'ff21c29c-6802-4fdd-a9c6-478dc04c5af2', true, 5, 'summary', 12, 10, 240, '{922b9c29-54f9-46d5-860a-b7ef699481d3}', '{d82efc6e-ff32-4ac9-aac4-208ed46464a5,5b35861f-24b8-45fb-9a33-beb3f46ec262}', '2026-05-26 11:39:36.424383+00', '2026-05-26 11:58:38.340335+00', 'system', 'demo@synapseforge.dev');
+
+
+--
+-- TOC entry 3747 (class 0 OID 33114)
+-- Dependencies: 217
+-- Data for Name: alembic_version; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.alembic_version (version_num) VALUES ('6698b042bb0f');
+
+
+--
+-- TOC entry 3751 (class 0 OID 43118)
+-- Dependencies: 221
+-- Data for Name: llm_configs; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.llm_configs (id, workspace_id, name, provider, model_name, credentials, temperature, max_tokens, created_at, updated_at, created_by, updated_by) VALUES ('c70234a9-6e48-4afb-8308-ea07dd20a997', '00000000-0000-0000-0000-000000000001', 'Teacher Config', 'OLLAMA', 'granite4.1:8b', '{"api_base": "http://localhost:11434"}', 0.8, 2048, '2026-05-26 11:39:36.365622+00', '2026-05-26 11:39:36.365626+00', 'system', 'system');
+INSERT INTO public.llm_configs (id, workspace_id, name, provider, model_name, credentials, temperature, max_tokens, created_at, updated_at, created_by, updated_by) VALUES ('bb435049-cf5a-4331-90f4-1a8b0cd1a28d', '00000000-0000-0000-0000-000000000001', 'Expansion Config', 'OLLAMA', 'granite4.1:8b', '{"api_base": "http://localhost:11434"}', 0.3, 1024, '2026-05-26 11:39:36.368357+00', '2026-05-26 11:39:36.368359+00', 'system', 'system');
+INSERT INTO public.llm_configs (id, workspace_id, name, provider, model_name, credentials, temperature, max_tokens, created_at, updated_at, created_by, updated_by) VALUES ('e1a44a2d-a20c-4150-bdec-2318ff3a9d95', '00000000-0000-0000-0000-000000000001', 'Heavy Config', 'OLLAMA', 'granite4.1:8b', '{"api_base": "http://localhost:11434"}', 0, 4096, '2026-05-26 11:39:36.369273+00', '2026-05-26 11:39:36.369274+00', 'system', 'system');
+INSERT INTO public.llm_configs (id, workspace_id, name, provider, model_name, credentials, temperature, max_tokens, created_at, updated_at, created_by, updated_by) VALUES ('ff21c29c-6802-4fdd-a9c6-478dc04c5af2', '00000000-0000-0000-0000-000000000002', 'LocalModelConfig', 'OLLAMA', 'granite4.1:8b', '{"api_base": "http://localhost:11434"}', 0.8, 2048, '2026-05-26 11:39:36.417632+00', '2026-05-26 11:45:19.259266+00', 'system', 'system');
+INSERT INTO public.llm_configs (id, workspace_id, name, provider, model_name, credentials, temperature, max_tokens, created_at, updated_at, created_by, updated_by) VALUES ('5443fad5-787a-479f-b112-fe3189d5b865', '00000000-0000-0000-0000-000000000002', 'WatsonxConfig', 'IBM_WATSONX', 'meta-llama/llama-4-maverick-17b-128e-instruct-fp8', '{"region": "us-south", "api_key": "API_KEY", "project_id": "6cf256b5-2e37-47d5-b925-22588c646264"}', 0.3, 1024, '2026-05-26 11:39:36.418544+00', '2026-05-26 12:03:57.432812+00', 'system', 'system');
+
+
+--
+-- TOC entry 3750 (class 0 OID 43105)
+-- Dependencies: 220
+-- Data for Name: orchestrations; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('8592fcf8-36ba-4dae-b649-ea5f248624d1', '00000000-0000-0000-0000-000000000001', 'Mediclaim Claim Processing Orchestrator', 'LANGGRAPH', 'REACT', '{"sequence": ["Policy Agent", "Billing Agent", "Claim Processing Agent"], "description": "Models the BeeAI mediclaim example where policy verification and billing validation feed into final claim calculation and submission.", "example_app": "beeai_mediclaim_processing", "context_handoff": {"Policy Agent": ["Claim Processing Agent"], "Billing Agent": ["Claim Processing Agent"]}, "entry_agent_ids": ["eb9b84cb-3512-46e3-aab5-89e73dd8c9e3", "c2187bcf-7b28-478f-9aab-9b762c805218", "8e27c031-7752-4ef2-b7bb-909982356d61"], "framework_origin": "beeai", "worker_agent_ids": ["eb9b84cb-3512-46e3-aab5-89e73dd8c9e3", "c2187bcf-7b28-478f-9aab-9b762c805218"], "execution_pattern": "sequential_context_handoff", "supervisor_agent_id": "8e27c031-7752-4ef2-b7bb-909982356d61"}', '2026-05-26 11:39:36.399991+00', '2026-05-26 11:39:36.399995+00', 'system', 'system');
+INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('f24583df-2d66-461c-a285-42065e74a4da', '00000000-0000-0000-0000-000000000001', 'UHNW Private Banking Concierge Orchestrator', 'LANGGRAPH', 'REACT', '{"graph": {"start": "supervisor", "workers": {"Concierge": "Premium Concierge Agent", "TaxCompliance": "Tax & Compliance Officer Agent", "TradingAnalyst": "Trading & Market Analyst Agent", "PortfolioManager": "Portfolio Manager Agent"}, "supervisor": {"routes": ["PortfolioManager", "TradingAnalyst", "TaxCompliance", "Concierge", "FINISH"]}}, "description": "Models the LangGraph UHNW banking example with a supervisor agent routing requests to portfolio, market, tax/compliance, and concierge specialists.", "example_app": "langgraph_UHNW_banking", "entry_agent_ids": ["40d5d91d-20d9-426f-af05-1e5bf9f81236", "d8a67d8e-5d7e-4011-9da2-a514b5f4f92d", "fef11f1f-8885-430e-a6af-26f0fb411b76", "6f931f02-32d1-45f1-89b0-9546729fc9b8", "cb5e86ad-727c-4d90-a706-d94c9141c4b6"], "framework_origin": "langgraph", "worker_agent_ids": ["d8a67d8e-5d7e-4011-9da2-a514b5f4f92d", "fef11f1f-8885-430e-a6af-26f0fb411b76", "6f931f02-32d1-45f1-89b0-9546729fc9b8", "cb5e86ad-727c-4d90-a706-d94c9141c4b6"], "execution_pattern": "supervisor_routing", "supervisor_agent_id": "40d5d91d-20d9-426f-af05-1e5bf9f81236"}', '2026-05-26 11:39:36.402227+00', '2026-05-26 11:39:36.402229+00', 'system', 'system');
+INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('37b93c21-e0af-4da8-bcf0-e6bcc0595128', '00000000-0000-0000-0000-000000000002', 'Mediclaim Claim Processing Orchestrator', 'LANGGRAPH', 'REACT', '{"sequence": ["Policy Agent", "Billing Agent", "Claim Processing Agent"], "description": "Models the BeeAI mediclaim example where policy verification and billing validation feed into final claim calculation and submission.", "example_app": "beeai_mediclaim_processing", "context_handoff": {"Policy Agent": ["Claim Processing Agent"], "Billing Agent": ["Claim Processing Agent"]}, "entry_agent_ids": ["d82efc6e-ff32-4ac9-aac4-208ed46464a5", "5b35861f-24b8-45fb-9a33-beb3f46ec262", "15be7d3f-ab0a-47ac-9d2c-b25cbf93e27b"], "framework_origin": "beeai", "worker_agent_ids": ["d82efc6e-ff32-4ac9-aac4-208ed46464a5", "5b35861f-24b8-45fb-9a33-beb3f46ec262"], "execution_pattern": "sequential_context_handoff", "supervisor_agent_id": "15be7d3f-ab0a-47ac-9d2c-b25cbf93e27b"}', '2026-05-26 11:39:36.435836+00', '2026-05-26 11:39:36.435838+00', 'system', 'system');
+INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('b6731dc6-e21a-4d22-8f79-10395cf9760a', '00000000-0000-0000-0000-000000000002', 'UHNW Private Banking Concierge Orchestrator', 'LANGGRAPH', 'REACT', '{"graph": {"start": "supervisor", "workers": {"Concierge": "Premium Concierge Agent", "TaxCompliance": "Tax & Compliance Officer Agent", "TradingAnalyst": "Trading & Market Analyst Agent", "PortfolioManager": "Portfolio Manager Agent"}, "supervisor": {"routes": ["PortfolioManager", "TradingAnalyst", "TaxCompliance", "Concierge", "FINISH"]}}, "description": "Models the LangGraph UHNW banking example with a supervisor agent routing requests to portfolio, market, tax/compliance, and concierge specialists.", "example_app": "langgraph_UHNW_banking", "entry_agent_ids": ["593bca15-b3d8-4bf2-92ba-bec24a5d1f17", "5d4ac1bf-4930-4749-88a3-66951c8308f8", "5fb95a57-8aae-44c9-a74c-e797603c730f", "a424ebbf-899f-448f-9c5e-f5e15338d05f", "1e03a280-c75f-491c-a35a-17f76b84458d"], "framework_origin": "langgraph", "worker_agent_ids": ["5d4ac1bf-4930-4749-88a3-66951c8308f8", "5fb95a57-8aae-44c9-a74c-e797603c730f", "a424ebbf-899f-448f-9c5e-f5e15338d05f", "1e03a280-c75f-491c-a35a-17f76b84458d"], "execution_pattern": "supervisor_routing", "supervisor_agent_id": "593bca15-b3d8-4bf2-92ba-bec24a5d1f17"}', '2026-05-26 11:39:36.436816+00', '2026-05-26 11:39:36.436817+00', 'system', 'system');
+
+
+--
+-- TOC entry 3752 (class 0 OID 43133)
+-- Dependencies: 222
+-- Data for Name: pipeline_artifacts; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('78307e98-00ad-4b25-b68d-8a9da01a60c1', '00000000-0000-0000-0000-000000000002', 'generate', 'raw_dataset', 'synthetic_queries.jsonl', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/generate/raw_dataset/synthetic_queries.jsonl', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/generate/raw_dataset/synthetic_queries.jsonl', '2026-05-26 11:49:39.647767+00', '2026-05-26 11:49:39.647775+00', 'system', 'system');
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('ed94a9c7-5cb2-43cd-ad43-d736c5220e12', '00000000-0000-0000-0000-000000000002', 'generate', 'tool_cache', 'tool_cache.json', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/generate/tool_cache/tool_cache.json', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/generate/tool_cache/tool_cache.json', '2026-05-26 11:49:40.537363+00', '2026-05-26 11:49:40.537378+00', 'system', 'system');
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('cfb561b0-0044-47ad-b1e3-fa883139dc07', '00000000-0000-0000-0000-000000000002', 'generate', 'dataset', 'multi-tool-dataset_v1.0.jsonl', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/generate/dataset/multi-tool-dataset_v1.0.jsonl', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/generate/dataset/multi-tool-dataset_v1.0.jsonl', '2026-05-26 11:49:43.241098+00', '2026-05-26 11:49:43.241104+00', 'system', 'system');
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('60391a63-6759-436d-8303-7915a77f02aa', '00000000-0000-0000-0000-000000000002', 'train', 'faiss_index', 'faiss_index.bin', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/train/faiss_index/faiss_index.bin', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/train/faiss_index/faiss_index.bin', '2026-05-26 11:53:11.682862+00', '2026-05-26 11:53:11.682867+00', 'system', 'system');
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('ac9e97ba-cb83-454b-84fb-7e2d9e0534d9', '00000000-0000-0000-0000-000000000002', 'train', 'faiss_index_mapping', 'faiss_index.json', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/train/faiss_index_mapping/faiss_index.json', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/train/faiss_index_mapping/faiss_index.json', '2026-05-26 11:53:12.537266+00', '2026-05-26 11:53:12.537272+00', 'system', 'system');
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('67438da1-fd79-451b-a944-8bb8f26e3e56', '00000000-0000-0000-0000-000000000002', 'train', 'bm25_index', 'bm25_index.pkl', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/train/bm25_index/bm25_index.pkl', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/train/bm25_index/bm25_index.pkl', '2026-05-26 11:53:13.405336+00', '2026-05-26 11:53:13.405347+00', 'system', 'system');
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('e7a86dee-7929-4560-8ba7-8fec2f65c2c0', '00000000-0000-0000-0000-000000000002', 'train', 'bm25_index_mapping', 'bm25_index.json', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/train/bm25_index_mapping/bm25_index.json', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/train/bm25_index_mapping/bm25_index.json', '2026-05-26 11:53:14.294863+00', '2026-05-26 11:53:14.294873+00', 'system', 'system');
+INSERT INTO public.pipeline_artifacts (id, workspace_id, phase, artifact_type, name, cos_bucket, cos_key, cos_endpoint, url, created_at, updated_at, created_by, updated_by) VALUES ('25704f1e-2845-491b-8e45-031e316c9b8d', '00000000-0000-0000-0000-000000000002', 'train', 'archived_model', 'multi-router-model_v1.0', 'synapse-forge', 'workspaces/00000000-0000-0000-0000-000000000002/train/archived_model/multi-router-model_v1.0', 'https://s3.in-mum.cloud-object-storage.appdomain.cloud', 'cos://synapse-forge/workspaces/00000000-0000-0000-0000-000000000002/train/archived_model/multi-router-model_v1.0', '2026-05-26 11:53:41.587389+00', '2026-05-26 11:53:41.587419+00', 'system', 'system');
+
+
+--
+-- TOC entry 3749 (class 0 OID 43084)
+-- Dependencies: 219
+-- Data for Name: tools; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3', '00000000-0000-0000-0000-000000000001', 'Mediclaim MCP Server', 'Medical claims processing and policy retrieval server. Provides 6 tools: get_policy_details, check_coverage_limits, fetch_discharge_summary, verify_hospital_bills, calculate_claimable_amount, submit_mediclaim.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'python', '{../examples/beeai_mediclaim_processing/mock_fastmcp_server.py}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.315707+00', '2026-05-26 11:39:36.315713+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('da8f443b-387f-488c-9626-b1f7d1c0b101', '00000000-0000-0000-0000-000000000001', 'UHNW Banking MCP Server', 'Ultra High Net Worth banking operations and wealth management server. Provides 10 tools across Portfolio, Market, Tax & Compliance, and Core Banking categories: get_portfolio_summary, get_unrealized_gains_losses, get_live_market_data, get_market_news, execute_trade, simulate_capital_gains_tax, get_tax_loss_harvesting_options, run_aml_transaction_check, update_card_limit, initiate_wire_transfer.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'python', '{../examples/langgraph_UHNW_banking/mock_fastmcp_server.py}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.330075+00', '2026-05-26 11:39:36.33008+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('4ed3a3f3-b93f-459d-b021-3cca7516f7a5', '00000000-0000-0000-0000-000000000001', 'Local File System', 'Provides secure, sandboxed access to the local file system. Useful for coding agents that need to read, write, and manage project files.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,@modelcontextprotocol/server-filesystem,/tmp/workspace}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.331712+00', '2026-05-26 11:39:36.331714+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('8ed43e02-d584-4d33-9c5b-a80fcf636bd0', '00000000-0000-0000-0000-000000000001', 'SQLite Database', 'Allows interacting with SQLite databases for lightweight data storage, querying, and schema management.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'uvx', '{mcp-server-sqlite,--db,/tmp/mcp-test.db}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.333476+00', '2026-05-26 11:39:36.333479+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('10a4cfc0-d72b-4223-8c42-838bbfda8331', '00000000-0000-0000-0000-000000000001', 'Web Fetch Server', 'Fetches content from the internet safely. Enables agents to retrieve real-time information from web pages and APIs.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'uvx', '{mcp-server-fetch}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.33738+00', '2026-05-26 11:39:36.337384+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('f269dbbd-9018-4a9e-b89c-2f1d5d67be69', '00000000-0000-0000-0000-000000000001', 'Firecrawl MCP', 'Web scraping and crawling using Firecrawl. Extracts structured content from websites with JavaScript rendering support.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,firecrawl-mcp}', '{"FIRECRAWL_API_KEY": "REPLACE_WITH_YOUR_KEY"}', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.342966+00', '2026-05-26 11:39:36.34297+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('88bd7fb9-cc7e-4a29-9c17-7c0ef5a83bec', '00000000-0000-0000-0000-000000000001', 'Brave Search MCP', 'Search the web using Brave Search API. Provides privacy-focused web search results for research and information retrieval agents.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,@modelcontextprotocol/server-brave-search}', '{"BRAVE_API_KEY": "REPLACE_WITH_YOUR_KEY"}', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.346189+00', '2026-05-26 11:39:36.346193+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('ea7237c7-6634-4f9a-bd04-0a272fb24d8b', '00000000-0000-0000-0000-000000000001', 'Perplexity MCP', 'Search and research using Perplexity AI. Provides AI-powered search with source citations for deep research tasks.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,@perplexity-ai/mcp-server}', '{"PERPLEXITY_API_KEY": "REPLACE_WITH_YOUR_KEY"}', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.347802+00', '2026-05-26 11:39:36.347805+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('d7420830-a6cb-4774-b0d8-9b8c7d5cb2ba', '00000000-0000-0000-0000-000000000002', 'submit_mediclaim', 'Submit the final mediclaim for processing.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415203+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('82120f91-61f7-478d-85d8-11fe1472a1e0', '00000000-0000-0000-0000-000000000001', 'REST API Template', 'A generic REST API tool template. Configure the connection_config with your endpoint URL, HTTP method, headers, and authentication.', 'REST', false, '{"url": "https://api.example.com/v1/resource", "method": "GET", "headers": {"Authorization": "Bearer <YOUR_TOKEN>"}}', '{"type": "function", "function": {"name": "rest_api_call", "parameters": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string", "description": "The query or resource path to append"}}}, "description": "Execute a REST API request against a configured endpoint."}}', NULL, NULL, NULL, 'null', NULL, 'ACTIVE', NULL, NULL, NULL, '2026-05-26 11:39:36.348716+00', '2026-05-26 11:39:36.348717+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('4ed12335-acc1-4fe4-864a-2684e3e8238e', '00000000-0000-0000-0000-000000000001', 'get_policy_details', 'Retrieve insurance policy details for a given policy number.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3', NULL, '2026-05-26 11:39:36.354568+00', '2026-05-26 11:39:36.354572+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('d51b540a-a820-4755-9b38-b09bca520b9e', '00000000-0000-0000-0000-000000000001', 'check_coverage_limits', 'Check if a specific treatment type is covered and retrieve coverage limits.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3', NULL, '2026-05-26 11:39:36.354575+00', '2026-05-26 11:39:36.354576+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('1294e0f6-f572-416f-a13d-61758b15d397', '00000000-0000-0000-0000-000000000001', 'fetch_discharge_summary', 'Fetch the hospital discharge summary for a patient.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3', NULL, '2026-05-26 11:39:36.354579+00', '2026-05-26 11:39:36.354579+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('a53e9829-a9d5-4874-937d-8277f1e39725', '00000000-0000-0000-0000-000000000001', 'verify_hospital_bills', 'Verify and retrieve itemized hospital bills for a patient.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3', NULL, '2026-05-26 11:39:36.354581+00', '2026-05-26 11:39:36.354582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('1fd05b6e-9486-4de6-984c-5a61015894b0', '00000000-0000-0000-0000-000000000001', 'calculate_claimable_amount', 'Calculate the final claimable amount after applying coverage limits and co-pay.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3', NULL, '2026-05-26 11:39:36.354584+00', '2026-05-26 11:39:36.354585+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('1a4f937d-bdf1-4f87-8c0c-c0316241df59', '00000000-0000-0000-0000-000000000001', 'submit_mediclaim', 'Submit the final mediclaim for processing.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'c0e9f72b-2139-40bd-8aac-79a8f7f1fbf3', NULL, '2026-05-26 11:39:36.354587+00', '2026-05-26 11:39:36.354587+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('b5cc08b8-2f2a-4149-9825-0710ffd0b75e', '00000000-0000-0000-0000-000000000001', 'get_portfolio_summary', 'Retrieve portfolio summary including holdings, asset allocation, and YTD performance.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.35459+00', '2026-05-26 11:39:36.35459+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('a6653e5a-d9c8-4009-99c8-3a8142ad4835', '00000000-0000-0000-0000-000000000001', 'get_unrealized_gains_losses', 'Retrieve open positions and their profit/loss status.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354593+00', '2026-05-26 11:39:36.354593+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('8a6f1c04-3b58-4860-8149-c97cfa87e86b', '00000000-0000-0000-0000-000000000001', 'get_live_market_data', 'Fetch real-time price, P/E ratio, and recent analyst ratings.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354596+00', '2026-05-26 11:39:36.354596+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('e62cf896-0492-467f-a3c9-b890d0f80feb', '00000000-0000-0000-0000-000000000001', 'get_market_news', 'Fetch breaking news sentiment for a sector or ticker.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354599+00', '2026-05-26 11:39:36.354599+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('56cbf7b7-cf6a-4014-aa75-5c136ad4c23a', '00000000-0000-0000-0000-000000000001', 'execute_trade', 'Place a buy or sell order for a stock.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354603+00', '2026-05-26 11:39:36.354604+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('a58b0bee-6c22-4e26-a8fe-c451b0eeccea', '00000000-0000-0000-0000-000000000001', 'simulate_capital_gains_tax', 'Calculate the estimated tax bill for a proposed sale.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354606+00', '2026-05-26 11:39:36.354607+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('dcb38750-52a6-4326-9baf-e37d344672cf', '00000000-0000-0000-0000-000000000001', 'get_tax_loss_harvesting_options', 'Recommend losing positions to sell to offset gains.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354609+00', '2026-05-26 11:39:36.354609+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('86d1def1-f54a-4c2c-9bfe-4bccefa4b847', '00000000-0000-0000-0000-000000000001', 'run_aml_transaction_check', 'Run an Anti-Money Laundering check for large outbound wires.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354612+00', '2026-05-26 11:39:36.354612+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('c18092d8-bd2a-4508-95cc-2d5c4ef709ad', '00000000-0000-0000-0000-000000000001', 'update_card_limit', 'Temporarily raises credit/spending limits.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354615+00', '2026-05-26 11:39:36.354615+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('46676097-0cf9-4251-bb0a-25a9c7f6e2b9', '00000000-0000-0000-0000-000000000001', 'initiate_wire_transfer', 'Wires money to external accounts.', 'MCP_TOOL', false, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, 'da8f443b-387f-488c-9626-b1f7d1c0b101', NULL, '2026-05-26 11:39:36.354618+00', '2026-05-26 11:39:36.354618+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('a2d628e1-41e4-4bd0-9693-ee816c74323d', '00000000-0000-0000-0000-000000000002', 'Local File System', 'Provides secure, sandboxed access to the local file system. Useful for coding agents that need to read, write, and manage project files.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,@modelcontextprotocol/server-filesystem,/tmp/workspace}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.406471+00', '2026-05-26 11:39:36.406472+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('47ef6262-6f5b-4a94-a7ce-940b97bd8b35', '00000000-0000-0000-0000-000000000002', 'SQLite Database', 'Allows interacting with SQLite databases for lightweight data storage, querying, and schema management.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'uvx', '{mcp-server-sqlite,--db,/tmp/mcp-test.db}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.407355+00', '2026-05-26 11:39:36.407356+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('b51345f3-ff8c-43de-847b-90bbad62dfae', '00000000-0000-0000-0000-000000000002', 'Web Fetch Server', 'Fetches content from the internet safely. Enables agents to retrieve real-time information from web pages and APIs.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'uvx', '{mcp-server-fetch}', 'null', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.408281+00', '2026-05-26 11:39:36.408282+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('58029774-4230-4fab-94a0-41afd98e9bd9', '00000000-0000-0000-0000-000000000002', 'Perplexity MCP', 'Search and research using Perplexity AI. Provides AI-powered search with source citations for deep research tasks.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,@perplexity-ai/mcp-server}', '{"PERPLEXITY_API_KEY": "***"}', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.411141+00', '2026-05-26 11:40:12.753744+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('922b9c29-54f9-46d5-860a-b7ef699481d3', '00000000-0000-0000-0000-000000000002', 'Mediclaim MCP Server', 'Medical claims processing and policy retrieval server. Provides 6 tools: get_policy_details, check_coverage_limits, fetch_discharge_summary, verify_hospital_bills, calculate_claimable_amount, submit_mediclaim.', 'MCP_SERVER', true, 'null', 'null', 'STDIO', 'python', '{../examples/beeai_mediclaim_processing/mock_fastmcp_server.py}', 'null', NULL, 'ACTIVE', NULL, NULL, NULL, '2026-05-26 11:39:36.404454+00', '2026-05-26 11:43:55.9945+00', 'system', 'demo@synapseforge.dev');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', '00000000-0000-0000-0000-000000000002', 'UHNW Banking MCP Server', 'Ultra High Net Worth banking operations and wealth management server. Provides 10 tools across Portfolio, Market, Tax & Compliance, and Core Banking categories: get_portfolio_summary, get_unrealized_gains_losses, get_live_market_data, get_market_news, execute_trade, simulate_capital_gains_tax, get_tax_loss_harvesting_options, run_aml_transaction_check, update_card_limit, initiate_wire_transfer.', 'MCP_SERVER', true, 'null', 'null', 'STDIO', 'python', '{../examples/langgraph_UHNW_banking/mock_fastmcp_server.py}', 'null', NULL, 'ACTIVE', NULL, NULL, NULL, '2026-05-26 11:39:36.405556+00', '2026-05-26 11:43:52.74545+00', 'system', 'demo@synapseforge.dev');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('a4cf593c-8e24-4cdc-a19e-7aecbe7abe50', '00000000-0000-0000-0000-000000000002', 'REST API Template', 'A generic REST API tool template. Configure the connection_config with your endpoint URL, HTTP method, headers, and authentication.', 'REST', false, '{"url": "https://api.example.com/v1/resource", "method": "GET", "headers": {"Authorization": "Bearer <YOUR_TOKEN>"}}', '{"type": "function", "function": {"name": "rest_api_call", "parameters": {"type": "object", "required": ["query"], "properties": {"query": {"type": "string", "description": "The query or resource path to append"}}}, "description": "Execute a REST API request against a configured endpoint."}}', NULL, NULL, NULL, 'null', NULL, 'ACTIVE', NULL, NULL, NULL, '2026-05-26 11:39:36.412336+00', '2026-05-26 11:39:36.412339+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('6829f554-def1-4c9d-bd04-783a343d847a', '00000000-0000-0000-0000-000000000002', 'Brave Search MCP', 'Search the web using Brave Search API. Provides privacy-focused web search results for research and information retrieval agents.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,@modelcontextprotocol/server-brave-search}', '{"BRAVE_API_KEY": "***"}', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.410118+00', '2026-05-26 11:40:12.75375+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('a337d605-c2a8-4168-ad38-d08eb7a7e95b', '00000000-0000-0000-0000-000000000002', 'Firecrawl MCP', 'Web scraping and crawling using Firecrawl. Extracts structured content from websites with JavaScript rendering support.', 'MCP_SERVER', false, 'null', 'null', 'STDIO', 'npx', '{-y,firecrawl-mcp}', '{"FIRECRAWL_API_KEY": "***"}', NULL, 'DISABLED', NULL, NULL, NULL, '2026-05-26 11:39:36.409203+00', '2026-05-26 11:40:12.753751+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('2f06ff47-85c9-40fc-9098-e31bfd10f5ee', '00000000-0000-0000-0000-000000000002', 'get_portfolio_summary', 'Retrieve portfolio summary including holdings, asset allocation, and YTD performance.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415206+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('1e271a1e-0c65-41d4-82bc-e18ee09095d8', '00000000-0000-0000-0000-000000000002', 'get_unrealized_gains_losses', 'Retrieve open positions and their profit/loss status.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415209+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('ff91b224-c087-4f57-9600-deecda97e646', '00000000-0000-0000-0000-000000000002', 'get_live_market_data', 'Fetch real-time price, P/E ratio, and recent analyst ratings.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415212+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('682b5cf0-a276-45db-a594-f2cd9e52a6a3', '00000000-0000-0000-0000-000000000002', 'get_market_news', 'Fetch breaking news sentiment for a sector or ticker.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415214+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('56e0eaf9-f495-4653-8fa6-3a4d12595bfb', '00000000-0000-0000-0000-000000000002', 'execute_trade', 'Place a buy or sell order for a stock.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415217+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('909a6676-e7f3-411e-8db4-e6e1a2f06c27', '00000000-0000-0000-0000-000000000002', 'simulate_capital_gains_tax', 'Calculate the estimated tax bill for a proposed sale.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415219+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('86430501-6a22-47c7-a852-f75705327d84', '00000000-0000-0000-0000-000000000002', 'get_tax_loss_harvesting_options', 'Recommend losing positions to sell to offset gains.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415222+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('141ea6e0-c586-4e5d-a593-7447203fb18d', '00000000-0000-0000-0000-000000000002', 'run_aml_transaction_check', 'Run an Anti-Money Laundering check for large outbound wires.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415225+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('2406254b-bebc-495a-a609-48374b9ad009', '00000000-0000-0000-0000-000000000002', 'update_card_limit', 'Temporarily raises credit/spending limits.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.415227+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('35145277-cd06-470c-beff-634402a6bbec', '00000000-0000-0000-0000-000000000002', 'initiate_wire_transfer', 'Wires money to external accounts.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '4ba8b6ad-04d1-46a3-ab4a-47744e5c077b', NULL, '2026-05-26 11:39:36.41523+00', '2026-05-26 11:43:47.830582+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('eb519614-56ec-44d3-a884-721bc816c95c', '00000000-0000-0000-0000-000000000002', 'get_policy_details', 'Retrieve insurance policy details for a given policy number.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415186+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('a71ec0d8-1810-45b7-adf3-533de57702b5', '00000000-0000-0000-0000-000000000002', 'check_coverage_limits', 'Check if a specific treatment type is covered and retrieve coverage limits.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415192+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('5ab8a3fd-824b-4985-8a60-528892e3777b', '00000000-0000-0000-0000-000000000002', 'fetch_discharge_summary', 'Fetch the hospital discharge summary for a patient.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415195+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('f801af8d-1c2a-458d-b380-09da26093053', '00000000-0000-0000-0000-000000000002', 'verify_hospital_bills', 'Verify and retrieve itemized hospital bills for a patient.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415198+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('e765c9c4-625b-4882-abc4-f5a4d1e725e3', '00000000-0000-0000-0000-000000000002', 'calculate_claimable_amount', 'Calculate the final claimable amount after applying coverage limits and co-pay.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415201+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
+
+
+--
+-- TOC entry 3748 (class 0 OID 43071)
+-- Dependencies: 218
+-- Data for Name: workspaces; Type: TABLE DATA; Schema: public; Owner: -
+--
+
+INSERT INTO public.workspaces (id, name, description, embedding_model, embedding_dim, is_default, status, shared_with, created_at, updated_at, created_by, updated_by) VALUES ('00000000-0000-0000-0000-000000000001', 'System Default Workspace', 'Read-only template workspace pre-loaded with standard Agents, orchestrations, and tool templates. Clone resources from here into your own workspaces.', 'sentence-transformers/all-MiniLM-L6-v2', 384, true, 'STOPPED', NULL, '2026-05-26 11:39:36.269975+00', '2026-05-26 11:39:36.269981+00', 'system', 'system');
+INSERT INTO public.workspaces (id, name, description, embedding_model, embedding_dim, is_default, status, shared_with, created_at, updated_at, created_by, updated_by) VALUES ('00000000-0000-0000-0000-000000000002', 'Demo Workspace', 'Editable demo workspace pre-loaded with platform resources for local testing, orchestration demos, and UI validation.', 'sentence-transformers/all-MiniLM-L6-v2', 384, false, 'STOPPED', '{demo@synapseforge.dev}', '2026-05-26 11:39:36.276768+00', '2026-05-26 11:39:36.276772+00', 'demo@synapseforge.dev', 'demo@synapseforge.dev');
+
+
+--
+-- TOC entry 3594 (class 2606 OID 43155)
+-- Name: agents agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agents
+    ADD CONSTRAINT agents_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3571 (class 2606 OID 33118)
+-- Name: alembic_version alembic_version_pkc; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.alembic_version
+    ADD CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num);
+
+
+--
+-- TOC entry 3587 (class 2606 OID 43126)
+-- Name: llm_configs llm_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_configs
+    ADD CONSTRAINT llm_configs_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3584 (class 2606 OID 43111)
+-- Name: orchestrations orchestrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.orchestrations
+    ADD CONSTRAINT orchestrations_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3592 (class 2606 OID 43139)
+-- Name: pipeline_artifacts pipeline_artifacts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pipeline_artifacts
+    ADD CONSTRAINT pipeline_artifacts_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3581 (class 2606 OID 43090)
+-- Name: tools tools_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tools
+    ADD CONSTRAINT tools_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3573 (class 2606 OID 43083)
+-- Name: workspaces workspaces_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workspaces
+    ADD CONSTRAINT workspaces_name_key UNIQUE (name);
+
+
+--
+-- TOC entry 3575 (class 2606 OID 43081)
+-- Name: workspaces workspaces_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.workspaces
+    ADD CONSTRAINT workspaces_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3595 (class 1259 OID 43166)
+-- Name: ix_agents_llm_config_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_agents_llm_config_id ON public.agents USING btree (llm_config_id);
+
+
+--
+-- TOC entry 3596 (class 1259 OID 43167)
+-- Name: ix_agents_workspace_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_agents_workspace_id ON public.agents USING btree (workspace_id);
+
+
+--
+-- TOC entry 3585 (class 1259 OID 43132)
+-- Name: ix_llm_configs_workspace_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_llm_configs_workspace_id ON public.llm_configs USING btree (workspace_id);
+
+
+--
+-- TOC entry 3582 (class 1259 OID 43117)
+-- Name: ix_orchestrations_workspace_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_orchestrations_workspace_id ON public.orchestrations USING btree (workspace_id);
+
+
+--
+-- TOC entry 3588 (class 1259 OID 43147)
+-- Name: ix_pipeline_artifacts_artifact_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_pipeline_artifacts_artifact_type ON public.pipeline_artifacts USING btree (artifact_type);
+
+
+--
+-- TOC entry 3589 (class 1259 OID 43146)
+-- Name: ix_pipeline_artifacts_phase; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_pipeline_artifacts_phase ON public.pipeline_artifacts USING btree (phase);
+
+
+--
+-- TOC entry 3590 (class 1259 OID 43145)
+-- Name: ix_pipeline_artifacts_workspace_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_pipeline_artifacts_workspace_id ON public.pipeline_artifacts USING btree (workspace_id);
+
+
+--
+-- TOC entry 3576 (class 1259 OID 43101)
+-- Name: ix_tools_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_tools_name ON public.tools USING btree (name);
+
+
+--
+-- TOC entry 3577 (class 1259 OID 43104)
+-- Name: ix_tools_parent_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_tools_parent_id ON public.tools USING btree (parent_id);
+
+
+--
+-- TOC entry 3578 (class 1259 OID 43103)
+-- Name: ix_tools_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_tools_type ON public.tools USING btree (type);
+
+
+--
+-- TOC entry 3579 (class 1259 OID 43102)
+-- Name: ix_tools_workspace_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX ix_tools_workspace_id ON public.tools USING btree (workspace_id);
+
+
+--
+-- TOC entry 3602 (class 2606 OID 43161)
+-- Name: agents agents_llm_config_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agents
+    ADD CONSTRAINT agents_llm_config_id_fkey FOREIGN KEY (llm_config_id) REFERENCES public.llm_configs(id) ON DELETE SET NULL;
+
+
+--
+-- TOC entry 3603 (class 2606 OID 43156)
+-- Name: agents agents_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.agents
+    ADD CONSTRAINT agents_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3600 (class 2606 OID 43127)
+-- Name: llm_configs llm_configs_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.llm_configs
+    ADD CONSTRAINT llm_configs_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3599 (class 2606 OID 43112)
+-- Name: orchestrations orchestrations_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.orchestrations
+    ADD CONSTRAINT orchestrations_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3601 (class 2606 OID 43140)
+-- Name: pipeline_artifacts pipeline_artifacts_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pipeline_artifacts
+    ADD CONSTRAINT pipeline_artifacts_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3597 (class 2606 OID 43096)
+-- Name: tools tools_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tools
+    ADD CONSTRAINT tools_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.tools(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3598 (class 2606 OID 43091)
+-- Name: tools tools_workspace_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.tools
+    ADD CONSTRAINT tools_workspace_id_fkey FOREIGN KEY (workspace_id) REFERENCES public.workspaces(id) ON DELETE CASCADE;
+
+
+-- Completed on 2026-05-26 17:38:37 IST
+
+--
+-- PostgreSQL database dump complete
+--
+
+\unrestrict BA4HUUxjh5BparoQGQUNeSb1tmsqX5HjcJI3M2kzf46hoo3WXKWcASKYceeBJnF
+

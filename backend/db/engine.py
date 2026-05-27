@@ -58,7 +58,7 @@ async def init_db() -> None:
 
     Schema sync behaviour (controlled by DB_AUTO_RESET env var):
       - DB_AUTO_RESET=true  → drop + recreate ALL tables if schema drift
-                               is detected (dev mode, default).
+                               is detected (explicit destructive reset mode).
       - DB_AUTO_RESET=false → only create missing tables; log a warning
                                if existing tables are out of sync.
 
@@ -87,7 +87,7 @@ async def init_db() -> None:
 
     from db.models import Base  # local import to avoid circular deps
 
-    auto_reset = os.getenv("DB_AUTO_RESET", "true").lower() == "true"
+    auto_reset = os.getenv("DB_AUTO_RESET", "false").lower() == "true"
 
     async with _engine.begin() as conn:
         # Ensure pgvector extension
@@ -112,8 +112,9 @@ async def init_db() -> None:
             else:
                 logger.warning(
                     "Schema drift detected (%s). DB_AUTO_RESET=false → "
-                    "tables NOT altered. Set DB_AUTO_RESET=true or update "
-                    "the schema manually.", drift
+                    "tables NOT altered. This protects existing data. "
+                    "Set DB_AUTO_RESET=true only for explicit destructive "
+                    "resets or update the schema manually.", drift
                 )
                 # Still create any brand-new tables
                 await conn.run_sync(Base.metadata.create_all)

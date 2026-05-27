@@ -99,6 +99,16 @@ class WorkspaceRead(BaseModel):
 # ========================== TOOL ===========================================
 
 
+class CollaboratorAgentRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    workspace_id: uuid.UUID
+    name: str
+    description: str | None = None
+    system_prompt: str | None = None
+
+
 class ToolCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, examples=["get_balance"])
     description: str | None = Field(default=None, examples=["Retrieve current account balance"])
@@ -194,20 +204,39 @@ class ToolRead(BaseModel):
 
 class AgentCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=255, examples=["Banking Assistant"])
+    description: str | None = Field(
+        default=None,
+        examples=["Research-focused agent that synthesizes evidence and cites sources."],
+    )
     system_prompt: str | None = Field(
         default=None, examples=["You are a helpful banking assistant."]
     )
-    llm_provider: str | None = Field(default=None, examples=["openai"])
-    llm_model: str | None = Field(default=None, examples=["gpt-4o"])
+    llm_config_id: uuid.UUID | None = None
+    use_neural_router: bool = False
+    router_model_id: str | None = Field(default=None, max_length=255)
+    router_top_k: int | None = Field(default=None, ge=1, le=50)
+    memory_type: str | None = Field(default=None, examples=["buffer", "summary", "vector"])
+    memory_window: int | None = Field(default=None, ge=1)
+    max_iterations: int | None = Field(default=None, ge=1)
+    timeout_seconds: int | None = Field(default=None, ge=1)
     attached_tool_ids: list[uuid.UUID] | None = None
+    collaborator_agent_ids: list[uuid.UUID] | None = None
 
 
 class AgentUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
     system_prompt: str | None = None
-    llm_provider: str | None = None
-    llm_model: str | None = None
+    llm_config_id: uuid.UUID | None = None
+    use_neural_router: bool | None = None
+    router_model_id: str | None = Field(default=None, max_length=255)
+    router_top_k: int | None = Field(default=None, ge=1, le=50)
+    memory_type: str | None = None
+    memory_window: int | None = Field(default=None, ge=1)
+    max_iterations: int | None = Field(default=None, ge=1)
+    timeout_seconds: int | None = Field(default=None, ge=1)
     attached_tool_ids: list[uuid.UUID] | None = None
+    collaborator_agent_ids: list[uuid.UUID] | None = None
 
 
 class AgentRead(BaseModel):
@@ -216,10 +245,19 @@ class AgentRead(BaseModel):
     id: uuid.UUID
     workspace_id: uuid.UUID
     name: str
+    description: str | None = None
     system_prompt: str | None = None
-    llm_provider: str | None = None
-    llm_model: str | None = None
+    llm_config_id: uuid.UUID | None = None
+    use_neural_router: bool = False
+    router_model_id: str | None = None
+    router_top_k: int | None = None
+    memory_type: str | None = None
+    memory_window: int | None = None
+    max_iterations: int | None = None
+    timeout_seconds: int | None = None
     attached_tool_ids: list[uuid.UUID] | None = None
+    collaborator_agent_ids: list[uuid.UUID] | None = None
+    collaborators: list[CollaboratorAgentRead] = []
     created_at: datetime
     updated_at: datetime
     created_by: str | None = None

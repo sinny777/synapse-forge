@@ -219,10 +219,16 @@ async def _clone_agent(
     cloned = Agent(
         workspace_id=target_ws.id,
         name=source_agent.name,
+        description=source_agent.description,
         system_prompt=source_agent.system_prompt,
-        llm_provider=source_agent.llm_provider,
-        llm_model=source_agent.llm_model,
+        use_neural_router=source_agent.use_neural_router,
+        router_top_k=source_agent.router_top_k,
+        memory_type=source_agent.memory_type,
+        memory_window=source_agent.memory_window,
+        max_iterations=source_agent.max_iterations,
+        timeout_seconds=source_agent.timeout_seconds,
         attached_tool_ids=new_tool_ids if new_tool_ids else None,
+        collaborator_agent_ids=source_agent.collaborator_agent_ids,
         created_by=email,
         updated_by=email,
     )

@@ -114,8 +114,8 @@ async def run(skip_seed: bool = False) -> None:
         logger.info("  Seeding Default Workspace...")
         logger.info("=" * 60)
 
-        from setup.seed_default_workspace import seed
-        await seed(reset=False)  # Tables are already clean, no need to reset again
+        from setup.seed_master_data_from_backup import seed_from_backup, DEFAULT_BACKUP_PATH
+        await seed_from_backup(DEFAULT_BACKUP_PATH, reset=False)
     else:
         logger.info("Skipping seed (--no-seed flag set).")
 

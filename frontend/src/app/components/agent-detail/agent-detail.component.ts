@@ -21,13 +21,15 @@ import {
   ButtonModule, NotificationModule, IconModule,
   TagModule, InputModule, DropdownModule, TabsModule,
   LoadingModule, ToggleModule, SliderModule,
-  AccordionModule,
+  AccordionModule, ToggletipModule,
 } from 'carbon-components-angular';
 import { IconService } from 'carbon-components-angular/icon';
 import { Subscription } from 'rxjs';
 import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
-import { Agent, AgentCreate, Tool, Workspace } from '../../models/platform.model';
+import { LLMConfigService } from '../../services/llm-config.service';
+import { Agent, AgentCreate, CollaboratorAgent, Tool, Workspace } from '../../models/platform.model';
+import { LLMModelConfig } from '../../models/llm-config.model';
 import { PageHeaderComponent } from '../shared/page-header/page-header.component';
 import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
 
@@ -41,6 +43,12 @@ import Bot16 from '@carbon/icons/es/bot/16';
 import Link16 from '@carbon/icons/es/link/16';
 import Settings16 from '@carbon/icons/es/settings/16';
 import Template16 from '@carbon/icons/es/template/16';
+import Information16 from '@carbon/icons/es/information/16';
+import Chip16 from '@carbon/icons/es/chip/16';
+import DataBase16 from '@carbon/icons/es/data--base/16';
+import TestTool16 from '@carbon/icons/es/test-tool/16';
+import ChevronDown16 from '@carbon/icons/es/chevron--down/16';
+import Help16 from '@carbon/icons/es/help/16';
 
 @Component({
   selector: 'app-agent-detail',
@@ -50,7 +58,7 @@ import Template16 from '@carbon/icons/es/template/16';
     ButtonModule, NotificationModule, IconModule,
     TagModule, InputModule, DropdownModule, TabsModule,
     LoadingModule, ToggleModule, SliderModule,
-    AccordionModule,
+    AccordionModule, ToggletipModule,
     PageHeaderComponent, PageWrapperComponent,
   ],
   templateUrl: './agent-detail.component.html',
@@ -63,46 +71,62 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   saving = false;
   notification: any = null;
 
+  // Vertical tabs
+  activeTabIndex = 0;
+  tabs = [
+    { label: 'Profile', icon: 'information' },
+    { label: 'Tools', icon: 'link' },
+    { label: 'Collaborators', icon: 'bot' },
+    { label: 'Memory & Behaviour', icon: 'data--base' },
+    { label: 'Test Agent', icon: 'test-tool' },
+  ];
+
   // Form data
   formData: AgentCreate = {
     name: '',
+    description: '',
     system_prompt: 'You are a helpful AI assistant.',
-    llm_provider: 'openai',
-    llm_model: 'gpt-4o',
+    llm_config_id: '',
+    use_neural_router: false,
+    router_model_id: '',
+    router_top_k: 5,
+    memory_type: 'buffer',
+    memory_window: 10,
+    max_iterations: 10,
+    timeout_seconds: 300,
     attached_tool_ids: [],
+    collaborator_agent_ids: [],
   };
 
   // Extended form fields
-  description = '';
   temperature = 0.7;
   maxTokens: number | undefined;
-  useNeuralRouter = false;
-  routerTopK = 5;
-  memoryType: 'buffer' | 'summary' | 'vector' = 'buffer';
-  memoryWindow = 10;
-  maxIterations = 10;
-  timeoutSeconds = 300;
 
   // Tool selection
   tools: Tool[] = [];
   selectedToolIds: Set<string> = new Set();
 
   // LLM Configuration
-  llmProviders = [
-    { content: 'OpenAI', id: 'openai' },
-    { content: 'Anthropic', id: 'anthropic' },
-    { content: 'Google', id: 'google' },
-    { content: 'Ollama (Local)', id: 'ollama' },
-    { content: 'Groq', id: 'groq' },
+  llmConfigurations: LLMModelConfig[] = [];
+  selectedLLMConfigId: string = '';
+  llmConfigDropdownItems: any[] = [];
+
+  // Neural Tool Router Models
+  availableRouterModels: any[] = [];
+  selectedRouterModelId: string = '';
+  routerModelDropdownItems: any[] = [];
+
+  // Memory Type
+  memoryTypeDropdownItems: any[] = [
+    { content: 'Buffer (Recent messages)', id: 'buffer', selected: false },
+    { content: 'Summary (Condensed history)', id: 'summary', selected: false },
+    { content: 'Vector (Semantic search)', id: 'vector', selected: false }
   ];
 
-  llmModels: Record<string, string[]> = {
-    openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
-    anthropic: ['claude-3.5-sonnet', 'claude-3-haiku', 'claude-3-opus'],
-    google: ['gemini-1.5-pro', 'gemini-1.5-flash', 'gemini-2.0-flash'],
-    ollama: ['granite4.1:8b', 'llama3.2:latest', 'mistral:latest', 'qwen2.5-coder:7b'],
-    groq: ['llama-3.1-70b-versatile', 'mixtral-8x7b-32768'],
-  };
+  // Collaborators
+  availableCollaborators: Agent[] = [];
+  selectedCollaboratorIds: Set<string> = new Set();
+  collaboratorSearchTerm = '';
 
   // A2A Import
   showA2AImport = false;
@@ -116,11 +140,13 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
     private router: Router,
     private workspaceService: WorkspaceService,
     private platformApi: PlatformApiService,
+    private llmConfigService: LLMConfigService,
     private iconService: IconService,
   ) {
     this.iconService.registerAll([
       Save16, Play16, Copy16, Export16, Upload16, TrashCan16,
-      Bot16, Link16, Settings16, Template16,
+      Bot16, Link16, Settings16, Template16, Information16,
+      Chip16, DataBase16, TestTool16, ChevronDown16, Help16,
     ]);
   }
 
@@ -130,6 +156,9 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
         this.activeWorkspace = ws;
         if (ws) {
           this.loadTools();
+          this.loadLLMConfigurations();
+          this.loadAvailableCollaborators();
+          this.loadRouterModels();
         }
       })
     );
@@ -158,12 +187,26 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
       next: (agent: Agent) => {
         this.formData = {
           name: agent.name,
+          description: agent.description || '',
           system_prompt: agent.system_prompt || '',
-          llm_provider: agent.llm_provider || 'openai',
-          llm_model: agent.llm_model || 'gpt-4o',
+          llm_config_id: agent.llm_config_id || '',
+          use_neural_router: agent.use_neural_router ?? false,
+          router_model_id: agent.router_model_id || '',
+          router_top_k: agent.router_top_k || 5,
+          memory_type: agent.memory_type || 'buffer',
+          memory_window: agent.memory_window || 10,
+          max_iterations: agent.max_iterations || 10,
+          timeout_seconds: agent.timeout_seconds || 300,
           attached_tool_ids: agent.attached_tool_ids || [],
+          collaborator_agent_ids: agent.collaborator_agent_ids || [],
         };
+        this.selectedLLMConfigId = agent.llm_config_id || '';
+        this.selectedRouterModelId = agent.router_model_id || '';
         this.selectedToolIds = new Set(agent.attached_tool_ids || []);
+        this.selectedCollaboratorIds = new Set(agent.collaborator_agent_ids || []);
+        this.updateMemoryTypeSelection();
+        this.updateLLMConfigDropdownItems();
+        this.updateRouterModelDropdownItems();
         this.loading = false;
       },
       error: (err) => {
@@ -176,9 +219,118 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   loadTools(): void {
     if (!this.activeWorkspace) return;
     this.platformApi.listTools(this.activeWorkspace.id).subscribe({
-      next: (tools) => this.tools = tools,
+      next: (tools) => {
+        // Filter tools to show only workspace-specific tools (not from default workspace)
+        this.tools = tools.filter(tool => tool.workspace_id === this.activeWorkspace?.id);
+      },
       error: () => {},
     });
+  }
+
+  loadAvailableCollaborators(): void {
+    if (!this.activeWorkspace) return;
+    this.platformApi.listAgents(this.activeWorkspace.id).subscribe({
+      next: (agents) => {
+        this.availableCollaborators = agents.filter((agent) => agent.id !== this.agentId);
+      },
+      error: () => {},
+    });
+  }
+
+  loadLLMConfigurations(): void {
+    if (!this.activeWorkspace) return;
+    this.llmConfigService.loadConfigurations(this.activeWorkspace.id);
+    this.subs.push(
+      this.llmConfigService.configurations$.subscribe((configs) => {
+        this.llmConfigurations = configs;
+        this.updateLLMConfigDropdownItems();
+      })
+    );
+  }
+
+  updateLLMConfigDropdownItems(): void {
+    this.llmConfigDropdownItems = this.llmConfigurations.map(config => ({
+      content: `${config.name} (${config.provider} - ${config.model_name})`,
+      id: config.id,
+      selected: config.id === this.selectedLLMConfigId
+    }));
+  }
+
+  onLLMConfigSelect(event: any): void {
+    this.selectedLLMConfigId = event.item.id;
+    this.formData.llm_config_id = event.item.id;
+  }
+
+  onMemoryTypeSelect(event: any): void {
+    this.formData.memory_type = event.item.id;
+  }
+
+  onRouterModelSelect(event: any): void {
+    this.selectedRouterModelId = event.item.id;
+    this.formData.router_model_id = event.item.id;
+  }
+
+  toggleCollaborator(agentId: string): void {
+    if (this.selectedCollaboratorIds.has(agentId)) {
+      this.selectedCollaboratorIds.delete(agentId);
+    } else {
+      this.selectedCollaboratorIds.add(agentId);
+    }
+    this.formData.collaborator_agent_ids = Array.from(this.selectedCollaboratorIds);
+  }
+
+  isCollaboratorSelected(agentId: string): boolean {
+    return this.selectedCollaboratorIds.has(agentId);
+  }
+
+  get filteredCollaborators(): Agent[] {
+    const search = this.collaboratorSearchTerm.trim().toLowerCase();
+    const filtered = this.availableCollaborators.filter((agent) => {
+      if (this.agentId && agent.id === this.agentId) {
+        return false;
+      }
+
+      if (!search) {
+        return true;
+      }
+
+      return (
+        agent.name.toLowerCase().includes(search) ||
+        (agent.description || '').toLowerCase().includes(search)
+      );
+    });
+
+    return filtered.sort((a, b) => {
+      const aSelected = this.selectedCollaboratorIds.has(a.id) ? 0 : 1;
+      const bSelected = this.selectedCollaboratorIds.has(b.id) ? 0 : 1;
+      if (aSelected !== bSelected) {
+        return aSelected - bSelected;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  get selectedCollaborators(): CollaboratorAgent[] {
+    const selectedIds = Array.from(this.selectedCollaboratorIds);
+    return selectedIds
+      .map((id) => this.availableCollaborators.find((agent) => agent.id === id))
+      .filter((agent): agent is Agent => !!agent)
+      .map((agent) => ({
+        id: agent.id,
+        workspace_id: agent.workspace_id,
+        name: agent.name,
+        description: agent.description,
+        system_prompt: agent.system_prompt,
+      }));
+  }
+
+  onLLMConfigChange(): void {
+    const selectedConfig = this.llmConfigurations.find(c => c.id === this.selectedLLMConfigId);
+    if (selectedConfig) {
+      this.formData.llm_config_id = selectedConfig.id;
+      this.temperature = selectedConfig.temperature;
+      this.maxTokens = selectedConfig.max_tokens;
+    }
   }
 
   // ─── Tool Management ───────────────────────────────────────────
@@ -198,44 +350,6 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
 
   getToolName(toolId: string): string {
     return this.tools.find((t) => t.id === toolId)?.name || toolId.substring(0, 8);
-  }
-
-  // ─── LLM Configuration ─────────────────────────────────────────
-
-  getAvailableModels(): string[] {
-    return this.llmModels[this.formData.llm_provider || 'openai'] || [];
-  }
-
-  onProviderChange(event: any): void {
-    const providerId = event?.item?.id || event;
-    this.formData.llm_provider = providerId;
-    const models = this.getAvailableModels();
-    if (models.length > 0) {
-      this.formData.llm_model = models[0];
-    }
-  }
-
-  estimateCost(): string {
-    // Simple cost estimation based on provider and model
-    const costs: Record<string, Record<string, number>> = {
-      openai: {
-        'gpt-4o': 0.005,
-        'gpt-4o-mini': 0.0015,
-        'gpt-4-turbo': 0.01,
-        'gpt-3.5-turbo': 0.0005,
-      },
-      anthropic: {
-        'claude-3.5-sonnet': 0.003,
-        'claude-3-haiku': 0.00025,
-        'claude-3-opus': 0.015,
-      },
-    };
-
-    const provider = this.formData.llm_provider || 'openai';
-    const model = this.formData.llm_model || 'gpt-4o';
-    const costPer1k = costs[provider]?.[model] || 0.001;
-
-    return `~$${costPer1k.toFixed(4)}/1K tokens`;
   }
 
   // ─── A2A Import ────────────────────────────────────────────────
@@ -280,6 +394,17 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
 
     this.saving = true;
     this.formData.attached_tool_ids = Array.from(this.selectedToolIds);
+    this.formData.collaborator_agent_ids = Array.from(this.selectedCollaboratorIds);
+    this.formData.use_neural_router = this.formData.use_neural_router ?? false;
+    this.formData.router_model_id = this.formData.use_neural_router ? this.selectedRouterModelId : null as any;
+    this.formData.router_top_k = this.formData.use_neural_router ? (this.formData.router_top_k || 5) : null as any;
+    this.formData.memory_type = this.formData.memory_type || 'buffer';
+    this.formData.memory_window = this.formData.memory_window || 10;
+    this.formData.max_iterations = this.formData.max_iterations || 10;
+    this.formData.timeout_seconds = this.formData.timeout_seconds || 300;
+    if (!this.formData.llm_config_id) {
+      delete this.formData.llm_config_id;
+    }
 
     const apiCall = this.isEditMode && this.agentId
       ? this.platformApi.updateAgent(this.activeWorkspace.id, this.agentId, this.formData)
@@ -331,9 +456,9 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   exportA2A(): void {
     const a2aSpec = {
       name: this.formData.name,
+      description: this.formData.description,
       system_prompt: this.formData.system_prompt,
-      llm_provider: this.formData.llm_provider,
-      llm_model: this.formData.llm_model,
+      llm_config_id: this.formData.llm_config_id,
       attached_tool_ids: this.formData.attached_tool_ids,
     };
     const blob = new Blob([JSON.stringify(a2aSpec, null, 2)], { type: 'application/json' });
@@ -376,6 +501,44 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
 
   dismissNotification(): void {
     this.notification = null;
+  }
+
+  getPageTitle(): string {
+    // If agent name is not empty, show it instead of "Create Agent" or "Edit Agent"
+    if (this.formData.name && this.formData.name.trim()) {
+      return this.formData.name;
+    }
+    return this.isEditMode ? 'Edit Agent' : 'Create Agent';
+  }
+
+  loadRouterModels(): void {
+    if (!this.activeWorkspace) return;
+    // Fetch available fine-tuned models from the backend
+    this.platformApi.listRouterModels(this.activeWorkspace.id).subscribe({
+      next: (response: any) => {
+        this.availableRouterModels = response.models || [];
+        this.updateRouterModelDropdownItems();
+      },
+      error: () => {
+        this.availableRouterModels = [];
+        this.updateRouterModelDropdownItems();
+      },
+    });
+  }
+
+  updateRouterModelDropdownItems(): void {
+    this.routerModelDropdownItems = this.availableRouterModels.map(model => ({
+      content: model.name,
+      id: model.name,
+      selected: model.name === this.selectedRouterModelId
+    }));
+  }
+
+  updateMemoryTypeSelection(): void {
+    this.memoryTypeDropdownItems = this.memoryTypeDropdownItems.map(item => ({
+      ...item,
+      selected: item.id === this.formData.memory_type
+    }));
   }
 }
 
