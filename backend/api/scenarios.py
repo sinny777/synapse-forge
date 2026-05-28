@@ -27,6 +27,7 @@ router = APIRouter(prefix="/api/agents", tags=["Agent Scenarios"])
 class AgentExecuteRequest(BaseModel):
     scenario_id: str
     workspace_id: Optional[str] = None
+    user_prompt: Optional[str] = None
     llm_config: Optional[Dict[str, Any]] = None
     runtime_config: Optional[Dict[str, Any]] = None
 
@@ -66,14 +67,62 @@ async def execute_agent_scenario(request: AgentExecuteRequest):
     async def event_generator():
         try:
             from tool_router.agent_service import agent_orchestrator
+            if request.user_prompt:
+                prompt_event = {
+                    "type": "thought",
+                    "label": "User Prompt Received",
+                    "detail": request.user_prompt,
+                    "timestamp": time.time(),
+                    "status": "success",
+                }
+                yield f"data: {json.dumps(prompt_event)}\n\n"
+
+                reasoning_event = {
+                    "type": "reasoning",
+                    "label": "Preparing Agent Execution",
+                    "detail": f"Executing selected agent {request.scenario_id}",
+                    "timestamp": time.time(),
+                    "status": "running",
+                }
+                yield f"data: {json.dumps(reasoning_event)}\n\n"
+
             async for event in agent_orchestrator.execute_scenario(
                 scenario_id=request.scenario_id,
                 workspace_id=request.workspace_id,
                 llm_config=request.llm_config,
                 runtime_config=request.runtime_config,
             ):
-                event_data = json.dumps(event.to_dict())
+                event_dict = event.to_dict()
+                event_type = event_dict.get("type")
+
+                if event_type == "assistant_response":
+                    event_dict["type"] = "assistant"
+                    event_dict["label"] = event_dict.get("label") or "Agent Response"
+                    event_dict["detail"] = event_dict.get("detail") or event_dict.get("message") or ""
+                elif event_type == "thinking":
+                    event_dict["type"] = "thought"
+                    event_dict["label"] = event_dict.get("label") or "LLM Thought"
+                elif event_type == "reasoning":
+                    event_dict["type"] = "reasoning"
+                    event_dict["label"] = event_dict.get("label") or "Reasoning"
+                elif event_type == "tool_start":
+                    event_dict["type"] = "tool_call"
+                    event_dict["label"] = event_dict.get("label") or "Tool Call"
+                elif event_type == "tool_end":
+                    event_dict["type"] = "tool_result"
+                    event_dict["label"] = event_dict.get("label") or "Tool Result"
+
+                event_data = json.dumps(event_dict)
                 yield f"data: {event_data}\n\n"
+
+            complete_event = {
+                "type": "complete",
+                "label": "Agent Execution Complete",
+                "detail": "Streaming finished",
+                "timestamp": time.time(),
+                "status": "success",
+            }
+            yield f"data: {json.dumps(complete_event)}\n\n"
         except Exception as e:
             logger.error(f"Error in agent execution stream: {e}")
             error_event = {

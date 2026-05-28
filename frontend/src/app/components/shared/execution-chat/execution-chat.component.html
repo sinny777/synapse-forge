@@ -1,0 +1,191 @@
+<div class="execution-chat-shell" [class.trace-hidden]="!showTrace">
+  <cds-tile class="chat-panel">
+    <div class="chat-panel__header">
+      <div>
+        <h4>{{ title }}</h4>
+        <p *ngIf="context">{{ context.type | titlecase }}: {{ context.label }}</p>
+      </div>
+
+      <div class="chat-panel__actions">
+        <button
+          *ngIf="isExecuting"
+          cdsButton="danger--ghost"
+          size="sm"
+          (click)="stop.emit()">
+          Stop
+        </button>
+        <button cdsButton="ghost" size="sm" (click)="toggleTrace.emit()">
+          {{ showTrace ? 'Hide Trace' : 'Show Trace' }}
+        </button>
+        <button cdsButton="ghost" size="sm" (click)="clear.emit()">
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div class="chat-messages" #chatContainer>
+      <div *ngIf="messages.length === 0" class="chat-empty">
+        <cds-tile class="chat-empty__tile">
+          <h3>{{ emptyTitle }}</h3>
+          <p>{{ emptyDescription }}</p>
+        </cds-tile>
+      </div>
+
+      <cds-tile
+        *ngFor="let msg of messages; let i = index; trackBy: trackMessage"
+        class="chat-message"
+        [class.user]="msg.role === 'user'"
+        [class.assistant]="msg.role === 'assistant'"
+        [class.system]="msg.role === 'system'"
+        [class.tool]="msg.role === 'tool'">
+        <div class="message-avatar">
+          <span *ngIf="msg.role === 'user'">👤</span>
+          <span *ngIf="msg.role === 'assistant'">🤖</span>
+          <span *ngIf="msg.role === 'system'">⚙️</span>
+          <span *ngIf="msg.role === 'tool'">🛠️</span>
+        </div>
+
+        <div class="message-content">
+          <div class="message-role">
+            {{ msg.toolName ? (msg.role + ' · ' + msg.toolName) : msg.role }}
+          </div>
+
+          <div class="message-text" *ngIf="!hasStructuredMessage(msg)">{{ msg.content }}</div>
+
+          <ng-container *ngIf="hasStructuredMessage(msg)">
+            <div class="message-text" *ngIf="getUserVisibleMessageText(msg)">{{ getUserVisibleMessageText(msg) }}</div>
+            <button
+              cdsButton="ghost"
+              size="sm"
+              class="message-toggle"
+              (click)="toggleMessage(i)">
+              {{ isMessageExpanded(i) ? 'Hide' : getMessageActionLabel(msg) }}
+            </button>
+
+            <div class="message-structured" *ngIf="isMessageExpanded(i)">
+              <div
+                class="structured-block"
+                *ngFor="let entry of getMessageDisplayEntries(msg)">
+                <div class="structured-block__label">{{ entry.key }}</div>
+                <pre class="structured-block__value">{{ formatStructured(entry.value) }}</pre>
+              </div>
+              <pre
+                class="structured-block__value structured-block__value--standalone"
+                *ngIf="getMessageDisplayEntries(msg).length === 0">{{ formatStructured(getMessageStructuredContent(msg)) }}</pre>
+            </div>
+          </ng-container>
+
+          <div class="message-time" *ngIf="msg.timestamp">
+            {{ msg.timestamp | date:'HH:mm:ss' }}
+          </div>
+        </div>
+      </cds-tile>
+
+      <cds-tile *ngIf="isExecuting" class="chat-message assistant">
+        <div class="message-avatar"><span>🤖</span></div>
+        <div class="message-content">
+          <div class="typing-indicator">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+      </cds-tile>
+    </div>
+
+    <div class="chat-input">
+      <cds-tile class="chat-input__composer">
+        <cds-label class="chat-input__label">
+          <span class="chat-input__label-text">{{ placeholder }}</span>
+          <textarea
+            cdsTextArea
+            class="chat-input__textarea"
+            rows="4"
+            [ngModel]="userInput"
+            (ngModelChange)="onInputChange($event)"
+            (keydown)="onKeyDown($event)"
+            [placeholder]="placeholder"
+            [disabled]="disabled || isExecuting">
+          </textarea>
+        </cds-label>
+
+        <div class="chat-input__footer">
+          <div class="chat-input__hint">
+            Enter to send · Shift+Enter for a new line
+          </div>
+          <div class="chat-input__actions">
+            <button
+              cdsButton="primary"
+              size="sm"
+              (click)="send.emit()"
+              [disabled]="!userInput.trim() || disabled || isExecuting">
+              Send message
+            </button>
+          </div>
+        </div>
+      </cds-tile>
+    </div>
+  </cds-tile>
+
+  <cds-tile class="trace-panel" *ngIf="showTrace">
+    <div class="trace-header">
+      <h4>Execution Trace</h4>
+      <span class="trace-count" *ngIf="traceEvents.length > 0">{{ traceEvents.length }} events</span>
+    </div>
+
+    <div class="trace-timeline" *ngIf="traceEvents.length > 0; else noTrace">
+      <cds-structured-list [condensed]="true">
+        <cds-list-row
+          *ngFor="let event of traceEvents; let i = index; trackBy: trackTrace"
+          class="trace-event"
+          [class.running]="event.status === 'running'"
+          [class.error]="event.status === 'error'">
+          <cds-list-column [nowrap]="true" class="trace-event__meta">
+            <div class="trace-event__connector">
+              <div class="trace-dot" [class.active]="event.status === 'running'"></div>
+              <div class="trace-line" *ngIf="i < traceEvents.length - 1"></div>
+            </div>
+          </cds-list-column>
+
+          <cds-list-column>
+            <div class="trace-event__content">
+              <div class="trace-event__header">
+                <span class="trace-icon">{{ getTraceIcon(event.type) }}</span>
+                <cds-tag [type]="getTraceColor(event.type)" size="sm">{{ event.type }}</cds-tag>
+                <span class="trace-latency" *ngIf="event.latency_ms">{{ event.latency_ms | number:'1.0-0' }}ms</span>
+              </div>
+              <div class="trace-event__label">{{ getTraceActionLabel(event) }}</div>
+              <div class="trace-event__detail" *ngIf="event.detail && !hasStructuredTrace(event)">{{ event.detail }}</div>
+
+              <ng-container *ngIf="hasStructuredTrace(event)">
+                <button
+                  cdsButton="ghost"
+                  size="sm"
+                  class="trace-toggle"
+                  (click)="toggleTraceEvent(i)">
+                  {{ isTraceExpanded(i) ? 'Hide' : getTraceActionLabel(event) }}
+                </button>
+
+                <div class="trace-event__structured" *ngIf="isTraceExpanded(i)">
+                  <div
+                    class="structured-block"
+                    *ngFor="let entry of getTraceDisplayEntries(event)">
+                    <div class="structured-block__label">{{ entry.key }}</div>
+                    <pre class="structured-block__value">{{ formatStructured(entry.value) }}</pre>
+                  </div>
+                  <pre
+                    class="structured-block__value structured-block__value--standalone"
+                    *ngIf="getTraceDisplayEntries(event).length === 0">{{ formatStructured(getTraceStructuredDetail(event)) }}</pre>
+                </div>
+              </ng-container>
+            </div>
+          </cds-list-column>
+        </cds-list-row>
+      </cds-structured-list>
+    </div>
+
+    <ng-template #noTrace>
+      <div class="trace-empty">
+        <p>Trace events, thoughts, reasoning, and tool calls will appear here during execution.</p>
+      </div>
+    </ng-template>
+  </cds-tile>
+</div>

@@ -98,7 +98,63 @@ pytest --cov=. --cov-report=html  # With coverage report
 
 4. Wait for review and address any feedback
 
+## Task Verification Before Completion
+
+**CRITICAL**: Before submitting any pull request or marking work complete, you MUST verify your implementation.
+
+### Mandatory Verification Steps
+
+1. **Requirements Check**
+   - Confirm ALL user requirements from the issue/task are addressed
+   - Verify no requirements are missed or partially implemented
+   - Document any intentional deviations
+
+2. **Browser Testing (UI Changes)**
+   - Launch the application in a browser
+   - Test all modified features interactively
+   - Verify Carbon components render correctly
+   - Test responsive design and accessibility
+   - Check error states and edge cases
+
+3. **API Testing (Backend Changes)**
+   - Test endpoints with curl, Postman, or browser tools
+   - Verify request/response formats
+   - Check error handling and status codes
+   - Test authentication/authorization if applicable
+
+4. **Integration Testing**
+   - For full-stack changes, test the complete flow
+   - Verify frontend-backend communication
+   - Check data persistence and retrieval
+   - Test error propagation from backend to UI
+
+**Never submit work without verification. If testing reveals issues, fix them first.**
+
 ## Coding Standards
+
+### Frontend Development
+
+- **ALWAYS use IBM Carbon Design Angular components** for all UI elements
+- Use Carbon Design System icons, styles, and themes consistently
+- Follow Carbon Design System best practices and accessibility guidelines
+- Leverage the Carbon MCP tool for component implementation and guidance
+- Maintain responsive design using Carbon's grid system
+- Follow Angular best practices and style guide
+- Use TypeScript with strict type checking
+- Write unit tests for all components using Jasmine/Karma
+- Follow component-based architecture patterns
+
+### Backend Development
+
+- **ALWAYS use FastAPI** for Python backend development
+- Follow FastAPI best practices for async operations
+- Use Pydantic models for request/response validation
+- Implement proper error handling and HTTP status codes
+- Use dependency injection for database sessions and services
+- Write comprehensive API documentation using FastAPI's automatic docs
+- Implement proper authentication and authorization
+- Use SQLAlchemy ORM for database operations
+- Write unit and integration tests using pytest
 
 ### Python Style
 
@@ -106,12 +162,16 @@ pytest --cov=. --cov-report=html  # With coverage report
 - Use type hints for function parameters and return values
 - Write docstrings for all public functions and classes
 - Use meaningful variable and function names
+- Follow SOLID principles and design patterns
+- Implement proper logging using Python's logging module
+- Handle exceptions appropriately with custom exception classes
 
 ### Code Formatting
 
 - Use `black` for code formatting
 - Use `mypy` for type checking
 - Maximum line length: 100 characters
+- Use `pylint` or `flake8` for additional linting
 
 ### Documentation
 

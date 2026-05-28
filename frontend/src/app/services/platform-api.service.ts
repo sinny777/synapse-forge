@@ -22,6 +22,7 @@ import {
   RouterPredictRequest,
   RouterPredictResponse,
 } from '../models/platform.model';
+import { LLMModelConfig } from '../models/llm-config.model';
 
 const API_BASE = 'http://localhost:8000/api';
 
@@ -228,7 +229,8 @@ export class PlatformApiService {
   async executeOrchestration(
     orchestrationId: string,
     userPrompt: string,
-    onEvent: (event: any) => void
+    onEvent: (event: any) => void,
+    signal?: AbortSignal
   ): Promise<void> {
     const response = await fetch(
       `${API_BASE}/orchestrator/${orchestrationId}/execute`,
@@ -237,6 +239,7 @@ export class PlatformApiService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ user_prompt: userPrompt }),
         credentials: 'include',
+        signal,
       }
     );
 
@@ -253,29 +256,95 @@ export class PlatformApiService {
     const decoder = new TextDecoder();
     let buffer = '';
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
+        buffer += decoder.decode(value, { stream: true });
 
-      // SSE format: "data: {...}\n\n"
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop() || '';
+        // SSE format: "data: {...}\n\n"
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const jsonStr = line.substring(6);
-          if (jsonStr.trim()) {
-            try {
-              const event = JSON.parse(jsonStr);
-              onEvent(event);
-            } catch (e) {
-              console.error('Failed to parse SSE event:', e, jsonStr);
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.substring(6);
+            if (jsonStr.trim()) {
+              try {
+                const event = JSON.parse(jsonStr);
+                onEvent(event);
+              } catch (e) {
+                console.error('Failed to parse SSE event:', e, jsonStr);
+              }
             }
           }
         }
       }
+    } finally {
+      reader.releaseLock();
+    }
+  }
+
+  async executeAgent(
+    workspaceId: string,
+    agentId: string,
+    userPrompt: string,
+    llmConfig: Partial<LLMModelConfig> | null,
+    runtimeConfig: Record<string, any>,
+    onEvent: (event: any) => void,
+    signal?: AbortSignal
+  ): Promise<void> {
+    const response = await fetch(
+      `${API_BASE}/workspaces/${workspaceId}/agents/${agentId}/execute`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_prompt: userPrompt }),
+        credentials: 'include',
+        signal,
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.detail || 'Agent execution failed');
+    }
+
+    if (!response.body) {
+      throw new Error('ReadableStream not supported');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const jsonStr = line.substring(6);
+            if (jsonStr.trim()) {
+              try {
+                const event = JSON.parse(jsonStr);
+                onEvent(event);
+              } catch (e) {
+                console.error('Failed to parse SSE event:', e, jsonStr);
+              }
+            }
+          }
+        }
+      }
+    } finally {
+      reader.releaseLock();
     }
   }
 }

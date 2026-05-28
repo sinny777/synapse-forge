@@ -588,7 +588,16 @@ synapse-forge/
 
 ## 🤝 Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+Contributions are welcome! Please review our guidelines before submitting:
+
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Contribution workflow and standards
+- **[CODING_STYLE_GUIDE.md](docs/CODING_STYLE_GUIDE.md)** — Mandatory coding standards for frontend and backend
+
+### Key Development Standards
+
+- **Frontend**: MUST use IBM Carbon Design Angular components exclusively
+- **Backend**: MUST use FastAPI for all Python API development
+- **Code Quality**: Follow best practices outlined in the coding style guide
 
 ---
 

@@ -8,7 +8,7 @@ Separated from the ORM models to keep validation concerns distinct.
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -354,6 +354,63 @@ class LLMConfigRead(BaseModel):
     updated_at: datetime
     created_by: str | None = None
     updated_by: str | None = None
+
+
+class AgentExecuteRequest(BaseModel):
+    user_prompt: str = Field(..., min_length=1, examples=["Summarize the claim and validate coverage."])
+
+
+class AgentExecutionToolSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    type: ToolTypeEnum
+
+
+class AgentExecutionCollaboratorSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    llm_config_id: uuid.UUID | None = None
+    attached_tool_ids: list[uuid.UUID] | None = None
+    use_neural_router: bool = False
+    router_top_k: int | None = None
+
+
+class AgentExecutionResolvedConfig(BaseModel):
+    id: uuid.UUID
+    name: str
+    provider: LLMProviderSchemaEnum
+    model_name: str
+    temperature: float
+    max_tokens: int
+
+
+class AgentExecutionResolvedAgent(BaseModel):
+    id: uuid.UUID
+    name: str
+    description: str | None = None
+    system_prompt: str | None = None
+    use_neural_router: bool = False
+    router_model_id: str | None = None
+    router_top_k: int | None = None
+    memory_type: str | None = None
+    memory_window: int | None = None
+    max_iterations: int | None = None
+    timeout_seconds: int | None = None
+    llm_config: AgentExecutionResolvedConfig | None = None
+    tools: list[AgentExecutionToolSummary] = []
+    collaborators: list[AgentExecutionCollaboratorSummary] = []
+
+
+class AgentExecutionTraceEvent(BaseModel):
+    type: Literal["router", "llm_call", "thought", "reasoning", "tool_call", "tool_result", "assistant", "error", "complete"]
+    label: str
+    detail: str | None = None
+    timestamp: datetime
+    latency_ms: float | None = None
+    status: Literal["running", "success", "error"] | None = "success"
+    trace_id: str | None = None
+    metadata: dict[str, Any] | None = None
 
 
 # ========================== ROUTER PREDICT =================================

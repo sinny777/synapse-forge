@@ -223,13 +223,32 @@ export interface PlaygroundMessage {
   timestamp?: Date;
   toolName?: string;
   traceId?: string;
+  metadata?: Record<string, any>;
+  format?: 'text' | 'json' | 'markdown';
 }
 
 export interface TraceEvent {
-  type: 'router' | 'llm_call' | 'tool_call' | 'tool_result' | 'error' | 'complete';
+  type: 'router' | 'llm_call' | 'thought' | 'reasoning' | 'tool_call' | 'tool_result' | 'assistant' | 'error' | 'complete';
   label: string;
   detail?: string;
   timestamp: string;
   latency_ms?: number;
   status?: 'running' | 'success' | 'error';
+  traceId?: string;
+  metadata?: Record<string, any>;
+  format?: 'text' | 'json' | 'markdown';
+}
+
+export interface ChatExecutionContext {
+  id: string;
+  label: string;
+  type: 'orchestration' | 'agent';
+}
+
+export interface ChatSessionState {
+  messages: PlaygroundMessage[];
+  traceEvents: TraceEvent[];
+  userInput: string;
+  isExecuting: boolean;
+  notification: any | null;
 }

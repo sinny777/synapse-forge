@@ -16,13 +16,6 @@
           <option *ngIf="orchestrations.length === 0" [value]="null" disabled>No orchestrations</option>
         </select>
       </div>
-      <button class="cds--btn cds--btn--ghost cds--btn--sm" (click)="toggleTrace()">
-        {{ showTrace ? 'Hide Trace' : 'Show Trace' }}
-      </button>
-      <button class="cds--btn cds--btn--ghost cds--btn--sm" (click)="clearChat()" title="Clear">
-        <svg cdsIcon="renew" size="16" class="cds--btn__icon"></svg>
-        Clear
-      </button>
     </div>
   </app-page-header>
 
@@ -45,105 +38,25 @@
     <p>Select a workspace and an orchestration to start chatting.</p>
   </div>
 
-  <!-- Main Layout: Chat + Trace -->
-  <div *ngIf="activeWorkspace" class="playground-body" [class.trace-hidden]="!showTrace">
-    <!-- Chat Panel (Left) -->
-    <div class="chat-panel">
-      <!-- Messages -->
-      <div class="chat-messages" #chatContainer>
-        <div *ngIf="messages.length === 0" class="chat-empty">
-          <div class="chat-empty__icon">💬</div>
-          <h3>Start a conversation</h3>
-          <p>Select an orchestration above and type a message to execute your agent workflow.</p>
-        </div>
-
-        <div *ngFor="let msg of messages"
-             class="chat-message"
-             [class.user]="msg.role === 'user'"
-             [class.assistant]="msg.role === 'assistant'"
-             [class.system]="msg.role === 'system'">
-          <div class="message-avatar">
-            <span *ngIf="msg.role === 'user'">👤</span>
-            <span *ngIf="msg.role === 'assistant'">🤖</span>
-            <span *ngIf="msg.role === 'system'">⚙️</span>
-          </div>
-          <div class="message-content">
-            <div class="message-role">{{ msg.role }}</div>
-            <div class="message-text">{{ msg.content }}</div>
-            <div class="message-time" *ngIf="msg.timestamp">
-              {{ msg.timestamp | date:'HH:mm:ss' }}
-            </div>
-          </div>
-        </div>
-
-        <!-- Typing indicator -->
-        <div *ngIf="isExecuting" class="chat-message assistant">
-          <div class="message-avatar"><span>🤖</span></div>
-          <div class="message-content">
-            <div class="typing-indicator">
-              <span></span><span></span><span></span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Input Area -->
-      <div class="chat-input">
-        <div class="input-wrapper">
-          <textarea
-            #messageInput
-            class="cds--text-area chat-textarea"
-            rows="1"
-            [(ngModel)]="userInput"
-            (keydown)="onKeyDown($event)"
-            placeholder="Type a message..."
-            [disabled]="isExecuting || !selectedOrchestrationId">
-          </textarea>
-          <button
-            class="send-btn"
-            (click)="sendMessage()"
-            [disabled]="!userInput.trim() || isExecuting || !selectedOrchestrationId"
-            title="Send">
-            <svg cdsIcon="send" size="16"></svg>
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Trace Panel (Right) -->
-    <div class="trace-panel" *ngIf="showTrace">
-      <div class="trace-header">
-        <h4>Execution Trace</h4>
-        <span class="trace-count" *ngIf="traceEvents.length > 0">{{ traceEvents.length }} events</span>
-      </div>
-
-      <div class="trace-timeline" *ngIf="traceEvents.length > 0; else noTrace">
-        <div *ngFor="let event of traceEvents; let i = index"
-             class="trace-event"
-             [class.running]="event.status === 'running'"
-             [class.error]="event.status === 'error'">
-          <div class="trace-event__connector">
-            <div class="trace-dot" [class.active]="event.status === 'running'"></div>
-            <div class="trace-line" *ngIf="i < traceEvents.length - 1"></div>
-          </div>
-          <div class="trace-event__content">
-            <div class="trace-event__header">
-              <span class="trace-icon">{{ getTraceIcon(event.type) }}</span>
-              <cds-tag [type]="getTraceColor(event.type)" size="sm">{{ event.type }}</cds-tag>
-              <span class="trace-latency" *ngIf="event.latency_ms">{{ event.latency_ms | number:'1.0-0' }}ms</span>
-            </div>
-            <div class="trace-event__label">{{ event.label }}</div>
-            <div class="trace-event__detail" *ngIf="event.detail">{{ event.detail }}</div>
-          </div>
-        </div>
-      </div>
-
-      <ng-template #noTrace>
-        <div class="trace-empty">
-          <p>Trace events will appear here during execution.</p>
-        </div>
-      </ng-template>
-    </div>
+  <div *ngIf="activeWorkspace" class="playground-body">
+    <app-execution-chat
+      [title]="'Playground'"
+      [emptyTitle]="'Start a conversation'"
+      [emptyDescription]="'Select an orchestration above and type a message to execute your workflow.'"
+      [placeholder]="selectedOrchestrationId ? 'Type a message...' : 'Select an orchestration first...'"
+      [disabled]="!selectedOrchestrationId"
+      [showTrace]="showTrace"
+      [isExecuting]="isExecuting"
+      [messages]="messages"
+      [traceEvents]="traceEvents"
+      [userInput]="userInput"
+      [context]="executionContext"
+      (userInputChange)="userInput = $event"
+      (send)="sendMessage()"
+      (clear)="clearChat()"
+      (toggleTrace)="toggleTrace()"
+      (stop)="stopExecution()">
+    </app-execution-chat>
   </div>
   </div>
 </app-page-wrapper>

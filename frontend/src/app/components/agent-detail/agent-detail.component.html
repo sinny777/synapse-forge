@@ -312,25 +312,33 @@
           </div>
 
           <!-- Test Agent Tab -->
-          <div *ngIf="activeTabIndex === 4" class="tab-content">
+          <div *ngIf="activeTabIndex === 4" class="tab-content tab-content--wide">
             <div class="section">
               <h4 class="section-title">Test Agent</h4>
-              <p>Test your agent configuration with sample inputs before deploying.</p>
-              
-              <div class="test-section">
-                <div class="cds--form-item">
-                  <cds-label>Test Input</cds-label>
-                  <textarea cdsTextArea rows="4" placeholder="Enter a test prompt..."></textarea>
-                </div>
-                <button cdsButton="primary" size="sm">
-                  <svg cdsIcon="play" size="16" class="cds--btn__icon"></svg>
-                  Run Test
-                </button>
+              <p>Test the currently selected agent with streaming conversation, reasoning, and tool execution traces.</p>
+
+              <div *ngIf="!isEditMode || !agentId" class="test-results">
+                <p class="placeholder-text">Save the agent first to enable interactive testing.</p>
               </div>
 
-              <div class="test-results">
-                <h5>Test Results</h5>
-                <p class="placeholder-text">Run a test to see results here...</p>
+              <div *ngIf="isEditMode && agentId" class="test-chat-shell">
+                <app-execution-chat
+                  [title]="'Agent Test Console'"
+                  [emptyTitle]="'Test this agent'"
+                  [emptyDescription]="'Send prompts to validate the selected agent behavior, reasoning, and tool usage.'"
+                  [placeholder]="'Describe a task for this agent...'"
+                  [showTrace]="testShowTrace"
+                  [isExecuting]="testIsExecuting"
+                  [messages]="testMessages"
+                  [traceEvents]="testTraceEvents"
+                  [userInput]="testUserInput"
+                  [context]="agentExecutionContext"
+                  (userInputChange)="testUserInput = $event"
+                  (send)="runAgentTest()"
+                  (clear)="clearAgentTest()"
+                  (toggleTrace)="toggleAgentTestTrace()"
+                  (stop)="stopAgentTest()">
+                </app-execution-chat>
               </div>
             </div>
           </div>

@@ -28,10 +28,11 @@ import { Subscription } from 'rxjs';
 import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
 import { LLMConfigService } from '../../services/llm-config.service';
-import { Agent, AgentCreate, CollaboratorAgent, Tool, Workspace } from '../../models/platform.model';
+import { Agent, AgentCreate, ChatExecutionContext, CollaboratorAgent, PlaygroundMessage, Tool, TraceEvent, Workspace } from '../../models/platform.model';
 import { LLMModelConfig } from '../../models/llm-config.model';
 import { PageHeaderComponent } from '../shared/page-header/page-header.component';
 import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
+import { ExecutionChatComponent } from '../shared/execution-chat/execution-chat.component';
 
 import Save16 from '@carbon/icons/es/save/16';
 import Play16 from '@carbon/icons/es/play/16';
@@ -59,7 +60,7 @@ import Help16 from '@carbon/icons/es/help/16';
     TagModule, InputModule, DropdownModule, TabsModule,
     LoadingModule, ToggleModule, SliderModule,
     AccordionModule, ToggletipModule,
-    PageHeaderComponent, PageWrapperComponent,
+    PageHeaderComponent, PageWrapperComponent, ExecutionChatComponent,
   ],
   templateUrl: './agent-detail.component.html',
   styleUrls: ['./agent-detail.component.scss'],
@@ -132,8 +133,15 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   showA2AImport = false;
   a2aJson = '';
 
+  testMessages: PlaygroundMessage[] = [];
+  testTraceEvents: TraceEvent[] = [];
+  testUserInput = '';
+  testIsExecuting = false;
+  testShowTrace = true;
+
   activeWorkspace: Workspace | null = null;
   private subs: Subscription[] = [];
+  private testAbortController: AbortController | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -175,6 +183,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.testAbortController?.abort();
     this.subs.forEach((s) => s.unsubscribe());
   }
 
@@ -539,6 +548,152 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
       ...item,
       selected: item.id === this.formData.memory_type
     }));
+  }
+  async runAgentTest(): Promise<void> {
+    if (!this.activeWorkspace || !this.agentId || !this.testUserInput.trim() || this.testIsExecuting) {
+      return;
+    }
+
+    const prompt = this.testUserInput.trim();
+    this.testUserInput = '';
+    this.testMessages.push({
+      role: 'user',
+      content: prompt,
+      timestamp: new Date(),
+    });
+    this.testTraceEvents = [];
+    this.testIsExecuting = true;
+    this.testAbortController = new AbortController();
+
+    try {
+      const selectedConfig = this.llmConfigurations.find((config) => config.id === this.selectedLLMConfigId) || null;
+      const attachedTools = this.tools.filter((tool) => this.selectedToolIds.has(tool.id));
+      const collaborators = this.availableCollaborators.filter((agent) =>
+        this.selectedCollaboratorIds.has(agent.id)
+      );
+
+      await this.platformApi.executeAgent(
+        this.activeWorkspace.id,
+        this.agentId,
+        prompt,
+        selectedConfig,
+        {
+          system_prompt: this.formData.system_prompt,
+          max_iterations: this.formData.max_iterations,
+          timeout_seconds: this.formData.timeout_seconds,
+          memory_type: this.formData.memory_type,
+          memory_window: this.formData.memory_window,
+          use_neural_router: this.formData.use_neural_router,
+          router_model_id: this.formData.router_model_id,
+          router_top_k: this.formData.router_top_k,
+          attached_tools: attachedTools.map((tool) => ({
+            id: tool.id,
+            name: tool.name,
+            type: tool.type,
+          })),
+          collaborators: collaborators.map((agent) => ({
+            id: agent.id,
+            name: agent.name,
+            description: agent.description,
+          })),
+        },
+        (event: any) => {
+          this.testTraceEvents.push({
+            type: event.type,
+            label: event.label || event.type,
+            detail: event.detail || event.message || '',
+            timestamp: event.timestamp || new Date().toISOString(),
+            latency_ms: event.latency_ms,
+            status: event.status || 'success',
+            metadata: event.metadata || event.data,
+            format: event.type === 'assistant' ? 'markdown' : 'json',
+          });
+
+          if (event.type === 'assistant') {
+            this.testMessages.push({
+              role: 'assistant',
+              content: event.detail || event.message || event.label,
+              timestamp: new Date(),
+              metadata: event.metadata || event.data,
+              format: 'markdown',
+            });
+          }
+
+          if (event.type === 'tool_call' || event.type === 'tool_result') {
+            this.testMessages.push({
+              role: 'tool',
+              content: event.detail || event.message || event.label,
+              toolName: event.metadata?.tool_name || event.label,
+              timestamp: new Date(),
+              metadata: event.metadata || event.data,
+              format: 'json',
+            });
+          }
+
+          if (event.type === 'llm_call' || event.type === 'reasoning' || event.type === 'router') {
+            this.testMessages.push({
+              role: 'system',
+              content: event.label,
+              timestamp: new Date(),
+              metadata: event.metadata || event.data || (event.detail ? { detail: event.detail } : undefined),
+              format: 'json',
+            });
+          }
+
+          if (event.type === 'error' || event.type === 'complete') {
+            this.testIsExecuting = false;
+          }
+        },
+        this.testAbortController.signal
+      );
+    } catch (err: any) {
+      const aborted = err?.name === 'AbortError';
+      this.testMessages.push({
+        role: 'system',
+        content: aborted ? 'Execution stopped by user.' : `Error: ${err.message}`,
+        timestamp: new Date(),
+      });
+      this.testTraceEvents.push({
+        type: aborted ? 'complete' : 'error',
+        label: aborted ? 'Execution Stopped' : 'Execution Error',
+        detail: aborted ? 'The current agent execution was stopped by the user.' : (err.message || 'Execution failed'),
+        timestamp: new Date().toISOString(),
+        status: aborted ? 'success' : 'error',
+      });
+      this.testIsExecuting = false;
+    } finally {
+      this.testAbortController = null;
+      this.testIsExecuting = false;
+    }
+  }
+
+  stopAgentTest(): void {
+    if (!this.testIsExecuting) {
+      return;
+    }
+
+    this.testAbortController?.abort();
+  }
+
+  clearAgentTest(): void {
+    this.testMessages = [];
+    this.testTraceEvents = [];
+  }
+
+  toggleAgentTestTrace(): void {
+    this.testShowTrace = !this.testShowTrace;
+  }
+
+  get agentExecutionContext(): ChatExecutionContext | null {
+    if (!this.agentId || !this.formData.name) {
+      return null;
+    }
+
+    return {
+      id: this.agentId,
+      label: this.formData.name,
+      type: 'agent',
+    };
   }
 }
 

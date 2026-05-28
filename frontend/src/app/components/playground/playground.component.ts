@@ -6,23 +6,23 @@
  * and trace event visualization.
  */
 
-import { Component, OnInit, OnDestroy, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   ButtonModule, NotificationModule, IconModule,
-  TagModule, DropdownModule,
+  DropdownModule,
 } from 'carbon-components-angular';
 import { IconService } from 'carbon-components-angular/icon';
 import { Subscription } from 'rxjs';
-import { TagType } from 'carbon-components-angular/tag';
 import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
 import {
-  Workspace, Orchestration, PlaygroundMessage, TraceEvent,
+  ChatExecutionContext, Workspace, Orchestration, PlaygroundMessage, TraceEvent,
 } from '../../models/platform.model';
 import { PageHeaderComponent } from '../shared/page-header/page-header.component';
 import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
+import { ExecutionChatComponent } from '../shared/execution-chat/execution-chat.component';
 
 import Send16 from '@carbon/icons/es/send/16';
 import Renew16 from '@carbon/icons/es/renew/16';
@@ -36,15 +36,13 @@ import UserAvatar16 from '@carbon/icons/es/user--avatar/16';
   imports: [
     CommonModule, FormsModule,
     ButtonModule, NotificationModule, IconModule,
-    TagModule, DropdownModule,
-    PageHeaderComponent, PageWrapperComponent,
+    DropdownModule,
+    PageHeaderComponent, PageWrapperComponent, ExecutionChatComponent,
   ],
   templateUrl: './playground.component.html',
   styleUrls: ['./playground.component.scss'],
 })
-export class PlaygroundComponent implements OnInit, OnDestroy, AfterViewChecked {
-  @ViewChild('chatContainer') chatContainer!: ElementRef;
-  @ViewChild('messageInput') messageInput!: ElementRef;
+export class PlaygroundComponent implements OnInit, OnDestroy {
 
   messages: PlaygroundMessage[] = [];
   traceEvents: TraceEvent[] = [];
@@ -57,7 +55,7 @@ export class PlaygroundComponent implements OnInit, OnDestroy, AfterViewChecked 
 
   activeWorkspace: Workspace | null = null;
   private subs: Subscription[] = [];
-  private shouldScrollChat = false;
+  private executionAbortController: AbortController | null = null;
 
   constructor(
     private workspaceService: WorkspaceService,
@@ -79,14 +77,8 @@ export class PlaygroundComponent implements OnInit, OnDestroy, AfterViewChecked 
   }
 
   ngOnDestroy(): void {
+    this.executionAbortController?.abort();
     this.subs.forEach((s) => s.unsubscribe());
-  }
-
-  ngAfterViewChecked(): void {
-    if (this.shouldScrollChat) {
-      this.scrollToBottom();
-      this.shouldScrollChat = false;
-    }
   }
 
   // ─── Data Loading ──────────────────────────────────────────────
@@ -122,11 +114,11 @@ export class PlaygroundComponent implements OnInit, OnDestroy, AfterViewChecked 
       content: prompt,
       timestamp: new Date(),
     });
-    this.shouldScrollChat = true;
 
     // Clear previous trace
     this.traceEvents = [];
     this.isExecuting = true;
+    this.executionAbortController = new AbortController();
 
     try {
       await this.platformApi.executeOrchestration(
@@ -141,6 +133,8 @@ export class PlaygroundComponent implements OnInit, OnDestroy, AfterViewChecked 
             timestamp: event.timestamp,
             latency_ms: event.latency_ms,
             status: event.status || 'success',
+            metadata: event.metadata || event.data,
+            format: event.type === 'assistant' ? 'markdown' : 'json',
           });
 
           // If it's an assistant response, add to chat
@@ -149,32 +143,38 @@ export class PlaygroundComponent implements OnInit, OnDestroy, AfterViewChecked 
               role: 'assistant',
               content: event.detail || event.label,
               timestamp: new Date(),
+              metadata: event.metadata || event.data,
+              format: 'markdown',
             });
-            this.shouldScrollChat = true;
           }
 
           // If complete or error, stop executing
           if (event.type === 'complete' || event.type === 'error') {
             this.isExecuting = false;
           }
-        }
+        },
+        this.executionAbortController.signal
       );
     } catch (err: any) {
+      const aborted = err?.name === 'AbortError';
       this.messages.push({
         role: 'system',
-        content: `Error: ${err.message}`,
+        content: aborted ? 'Execution stopped by user.' : `Error: ${err.message}`,
         timestamp: new Date(),
       });
       this.isExecuting = false;
-      this.shouldScrollChat = true;
+    } finally {
+      this.executionAbortController = null;
+      this.isExecuting = false;
     }
   }
 
-  onKeyDown(event: KeyboardEvent): void {
-    if (event.key === 'Enter' && !event.shiftKey) {
-      event.preventDefault();
-      this.sendMessage();
+  stopExecution(): void {
+    if (!this.isExecuting) {
+      return;
     }
+
+    this.executionAbortController?.abort();
   }
 
   clearChat(): void {
@@ -190,37 +190,14 @@ export class PlaygroundComponent implements OnInit, OnDestroy, AfterViewChecked 
     return this.orchestrations.find((o) => o.id === this.selectedOrchestrationId)?.name || 'None';
   }
 
-  getTraceIcon(type: string): string {
-    switch (type) {
-      case 'router': return '🔍';
-      case 'llm_call': return '🧠';
-      case 'tool_call': return '⚡';
-      case 'tool_result': return '✅';
-      case 'assistant': return '💬';
-      case 'error': return '❌';
-      case 'complete': return '🏁';
-      default: return '📌';
-    }
-  }
-
-  getTraceColor(type: string): TagType {
-    switch (type) {
-      case 'router': return 'blue';
-      case 'llm_call': return 'purple';
-      case 'tool_call': return 'teal';
-      case 'tool_result': return 'green';
-      case 'assistant': return 'cyan';
-      case 'error': return 'red';
-      case 'complete': return 'cool-gray';
-      default: return 'gray';
-    }
-  }
-
-  private scrollToBottom(): void {
-    if (this.chatContainer) {
-      const el = this.chatContainer.nativeElement;
-      el.scrollTop = el.scrollHeight;
-    }
+  get executionContext(): ChatExecutionContext | null {
+    const selected = this.orchestrations.find((o) => o.id === this.selectedOrchestrationId);
+    if (!selected) return null;
+    return {
+      id: selected.id,
+      label: selected.name,
+      type: 'orchestration',
+    };
   }
 
   dismissNotification(): void {

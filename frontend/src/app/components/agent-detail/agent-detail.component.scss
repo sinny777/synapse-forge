@@ -96,6 +96,10 @@
   max-width: 900px;
 }
 
+.tab-content--wide {
+  max-width: 100%;
+}
+
 .section {
   margin-bottom: 2rem;
 
@@ -410,6 +414,12 @@
 // Test Section
 .test-section {
   margin-bottom: 1.5rem;
+}
+
+.test-chat-shell {
+  min-height: 38rem;
+  margin-top: 1rem;
+  width: 100%;
 }
 
 .test-results {
