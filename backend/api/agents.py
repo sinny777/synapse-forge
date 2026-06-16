@@ -1153,38 +1153,101 @@ async def execute_agent(
     session: AsyncSessionDep,
     user: dict = Depends(get_current_user),
 ):
-    """Execute a workspace agent with SSE streaming using LangGraph ReAct pattern."""
+    """
+    Execute a workspace agent with SSE streaming using LangGraph ReAct pattern.
+    
+    Supports multi-turn conversations via session_id parameter.
+    Configuration-driven execution based on agent settings.
+    """
     await require_workspace_access(workspace_id, session, user, require_write=False)
     agent = await _load_agent_with_workspace_guard(session, workspace_id, agent_id)
+    
+    # Generate or use provided session_id
+    session_id = body.session_id or str(uuid.uuid4())
+    
+    # Get Redis client for conversation service
+    from db.redis_pool import get_redis_pool
+    import redis.asyncio as aioredis
+    
+    redis_pool = get_redis_pool()
+    redis_client = aioredis.Redis(connection_pool=redis_pool)
 
     async def event_stream():
         try:
+            # Initialize conversation service
+            from services.conversation_service import ConversationService
+            conv_service = ConversationService(redis_client)
+            
+            # Get or create session
+            await conv_service.get_or_create_session(session_id, agent.id)
+            
+            # Load conversation history based on agent's memory settings
+            history = await conv_service.get_history(
+                session_id=session_id,
+                limit=agent.memory_window or 10,
+                memory_type=agent.memory_type or "buffer"
+            )
+            
             yield _sse_event(
                 "thought",
                 "User Prompt Received",
                 body.user_prompt,
                 status_value="success",
-                metadata={"agent_id": str(agent.id), "workspace_id": str(workspace_id)},
+                metadata={
+                    "agent_id": str(agent.id),
+                    "agent_name": agent.name,
+                    "workspace_id": str(workspace_id),
+                    "session_id": session_id,
+                    "history_length": len(history),
+                },
             )
 
-            # Use LangGraph-based executor
-            from services.langgraph_agent_executor import LangGraphAgentExecutor
+            # Use Dynamic LangGraph-based executor with Neural Tool Routing
+            from services.langgraph_dynamic_agent_executor import DynamicLangGraphAgentExecutor
             
-            executor = LangGraphAgentExecutor(session)
+            executor = DynamicLangGraphAgentExecutor(session)
+            
+            # Track assistant response for saving to history
+            assistant_response = ""
             
             async for event in executor.execute_agent(
                 agent=agent,
                 user_prompt=body.user_prompt,
+                conversation_history=history,
                 depth=0,
+                router_top_k_override=body.top_k,
             ):
                 yield event
+                
+                # Capture assistant response
+                event_data = json.loads(event.replace("data: ", "").strip())
+                if event_data.get("type") == "assistant":
+                    assistant_response = event_data.get("detail", "")
+            
+            # Save conversation to history
+            await conv_service.add_message(
+                session_id=session_id,
+                role="user",
+                content=body.user_prompt
+            )
+            
+            if assistant_response:
+                await conv_service.add_message(
+                    session_id=session_id,
+                    role="assistant",
+                    content=assistant_response
+                )
 
             yield _sse_event(
                 "complete",
                 "Agent Execution Complete",
                 "Streaming finished",
                 status_value="success",
-                metadata={"agent_id": str(agent.id)},
+                metadata={
+                    "agent_id": str(agent.id),
+                    "agent_name": agent.name,
+                    "session_id": session_id,
+                },
             )
         except Exception as exc:
             logger.exception("Agent execution failed for agent %s", agent_id)
@@ -1193,15 +1256,26 @@ async def execute_agent(
                 "Agent Execution Failed",
                 str(exc),
                 status_value="error",
-                metadata={"error_type": type(exc).__name__, "agent_id": str(agent_id)},
+                metadata={
+                    "error_type": type(exc).__name__,
+                    "agent_id": str(agent_id),
+                    "agent_name": agent.name if "agent" in locals() and agent else "Agent",
+                    "session_id": session_id,
+                },
             )
             yield _sse_event(
                 "complete",
                 "Agent Execution Complete",
                 "Streaming finished with errors",
                 status_value="error",
-                metadata={"agent_id": str(agent_id)},
+                metadata={
+                    "agent_id": str(agent_id),
+                    "agent_name": agent.name if "agent" in locals() and agent else "Agent",
+                    "session_id": session_id,
+                },
             )
+        finally:
+            await redis_client.aclose()
 
     return StreamingResponse(
         event_stream(),
@@ -1210,5 +1284,6 @@ async def execute_agent(
             "Cache-Control": "no-cache",
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
+            "X-Session-ID": session_id,
         },
     )

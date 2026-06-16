@@ -27,11 +27,11 @@ services:
   postgres:
     profiles: ["infra"]
     image: pgvector/pgvector:pg16
-    container_name: ntr_postgres
+    container_name: synapse_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-ntr_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ntr_secret_2026}
+      POSTGRES_USER: ${POSTGRES_USER:-synapse_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synapse_secret_2026}
       POSTGRES_DB: ${POSTGRES_DB:-synapse_forge}
     ports:
       - "${POSTGRES_PORT:-5433}:5432"
@@ -39,7 +39,7 @@ services:
       - pgdata:/var/lib/postgresql/data
       - ./infra/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ntr_user} -d ${POSTGRES_DB:-synapse_forge}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-synapse_user} -d ${POSTGRES_DB:-synapse_forge}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,20 +52,20 @@ services:
   redis:
     profiles: ["infra"]
     image: redis:7-alpine
-    container_name: ntr_redis
+    container_name: synapse_redis
     restart: unless-stopped
     command: >
       redis-server
       --maxmemory 256mb
       --maxmemory-policy allkeys-lru
       --appendonly yes
-      --requirepass ${REDIS_PASSWORD:-ntr_redis_2026}
+      --requirepass ${REDIS_PASSWORD:-synapse_redis_2026}
     ports:
       - "${REDIS_PORT:-6380}:6379"
     volumes:
       - redisdata:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-ntr_redis_2026}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-synapse_redis_2026}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5

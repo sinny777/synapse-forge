@@ -36,11 +36,11 @@ class EmbeddingService:
         """Return a cached model instance, loading it on first use."""
         if model_name not in self._models:
             logger.info("Loading embedding model: %s", model_name)
-            self._models[model_name] = SentenceTransformer(model_name)
+            self._models[model_name] = SentenceTransformer(model_name, device="cpu")
             logger.info(
                 "Loaded %s  (dim=%d)",
                 model_name,
-                self._models[model_name].get_sentence_embedding_dimension(),
+                self._models[model_name].get_embedding_dimension() if hasattr(self._models[model_name], "get_embedding_dimension") else self._models[model_name].get_sentence_embedding_dimension(),
             )
         return self._models[model_name]
 

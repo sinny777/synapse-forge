@@ -228,10 +228,10 @@ export interface PlaygroundMessage {
 }
 
 export interface TraceEvent {
-  type: 'router' | 'llm_call' | 'thought' | 'reasoning' | 'tool_call' | 'tool_result' | 'assistant' | 'error' | 'complete';
+  type: 'router' | 'llm_call' | 'thought' | 'reasoning' | 'tool_call' | 'tool_result' | 'collaborator' | 'assistant' | 'error' | 'complete' | 'agent_activated' | 'tool_retrieval';
   label: string;
   detail?: string;
-  timestamp: string;
+  timestamp: string | number;
   latency_ms?: number;
   status?: 'running' | 'success' | 'error';
   traceId?: string;
@@ -243,6 +243,18 @@ export interface ChatExecutionContext {
   id: string;
   label: string;
   type: 'orchestration' | 'agent';
+  config?: {
+    use_neural_router?: boolean;
+    router_top_k?: number;
+    tool_count?: number;
+    collaborator_count?: number;
+    framework?: string;
+    memory_type?: string;
+    memory_window?: number;
+    llm_model?: string;
+    max_iterations?: number;
+    timeout_seconds?: number;
+  };
 }
 
 export interface ChatSessionState {

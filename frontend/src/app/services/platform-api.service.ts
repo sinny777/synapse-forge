@@ -286,21 +286,42 @@ export class PlatformApiService {
     }
   }
 
+  /**
+   * Execute an agent via SSE streaming with session management.
+   * Returns parsed trace events in real time.
+   *
+   * @param workspaceId - Workspace ID
+   * @param agentId - Agent ID to execute
+   * @param userPrompt - User's input message
+   * @param sessionId - Optional session ID for multi-turn conversations
+   * @param topK - Optional override for router_top_k
+   * @param onEvent - Callback for each SSE event
+   * @param signal - Optional AbortSignal for cancellation
+   * @returns Promise that resolves with session_id when complete
+   */
   async executeAgent(
     workspaceId: string,
     agentId: string,
     userPrompt: string,
-    llmConfig: Partial<LLMModelConfig> | null,
-    runtimeConfig: Record<string, any>,
+    sessionId: string | null,
+    topK: number | null,
     onEvent: (event: any) => void,
     signal?: AbortSignal
-  ): Promise<void> {
+  ): Promise<string> {
+    const requestBody: any = { user_prompt: userPrompt };
+    if (sessionId) {
+      requestBody.session_id = sessionId;
+    }
+    if (topK !== null && topK !== undefined) {
+      requestBody.top_k = topK;
+    }
+
     const response = await fetch(
       `${API_BASE}/workspaces/${workspaceId}/agents/${agentId}/execute`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_prompt: userPrompt }),
+        body: JSON.stringify(requestBody),
         credentials: 'include',
         signal,
       }
@@ -310,6 +331,9 @@ export class PlatformApiService {
       const err = await response.json().catch(() => ({}));
       throw new Error(err.detail || 'Agent execution failed');
     }
+
+    // Extract session_id from response headers
+    const returnedSessionId = response.headers.get('X-Session-ID') || sessionId || '';
 
     if (!response.body) {
       throw new Error('ReadableStream not supported');
@@ -326,6 +350,7 @@ export class PlatformApiService {
 
         buffer += decoder.decode(value, { stream: true });
 
+        // SSE format: "data: {...}\n\n"
         const lines = buffer.split('\n\n');
         buffer = lines.pop() || '';
 
@@ -346,5 +371,7 @@ export class PlatformApiService {
     } finally {
       reader.releaseLock();
     }
+
+    return returnedSessionId;
   }
 }

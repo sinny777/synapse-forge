@@ -1,20 +1,104 @@
-import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, Output, SimpleChanges, ViewChild } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, NgZone, Output, SimpleChanges, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
   ButtonModule,
   InputModule,
   NotificationModule,
-  StructuredListModule,
   TagModule,
   TilesModule,
+  IconModule,
 } from 'carbon-components-angular';
 import { TagType } from 'carbon-components-angular/tag';
+import { IconService } from 'carbon-components-angular/icon';
 import {
   ChatExecutionContext,
   PlaygroundMessage,
   TraceEvent,
 } from '../../../models/platform.model';
+import { MarkdownPipe } from '../../../pipes/markdown.pipe';
+
+// Icons
+import Bot16 from '@carbon/icons/es/bot/16';
+import Bot20 from '@carbon/icons/es/bot/20';
+import Time16 from '@carbon/icons/es/time/16';
+import Network_316 from '@carbon/icons/es/network--3/16';
+import Idea16 from '@carbon/icons/es/idea/16';
+import Chat16 from '@carbon/icons/es/chat/16';
+import Document16 from '@carbon/icons/es/document/16';
+import List16 from '@carbon/icons/es/list/16';
+import PlayFilled16 from '@carbon/icons/es/play--filled/16';
+import ChevronDown16 from '@carbon/icons/es/chevron--down/16';
+import User16 from '@carbon/icons/es/user/16';
+import CheckmarkFilled20 from '@carbon/icons/es/checkmark--filled/20';
+import ChartLine20 from '@carbon/icons/es/chart--line/20';
+import Collaborate16 from '@carbon/icons/es/collaborate/16';
+import DataVis_416 from '@carbon/icons/es/data-vis--4/16';
+
+/**
+ * Agent Step interface matching run.component pattern
+ */
+interface AgentStep {
+  agentName: string;
+  agentRole: string;
+  framework: string;
+  status: 'activated' | 'retrieving_tools' | 'executing_tools' | 'thinking' | 'complete';
+  toolsRetrieved: Array<{
+    name: string;
+    score: number;
+    type?: string;
+    args?: any;
+    id?: string;
+    description?: string;
+    server_name?: string;
+    parameters?: any;
+    input_schema?: any;
+    output_format?: string;
+  }>;
+  reasoning: string;
+  toolExecutions: Array<{
+    tool: string;
+    args: any;
+    result: any;
+    time: number;
+    success: boolean;
+    expanded?: boolean;
+  }>;
+  input?: string;
+  routerQuery?: string;
+  updates?: string[];
+  response: string;
+  timestamp: number;
+  startTime?: number;
+  endTime?: number;
+  executionTime?: number;
+  expanded: boolean;
+  toolsExpanded: boolean;
+  executionsExpanded: boolean;
+  planningExpanded: boolean;
+}
+
+/**
+ * Agent Execution Data interface
+ */
+interface AgentExecutionData {
+  agentId?: string;
+  agentName?: string;
+  userQuery?: string;
+  executionMode?: string;
+  finalResponse?: string;
+  steps: AgentStep[];
+  metrics: {
+    execution_time?: number;
+    agents_executed?: number;
+    tools_retrieved?: number;
+    tools_executed?: number;
+    context_reduction?: number;
+  };
+  isExecuting: boolean;
+  startTime?: number | null;
+  endTime?: number | null;
+}
 
 @Component({
   selector: 'app-execution-chat',
@@ -25,9 +109,10 @@ import {
     ButtonModule,
     InputModule,
     NotificationModule,
-    StructuredListModule,
     TagModule,
     TilesModule,
+    IconModule,
+    MarkdownPipe,
   ],
   templateUrl: './execution-chat.component.html',
   styleUrls: ['./execution-chat.component.scss'],
@@ -35,9 +120,9 @@ import {
 export class ExecutionChatComponent implements AfterViewChecked {
   @ViewChild('chatContainer') chatContainer!: ElementRef;
 
-  @Input() title = 'Execution Chat';
+  @Input() title = 'Agent Execution';
   @Input() emptyTitle = 'Start a conversation';
-  @Input() emptyDescription = 'Type a message to start testing.';
+  @Input() emptyDescription = 'Type a message to start testing the agent.';
   @Input() placeholder = 'Type a message...';
   @Input() disabled = false;
   @Input() showTrace = true;
@@ -50,13 +135,38 @@ export class ExecutionChatComponent implements AfterViewChecked {
   @Output() userInputChange = new EventEmitter<string>();
   @Output() send = new EventEmitter<void>();
   @Output() clear = new EventEmitter<void>();
-  @Output() toggleTrace = new EventEmitter<void>();
   @Output() stop = new EventEmitter<void>();
 
-  expandedMessageIndexes = new Set<number>();
-  expandedTraceIndexes = new Set<number>();
+  // Agent execution data
+  agentExecutionData: AgentExecutionData = {
+    isExecuting: false,
+    startTime: null,
+    endTime: null,
+    steps: [],
+    metrics: {
+      execution_time: 0,
+      agents_executed: 0,
+      tools_retrieved: 0,
+      tools_executed: 0,
+      context_reduction: 0,
+    },
+  };
 
+  currentAgentStep: AgentStep | null = null;
   private shouldScrollChat = false;
+  private agentToolsMap = new Map<string, AgentStep['toolsRetrieved']>();
+  private agentRouterQueryMap = new Map<string, string>();
+
+  constructor(
+    private iconService: IconService,
+    private ngZone: NgZone
+  ) {
+    this.iconService.registerAll([
+      Bot16, Bot20, Time16, Network_316, Idea16, Chat16, Document16,
+      List16, PlayFilled16, ChevronDown16, User16, CheckmarkFilled20,
+      ChartLine20, Collaborate16, DataVis_416,
+    ]);
+  }
 
   ngAfterViewChecked(): void {
     if (this.shouldScrollChat) {
@@ -66,9 +176,425 @@ export class ExecutionChatComponent implements AfterViewChecked {
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    // Initialize execution data when execution starts
+    if (changes['isExecuting'] && this.isExecuting && !this.agentExecutionData.startTime) {
+      // Clear maps for new execution
+      this.agentToolsMap.clear();
+      this.agentRouterQueryMap.clear();
+      
+      // Find user message to get the query
+      const userMessage = this.messages.find(m => m.role === 'user');
+      this.agentExecutionData = {
+        agentId: this.context?.id,
+        agentName: this.context?.label || 'Agent',
+        userQuery: userMessage?.content || '',
+        finalResponse: '',
+        steps: [],
+        metrics: {
+          execution_time: 0,
+          agents_executed: 0,
+          tools_retrieved: 0,
+          tools_executed: 0,
+          context_reduction: 0,
+        },
+        isExecuting: true,
+        startTime: Date.now(),
+        endTime: null,
+      };
+      this.currentAgentStep = null;
+      console.log('✅ Initialized execution data:', this.agentExecutionData);
+    }
+
+    if (changes['traceEvents'] && this.traceEvents) {
+      // Process only new events
+      const previousLength = changes['traceEvents'].previousValue?.length || 0;
+      const currentLength = this.traceEvents.length;
+      
+      console.log('📊 Trace events changed:', {
+        previousLength,
+        currentLength,
+        newEvents: currentLength - previousLength,
+        allEvents: this.traceEvents
+      });
+      
+      if (currentLength > previousLength) {
+        // Process only the new events
+        for (let i = previousLength; i < currentLength; i++) {
+          console.log(`Processing event ${i + 1}/${currentLength}:`, this.traceEvents[i]);
+          this.handleAgentEvent(this.traceEvents[i]);
+        }
+      }
+    }
+    
+    if (changes['isExecuting']) {
+      this.agentExecutionData.isExecuting = this.isExecuting;
+    }
+    
     if (changes['messages'] || changes['traceEvents'] || changes['isExecuting']) {
       this.shouldScrollChat = true;
     }
+  }
+
+  /**
+   * Handle agent execution events (matching run.component pattern)
+   */
+  private handleAgentEvent(event: TraceEvent): void {
+    const eventType = event.type;
+    const eventData = event.metadata || {};
+
+    console.log('🔍 handleAgentEvent called:', {
+      type: eventType,
+      label: event.label,
+      detail: event.detail,
+      metadata: eventData,
+      currentStep: this.currentAgentStep?.agentName,
+      stepsCount: this.agentExecutionData.steps.length
+    });
+
+    switch (eventType) {
+      case 'router':
+      case 'tool_retrieval': {
+        // Tools retrieved by router
+        const routerAgentName = eventData['agent_name'] || this.context?.label || 'Agent';
+        const tools = eventData['selected_tools'] || eventData['tools'] || eventData['retrieved_tools'] || [];
+        const normalizedTools = this.normalizeToolList(tools);
+        const query = eventData['query'] || '';
+        
+        // Persist tools retrieved for this agent name
+        this.agentToolsMap.set(routerAgentName, normalizedTools);
+        if (query) {
+          this.agentRouterQueryMap.set(routerAgentName, query);
+        }
+        
+        // Mark previous step as complete if it's not already complete
+        if (this.currentAgentStep && this.currentAgentStep.status !== 'complete') {
+          this.currentAgentStep.status = 'complete';
+        }
+        
+        // Collapse previous step if exists and has no error
+        if (this.currentAgentStep && !this.hasStepError(this.currentAgentStep)) {
+          this.currentAgentStep.expanded = false;
+        }
+
+        // Create new step representing tool retrieval
+        this.currentAgentStep = {
+          agentName: routerAgentName,
+          agentRole: eventData['agent_role'] || eventData['role'] || (routerAgentName === this.context?.label ? 'Primary Agent' : 'Collaborator'),
+          framework: eventData['framework'] || eventData['model'] || this.context?.config?.framework || 'langgraph',
+          status: 'retrieving_tools',
+          toolsRetrieved: normalizedTools,
+          routerQuery: query,
+          reasoning: '',
+          toolExecutions: [],
+          updates: [],
+          response: '',
+          timestamp: typeof event.timestamp === 'number' ? event.timestamp : Date.now(),
+          startTime: Date.now(),
+          expanded: true,
+          toolsExpanded: false,
+          executionsExpanded: false,
+          planningExpanded: false,
+        };
+        this.agentExecutionData.steps.push(this.currentAgentStep);
+        this.pushAgentUpdate(this.currentAgentStep, `🔍 NeuralToolRouter selected ${normalizedTools.length} tools`);
+        
+        this.agentExecutionData.metrics.tools_retrieved =
+          (this.agentExecutionData.metrics.tools_retrieved || 0) + tools.length;
+        break;
+      }
+
+      case 'thought':
+      case 'llm_call': {
+        const agentName = eventData['agent_name'] || this.context?.label || 'Agent';
+        const inputPrompt = eventData['input'] ? this.extractAgentResponseText(eventData['input']) : '';
+
+        // If the current step was created by a router event for this agent and is waiting, reuse it
+        if (this.currentAgentStep && 
+            this.currentAgentStep.agentName === agentName && 
+            this.currentAgentStep.status === 'retrieving_tools') {
+          this.currentAgentStep.status = 'thinking';
+          if (inputPrompt) {
+            this.currentAgentStep.input = inputPrompt;
+          }
+          const reasoning = event.detail || eventData['reasoning'] || eventData['thought'] || '';
+          if (reasoning) {
+            this.currentAgentStep.reasoning = reasoning;
+          }
+          this.pushAgentUpdate(this.currentAgentStep, `🤔 Agent started thinking...`);
+        } else {
+          // Collapse previous step if exists and has no error
+          if (this.currentAgentStep && !this.hasStepError(this.currentAgentStep)) {
+            this.currentAgentStep.expanded = false;
+          }
+
+          // Create new agent step
+          this.currentAgentStep = {
+            agentName: agentName,
+            agentRole: eventData['agent_role'] || eventData['role'] || (agentName === this.context?.label ? 'Primary Agent' : 'Collaborator'),
+            framework: eventData['framework'] || eventData['model'] || this.context?.config?.framework || 'langgraph',
+            status: 'thinking',
+            toolsRetrieved: this.agentToolsMap.get(agentName) || [],
+            routerQuery: this.agentRouterQueryMap.get(agentName) || undefined,
+            reasoning: event.detail || eventData['reasoning'] || eventData['thought'] || '',
+            toolExecutions: [],
+            updates: [],
+            response: '',
+            timestamp: typeof event.timestamp === 'number' ? event.timestamp : Date.now(),
+            startTime: Date.now(),
+            expanded: true,
+            toolsExpanded: false,
+            executionsExpanded: false,
+            planningExpanded: false,
+          };
+          if (inputPrompt) {
+            this.currentAgentStep.input = inputPrompt;
+          }
+          this.pushAgentUpdate(this.currentAgentStep, `🤔 Agent started thinking...`);
+          this.agentExecutionData.steps.push(this.currentAgentStep);
+        }
+        break;
+      }
+
+      case 'reasoning': {
+        const agentName = eventData['agent_name'] || this.context?.label || 'Agent';
+        const reasoning = event.detail || eventData['reasoning'] || eventData['thought'] || '';
+        
+        if (this.currentAgentStep && this.currentAgentStep.agentName === agentName) {
+          if (this.currentAgentStep.status === 'retrieving_tools') {
+            this.currentAgentStep.status = 'thinking';
+          }
+          this.currentAgentStep.reasoning = reasoning;
+          // Auto-expand reasoning/thinking section while agent is thinking
+          this.currentAgentStep.planningExpanded = true;
+        }
+        break;
+      }
+
+      case 'tool_call':
+        // Tool call initiated
+        if (this.currentAgentStep) {
+          this.currentAgentStep.status = 'executing_tools';
+          const toolName = eventData['tool_name'] || event.label?.replace('Calling ', '') || 'Unknown Tool';
+          const toolArgs = eventData['tool_args'] || eventData['args'] || {};
+
+          this.currentAgentStep.toolExecutions.push({
+            tool: toolName,
+            args: toolArgs,
+            result: 'Executing...',
+            time: 0,
+            success: true,
+            expanded: true,
+          });
+          
+          this.pushAgentUpdate(this.currentAgentStep, `🔧 Executing tool: ${toolName}`);
+        }
+        break;
+
+      case 'tool_result': {
+        // Tool execution completed
+        const toolResultName = eventData['tool_name'] || event.label?.replace(' Result', '')?.replace(' Error', '') || '';
+        
+        // Find the step that has this tool execution in progress
+        let targetStep = this.currentAgentStep;
+        if (targetStep && (!targetStep.toolExecutions.length || !targetStep.toolExecutions.some(e => e.tool === toolResultName && e.result === 'Executing...'))) {
+          // Search backwards for the step that called this tool
+          for (let j = this.agentExecutionData.steps.length - 1; j >= 0; j--) {
+            const step = this.agentExecutionData.steps[j];
+            if (step.toolExecutions.some(e => e.tool === toolResultName && e.result === 'Executing...')) {
+              targetStep = step;
+              break;
+            }
+          }
+        }
+
+        if (targetStep && targetStep.toolExecutions.length > 0) {
+          const matchingExec = targetStep.toolExecutions.find(e => e.tool === toolResultName && e.result === 'Executing...');
+          const lastExecution = matchingExec || targetStep.toolExecutions[targetStep.toolExecutions.length - 1];
+          const toolResult = event.detail || eventData['result'] || eventData['output'] || '';
+          const executionTime = event.latency_ms || eventData['execution_time'] || 0;
+          const success = eventData['success'] !== false && event.status !== 'error';
+
+          lastExecution.result = this.normalizeToolResult(toolResult);
+          lastExecution.time = executionTime / 1000;
+          lastExecution.success = success;
+          
+          this.pushAgentUpdate(targetStep, success ? `✅ Tool ${toolResultName} succeeded` : `❌ Tool ${toolResultName} failed`);
+          
+          this.agentExecutionData.metrics.tools_executed =
+            (this.agentExecutionData.metrics.tools_executed || 0) + 1;
+
+          // Check if any tool calls are still executing in this step
+          const stillRunning = targetStep.toolExecutions.some(e => e.result === 'Executing...');
+          if (!stillRunning) {
+            targetStep.status = 'complete';
+          }
+        }
+        break;
+      }
+
+      case 'assistant':
+        // Agent final response
+        if (this.currentAgentStep) {
+          this.currentAgentStep.status = 'complete';
+          const response = event.detail || eventData['response'] || eventData['output'] || '';
+          this.currentAgentStep.response = this.extractAgentResponseText(response);
+          
+          if (eventData['input']) {
+            this.currentAgentStep.input = this.extractAgentResponseText(eventData['input']);
+          }
+          
+          this.currentAgentStep.endTime = Date.now();
+          if (this.currentAgentStep.startTime) {
+            this.currentAgentStep.executionTime =
+              (this.currentAgentStep.endTime - this.currentAgentStep.startTime) / 1000;
+          }
+          
+          this.pushAgentUpdate(this.currentAgentStep, `🏁 Agent response generated`);
+          
+          // Collapse on completion if no error
+          if (!this.hasStepError(this.currentAgentStep)) {
+            this.currentAgentStep.expanded = false;
+          }
+          
+          // Store as final response
+          this.agentExecutionData.finalResponse = this.currentAgentStep.response;
+          this.agentExecutionData.metrics.agents_executed =
+            (this.agentExecutionData.metrics.agents_executed || 0) + 1;
+        }
+        break;
+
+      case 'collaborator':
+        // Agent-to-agent communication
+        if (this.currentAgentStep) {
+          const collabDetail = event.detail || eventData['message'] || 'Agent collaboration';
+          this.pushAgentUpdate(this.currentAgentStep, `🤝 Collaboration: ${collabDetail}`);
+        }
+        break;
+
+      case 'complete':
+        // Execution completed
+        if (this.agentExecutionData.startTime) {
+          this.agentExecutionData.endTime = Date.now();
+          this.agentExecutionData.metrics.execution_time =
+            (this.agentExecutionData.endTime - this.agentExecutionData.startTime) / 1000;
+        }
+        this.agentExecutionData.isExecuting = false;
+        
+        // Mark all steps as complete and clean up any pending executions
+        this.agentExecutionData.steps.forEach(step => {
+          step.status = 'complete';
+          if (step.toolExecutions) {
+            step.toolExecutions.forEach(exec => {
+              if (exec.result === 'Executing...') {
+                exec.result = 'Completed';
+              }
+            });
+          }
+          
+          if (this.hasStepError(step)) {
+            step.expanded = true;
+          } else {
+            step.expanded = false;
+          }
+        });
+        break;
+
+      case 'error':
+        // Error occurred
+        const errorAgentName = eventData['agent_name'] || this.context?.label || 'Agent';
+        if (!this.currentAgentStep) {
+          this.currentAgentStep = {
+            agentName: errorAgentName,
+            agentRole: 'Primary Agent',
+            framework: 'langgraph',
+            status: 'complete',
+            toolsRetrieved: [],
+            reasoning: '',
+            toolExecutions: [],
+            updates: [],
+            response: '',
+            timestamp: Date.now(),
+            expanded: true,
+            toolsExpanded: false,
+            executionsExpanded: false,
+            planningExpanded: false,
+          };
+          this.agentExecutionData.steps.push(this.currentAgentStep);
+        }
+        this.currentAgentStep.status = 'complete';
+        const errorMsg = event.detail || eventData['error'] || 'An error occurred';
+        this.pushAgentUpdate(this.currentAgentStep, `❌ Error: ${errorMsg}`);
+        // Keep expanded to let user see error details
+        this.currentAgentStep.expanded = true;
+        break;
+    }
+  }
+
+  private extractAgentResponseText(response: any): string {
+    if (response == null) return '';
+    if (typeof response === 'string') {
+      const trimmed = response.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) || (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed && typeof parsed === 'object') {
+            return this.extractAgentResponseText(parsed);
+          }
+        } catch {}
+      }
+      return response;
+    }
+    if (Array.isArray(response)) {
+      return response.map((item) => this.extractAgentResponseText(item)).filter(Boolean).join('\n\n');
+    }
+    if (typeof response === 'object') {
+      const prioritizedKeys = ['text', 'content', 'message', 'result', 'output', 'response'];
+      for (const key of prioritizedKeys) {
+        if (key in response) {
+          const extracted = this.extractAgentResponseText((response as any)[key]);
+          if (extracted) return extracted;
+        }
+      }
+      try {
+        return JSON.stringify(response, null, 2);
+      } catch {
+        return String(response);
+      }
+    }
+    return String(response);
+  }
+
+  private normalizeToolResult(result: any): any {
+    if (result == null) return 'Success';
+    if (typeof result === 'string') return result;
+    if (typeof result === 'object' && Array.isArray(result.content)) {
+      const textContent = result.content
+        .filter((item: any) => item?.type === 'text' && item?.text)
+        .map((item: any) => item.text)
+        .join('\n\n');
+      if (textContent) return textContent;
+    }
+    return result;
+  }
+
+  private normalizeToolList(tools: any[] = []): AgentStep['toolsRetrieved'] {
+    return tools.map((tool) => ({
+      ...tool,
+      score: typeof tool?.score === 'number' ? tool.score : Number(tool?.score || 0),
+    }));
+  }
+
+  private pushAgentUpdate(step: AgentStep, updateText: string): void {
+    const normalized = updateText?.trim();
+    if (!normalized) return;
+    if (!step.updates) step.updates = [];
+    
+    const condensed = normalized.replace(/\s+/g, ' ').trim();
+    const lastUpdate = step.updates[step.updates.length - 1];
+    const lastCondensed = lastUpdate?.replace(/\s+/g, ' ').trim();
+    
+    if (lastCondensed === condensed) return;
+    step.updates.push(normalized);
   }
 
   onInputChange(value: string): void {
@@ -83,73 +609,104 @@ export class ExecutionChatComponent implements AfterViewChecked {
     }
   }
 
-  getTraceIcon(type: string): string {
-    switch (type) {
-      case 'router':
-        return '🔍';
-      case 'llm_call':
-        return '🧠';
-      case 'thought':
-        return '💭';
-      case 'reasoning':
-        return '🧩';
-      case 'tool_call':
-        return '⚡';
-      case 'tool_result':
-        return '✅';
-      case 'assistant':
-        return '💬';
-      case 'error':
-        return '❌';
-      case 'complete':
-        return '🏁';
-      default:
-        return '📌';
+  onSend(): void {
+    if (!this.userInput.trim() || this.disabled || this.isExecuting) return;
+    
+    // Clear maps for new execution
+    this.agentToolsMap.clear();
+    this.agentRouterQueryMap.clear();
+    
+    // Initialize execution data
+    this.agentExecutionData = {
+      agentId: this.context?.id,
+      agentName: this.context?.label || 'Agent',
+      userQuery: this.userInput,
+      finalResponse: '',
+      steps: [],
+      metrics: {
+        execution_time: 0,
+        agents_executed: 0,
+        tools_retrieved: 0,
+        tools_executed: 0,
+        context_reduction: 0,
+      },
+      isExecuting: true,
+      startTime: Date.now(),
+      endTime: null,
+    };
+    this.currentAgentStep = null;
+    
+    this.send.emit();
+  }
+
+  onClear(): void {
+    this.agentToolsMap.clear();
+    this.agentRouterQueryMap.clear();
+    
+    this.agentExecutionData = {
+      isExecuting: false,
+      startTime: null,
+      endTime: null,
+      steps: [],
+      metrics: {
+        execution_time: 0,
+        agents_executed: 0,
+        tools_retrieved: 0,
+        tools_executed: 0,
+        context_reduction: 0,
+      },
+    };
+    this.currentAgentStep = null;
+    this.clear.emit();
+  }
+
+  toggleAgentStep(step: AgentStep): void {
+    step.expanded = !step.expanded;
+  }
+
+  getFrameworkBadgeType(framework: string): TagType {
+    return framework === 'beeai' ? 'blue' : 'purple';
+  }
+
+  getToolStatusType(success: boolean): TagType {
+    return success ? 'green' : 'red';
+  }
+
+  getConfigSummary(): string[] {
+    if (!this.context?.config) return [];
+    const config = this.context.config;
+    const summary: string[] = [];
+
+    if (config.llm_model) summary.push(`Model: ${config.llm_model}`);
+    if (config.use_neural_router !== undefined) {
+      summary.push(`Router: ${config.use_neural_router ? 'Enabled' : 'Disabled'}`);
     }
-  }
-
-  getTraceColor(type: string): TagType {
-    switch (type) {
-      case 'router':
-        return 'blue';
-      case 'llm_call':
-        return 'purple';
-      case 'thought':
-        return 'warm-gray';
-      case 'reasoning':
-        return 'teal';
-      case 'tool_call':
-        return 'cyan';
-      case 'tool_result':
-        return 'green';
-      case 'assistant':
-        return 'cool-gray';
-      case 'error':
-        return 'red';
-      case 'complete':
-        return 'gray';
-      default:
-        return 'high-contrast';
+    if (config.router_top_k) summary.push(`Top-K: ${config.router_top_k}`);
+    if (config.tool_count !== undefined) summary.push(`Tools: ${config.tool_count}`);
+    if (config.collaborator_count !== undefined && config.collaborator_count > 0) {
+      summary.push(`Collaborators: ${config.collaborator_count}`);
     }
+    if (config.memory_type) summary.push(`Memory: ${config.memory_type}`);
+    if (config.max_iterations) summary.push(`Max Iterations: ${config.max_iterations}`);
+
+    return summary;
   }
 
-  trackMessage(index: number, message: PlaygroundMessage): string {
-    return `${message.role}-${message.timestamp?.toString() || index}-${message.content}`;
-  }
-
-  trackTrace(index: number, event: TraceEvent): string {
-    return `${event.type}-${event.timestamp}-${index}`;
+  hasConfig(): boolean {
+    return !!this.context?.config && Object.keys(this.context.config).length > 0;
   }
 
   formatStructured(value: any): string {
-    if (value === null || value === undefined) {
-      return '';
-    }
-
+    if (value === null || value === undefined) return '';
     if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value);
+        if (parsed && typeof parsed === 'object') {
+          return JSON.stringify(parsed, null, 2);
+        }
+      } catch {}
       return value;
     }
-
     try {
       return JSON.stringify(value, null, 2);
     } catch {
@@ -157,177 +714,23 @@ export class ExecutionChatComponent implements AfterViewChecked {
     }
   }
 
-  parseStructured(value: string | undefined | null): any | null {
-    if (!value) {
-      return null;
-    }
-
-    const trimmed = value.trim();
-    if (!(trimmed.startsWith('{') || trimmed.startsWith('['))) {
-      return null;
-    }
-
-    try {
-      return JSON.parse(trimmed);
-    } catch {
-      return null;
-    }
+  hasRecursionLimitError(step: AgentStep): boolean {
+    return !!step.updates && step.updates.some(u => 
+      u.toLowerCase().includes('recursion limit') || 
+      u.toLowerCase().includes('recursion_limit')
+    );
   }
 
-  getMessageStructuredContent(message: PlaygroundMessage): any | null {
-    if (message.metadata && Object.keys(message.metadata).length > 0) {
-      return message.metadata;
-    }
-    return this.parseStructured(message.content);
-  }
-
-  getTraceStructuredDetail(event: TraceEvent): any | null {
-    if (event.metadata && Object.keys(event.metadata).length > 0) {
-      return event.metadata;
-    }
-    return this.parseStructured(event.detail);
-  }
-
-  getObjectEntries(value: Record<string, any> | null | undefined): { key: string; value: any }[] {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return [];
-    }
-    return Object.entries(value).map(([key, nestedValue]) => ({ key, value: nestedValue }));
-  }
-
-  hasStructuredMessage(message: PlaygroundMessage): boolean {
-    return !!this.getMessageStructuredContent(message);
-  }
-
-  hasStructuredTrace(event: TraceEvent): boolean {
-    return !!this.getTraceStructuredDetail(event);
-  }
-
-  toggleMessage(index: number): void {
-    if (this.expandedMessageIndexes.has(index)) {
-      this.expandedMessageIndexes.delete(index);
-    } else {
-      this.expandedMessageIndexes.add(index);
-    }
-  }
-
-  toggleTraceEvent(index: number): void {
-    if (this.expandedTraceIndexes.has(index)) {
-      this.expandedTraceIndexes.delete(index);
-    } else {
-      this.expandedTraceIndexes.add(index);
-    }
-  }
-
-  isMessageExpanded(index: number): boolean {
-    return this.expandedMessageIndexes.has(index);
-  }
-
-  isTraceExpanded(index: number): boolean {
-    return this.expandedTraceIndexes.has(index);
-  }
-
-  getMessageActionLabel(message: PlaygroundMessage): string {
-    if (message.role === 'tool') {
-      return `Executing Tool${message.toolName ? `: ${message.toolName}` : ''}`;
-    }
-    if (message.role === 'system') {
-      return message.content || 'Reasoning';
-    }
-    if (message.role === 'assistant') {
-      return 'Agent Output';
-    }
-    return 'Details';
-  }
-
-  getTraceActionLabel(event: TraceEvent): string {
-    switch (event.type) {
-      case 'thought':
-        return 'Thinking';
-      case 'reasoning':
-        return 'Reasoning';
-      case 'router':
-        return 'NeuralToolRouter';
-      case 'tool_call':
-        return 'Executing Tool';
-      case 'tool_result':
-        return 'Tool Output';
-      case 'llm_call':
-        return 'Invoking LLM';
-      case 'assistant':
-        return 'Agent Output';
-      case 'error':
-        return 'Error Details';
-      default:
-        return event.label || 'Details';
-    }
-  }
-
-  getUserVisibleMessageText(message: PlaygroundMessage): string {
-    if (message.role === 'assistant' || message.role === 'user') {
-      return message.content;
-    }
-
-    if (message.role === 'tool') {
-      const metadata = this.getMessageStructuredContent(message);
-      if (metadata && typeof metadata === 'object') {
-        return metadata['tool_name'] || metadata['result_preview'] || message.toolName || 'Tool execution';
-      }
-      return message.toolName || message.content || 'Tool execution';
-    }
-
-    if (message.role === 'system') {
-      return '';
-    }
-
-    return message.content || this.getMessageActionLabel(message);
-  }
-
-  shouldShowCollapsedMessage(message: PlaygroundMessage): boolean {
-    return message.role === 'tool' || message.role === 'system';
-  }
-
-  shouldShowCollapsedTrace(event: TraceEvent): boolean {
-    return !!this.getTraceStructuredDetail(event);
-  }
-
-  getMessageDisplayEntries(message: PlaygroundMessage): { key: string; value: any }[] {
-    const structured = this.getMessageStructuredContent(message);
-    const entries = this.getObjectEntries(structured);
-    const hiddenKeys = new Set([
-      'llm_config',
-      'schema',
-      'connection_config',
-      'system_prompt',
-      'attached_tool_ids',
-      'attached_tools',
-      'collaborator_ids',
-      'collaborators',
-      'router_candidates',
-    ]);
-
-    return entries.filter((entry) => !hiddenKeys.has(entry.key));
-  }
-
-  getTraceDisplayEntries(event: TraceEvent): { key: string; value: any }[] {
-    const structured = this.getTraceStructuredDetail(event);
-    const entries = this.getObjectEntries(structured);
-    const hiddenKeys = new Set([
-      'llm_config',
-      'schema',
-      'connection_config',
-      'system_prompt',
-      'attached_tool_ids',
-      'attached_tools',
-      'collaborator_ids',
-      'collaborators',
-    ]);
-
-    return entries.filter((entry) => !hiddenKeys.has(entry.key));
-  }
-
-  isMultiline(value: string | undefined | null): boolean {
-    return !!value && value.includes('\n');
+  hasStepError(step: AgentStep): boolean {
+    const hasAgentErr = !!step.updates && step.updates.some(u => 
+      u.includes('❌ Error') || 
+      u.includes('Error:') || 
+      u.toLowerCase().includes('error') || 
+      u.toLowerCase().includes('recursion limit') || 
+      u.toLowerCase().includes('recursion_limit')
+    );
+    const hasToolErr = !!step.toolExecutions && step.toolExecutions.some(e => !e.success);
+    return hasAgentErr || hasToolErr;
   }
 
   private scrollToBottom(): void {

@@ -1,7 +1,6 @@
 <app-page-wrapper>
   <!-- Page Header -->
-  <app-page-header
-    [title]="getPageTitle()"
+  <app-page-header [title]="getPageTitle()"
     [subtitle]="activeWorkspace ? 'Configuring agent for ' + activeWorkspace.name : undefined"
     [breadcrumbs]="[{label: 'Resource list', route: '/'}, {label: 'Agent Studio', route: '/agents'}, {label: isEditMode ? 'Edit' : 'Create'}]">
     <div actions>
@@ -55,10 +54,7 @@
     <div *ngIf="!loading" class="agent-config">
       <div class="vertical-tabs-container">
         <div class="vertical-tabs">
-          <button
-            *ngFor="let tab of tabs; let i = index"
-            class="vertical-tab"
-            [class.active]="activeTabIndex === i"
+          <button *ngFor="let tab of tabs; let i = index" class="vertical-tab" [class.active]="activeTabIndex === i"
             (click)="activeTabIndex = i">
             <svg cdsIcon="{{ tab.icon }}" size="16"></svg>
             <span>{{ tab.label }}</span>
@@ -84,7 +80,7 @@
                   </p>
                 </cds-toggletip>
               </h4>
-              
+
               <div class="cds--form-item">
                 <cds-label>
                   Agent Name <span class="required">*</span>
@@ -99,16 +95,13 @@
                   <textarea cdsTextArea rows="5" cols="120" [(ngModel)]="formData.description"
                     placeholder="Brief description of what this agent does..."></textarea>
                 </cds-label>
-                <p class="cds--form__helper-text">Describe your agent, including its purpose, tools, and agents, to help other agents and users know when to use it.</p>
+                <p class="cds--form__helper-text">Describe your agent, including its purpose, tools, and agents, to help
+                  other agents and users know when to use it.</p>
               </div>
 
               <div class="cds--form-item">
-                <cds-dropdown
-                  label="LLM Configuration *"
-                  placeholder="Select an LLM configuration"
-                  [appendInline]="true"
-                  size="md"
-                  (selected)="onLLMConfigSelect($event)">
+                <cds-dropdown label="LLM Configuration *" placeholder="Select an LLM configuration"
+                  [appendInline]="true" size="md" (selected)="onLLMConfigSelect($event)">
                   <cds-dropdown-list [items]="llmConfigDropdownItems"></cds-dropdown-list>
                 </cds-dropdown>
                 <p class="cds--form__helper-text">
@@ -121,7 +114,7 @@
                 <cds-label>
                   System Prompt
                   <textarea cdsTextArea rows="5" cols="120" [(ngModel)]="formData.system_prompt"
-                    placeholder="You are a helpful AI assistant..."></textarea>                  
+                    placeholder="You are a helpful AI assistant..."></textarea>
                 </cds-label>
                 <p class="cds--form__helper-text">
                   Define the agent's role, behavior, and capabilities. Use clear instructions and examples.
@@ -142,27 +135,23 @@
               <div class="neural-router-section">
                 <div class="toggle-row">
                   <div class="toggle-label-wrapper">
-                    <label class="cds--label">Enable NeuralToolRouter AI Model</label>
-                    <cds-toggle
-                      [(ngModel)]="formData.use_neural_router"
+                    <label class="cds--label">Enable Neural Tool Routing (Dynamic Tool Selection)</label>
+                    <cds-toggle [(ngModel)]="formData.use_neural_router"
                       [disabled]="availableRouterModels.length === 0">
                       Use trained AI model for semantic tool selection
                     </cds-toggle>
                   </div>
                   <p class="cds--form__helper-text" *ngIf="availableRouterModels.length === 0">
                     No fine-tuned models available.
-                    <a href="/train" target="_blank">Train a new model</a> in the Neural Tool Router page to enable this feature.
+                    <a href="/train" target="_blank">Train a new model</a> in the Neural Tool Router page to enable this
+                    feature.
                   </p>
                 </div>
 
                 <div *ngIf="formData.use_neural_router" class="router-config">
                   <div class="cds--form-item">
-                    <cds-dropdown
-                      label="Fine-tuned Model *"
-                      placeholder="Select a fine-tuned model"
-                      [appendInline]="true"
-                      size="md"
-                      (selected)="onRouterModelSelect($event)">
+                    <cds-dropdown label="Fine-tuned Model *" placeholder="Select a fine-tuned model"
+                      [appendInline]="true" size="md" (selected)="onRouterModelSelect($event)">
                       <cds-dropdown-list [items]="routerModelDropdownItems"></cds-dropdown-list>
                     </cds-dropdown>
                     <p class="cds--form__helper-text">
@@ -189,22 +178,23 @@
               <div *ngIf="!formData.use_neural_router" class="manual-tools">
                 <cds-label>Select Tools ({{ selectedToolIds.size }} selected)</cds-label>
                 <div class="tool-selector" *ngIf="tools.length > 0; else noToolsMsg">
-                  <div *ngFor="let tool of tools"
-                       class="tool-option"
-                       [class.selected]="isToolSelected(tool.id)"
-                       (click)="toggleTool(tool.id)">
+                  <div *ngFor="let tool of tools" class="tool-option" [class.selected]="isToolSelected(tool.id)"
+                    (click)="toggleTool(tool.id)">
                     <span class="tool-option__check">{{ isToolSelected(tool.id) ? '✓' : '' }}</span>
                     <div class="tool-option__info">
                       <span class="tool-option__name">{{ tool.name }}</span>
                       <span class="tool-option__desc">{{ tool.description }}</span>
                     </div>
-                    <cds-tag [type]="tool.type === 'MCP_SERVER' ? 'purple' : (tool.type === 'MCP_TOOL' ? 'blue' : 'cyan')" size="sm">
+                    <cds-tag
+                      [type]="tool.type === 'MCP_SERVER' ? 'purple' : (tool.type === 'MCP_TOOL' ? 'blue' : 'cyan')"
+                      size="sm">
                       {{ tool.type === 'MCP_SERVER' ? 'MCP Server' : (tool.type === 'MCP_TOOL' ? 'MCP Tool' : 'REST') }}
                     </cds-tag>
                   </div>
                 </div>
                 <ng-template #noToolsMsg>
-                  <p class="no-tools-hint">No tools registered in this workspace yet. Register tools first in the Tool Registry.</p>
+                  <p class="no-tools-hint">No tools registered in this workspace yet. Register tools first in the Tool
+                    Registry.</p>
                 </ng-template>
               </div>
             </div>
@@ -213,58 +203,53 @@
           <!-- Collaborators Tab -->
           <div *ngIf="activeTabIndex === 2" class="tab-content">
             <div class="section">
-                <h4 class="section-title">
-                  <svg cdsIcon="bot" size="16"></svg>
-                  Collaborators
-                </h4>
-                <p class="cds--form__helper-text">
-                  Add sub-agents or collaborators that this agent can delegate to or work with.
-                </p>
+              <h4 class="section-title">
+                <svg cdsIcon="bot" size="16"></svg>
+                Collaborators
+              </h4>
+              <p class="cds--form__helper-text">
+                Add sub-agents or collaborators that this agent can delegate to or work with.
+              </p>
 
-                <div class="cds--form-item">
-                  <cds-label>
-                    Search Available Agents
-                    <input
-                      cdsText
-                      [(ngModel)]="collaboratorSearchTerm"
-                      placeholder="Search by agent name or description" />
-                  </cds-label>
+              <div class="cds--form-item">
+                <cds-label>
+                  Search Available Agents
+                  <input cdsText [(ngModel)]="collaboratorSearchTerm"
+                    placeholder="Search by agent name or description" />
+                </cds-label>
+              </div>
+
+              <div class="manual-tools">
+                <cds-label>Selected Collaborators ({{ selectedCollaboratorIds.size }})</cds-label>
+
+                <div *ngIf="selectedCollaborators.length > 0" class="selected-tools">
+                  <cds-tag *ngFor="let collaborator of selectedCollaborators" type="blue" size="md"
+                    [title]="collaborator.description || collaborator.name"
+                    (click)="toggleCollaborator(collaborator.id)">
+                    {{ collaborator.name }}
+                  </cds-tag>
                 </div>
 
-                <div class="manual-tools">
-                  <cds-label>Selected Collaborators ({{ selectedCollaboratorIds.size }})</cds-label>
-
-                  <div *ngIf="selectedCollaborators.length > 0" class="selected-tools">
-                    <cds-tag
-                      *ngFor="let collaborator of selectedCollaborators"
-                      type="blue"
-                      size="md"
-                      [title]="collaborator.description || collaborator.name"
-                      (click)="toggleCollaborator(collaborator.id)">
-                      {{ collaborator.name }}
+                <div class="tool-selector" *ngIf="filteredCollaborators.length > 0; else noCollaboratorsMsg">
+                  <div *ngFor="let collaborator of filteredCollaborators" class="tool-option"
+                    [class.selected]="isCollaboratorSelected(collaborator.id)"
+                    (click)="toggleCollaborator(collaborator.id)">
+                    <span class="tool-option__check">{{ isCollaboratorSelected(collaborator.id) ? '✓' : '' }}</span>
+                    <div class="tool-option__info">
+                      <span class="tool-option__name">{{ collaborator.name }}</span>
+                      <span class="tool-option__desc">{{ collaborator.description || collaborator.system_prompt || 'No
+                        description available' }}</span>
+                    </div>
+                    <cds-tag [type]="isCollaboratorSelected(collaborator.id) ? 'blue' : 'gray'" size="sm">
+                      {{ isCollaboratorSelected(collaborator.id) ? 'Selected' : 'Available' }}
                     </cds-tag>
                   </div>
-
-                  <div class="tool-selector" *ngIf="filteredCollaborators.length > 0; else noCollaboratorsMsg">
-                    <div *ngFor="let collaborator of filteredCollaborators"
-                         class="tool-option"
-                         [class.selected]="isCollaboratorSelected(collaborator.id)"
-                         (click)="toggleCollaborator(collaborator.id)">
-                      <span class="tool-option__check">{{ isCollaboratorSelected(collaborator.id) ? '✓' : '' }}</span>
-                      <div class="tool-option__info">
-                        <span class="tool-option__name">{{ collaborator.name }}</span>
-                        <span class="tool-option__desc">{{ collaborator.description || collaborator.system_prompt || 'No description available' }}</span>
-                      </div>
-                      <cds-tag [type]="isCollaboratorSelected(collaborator.id) ? 'blue' : 'gray'" size="sm">
-                        {{ isCollaboratorSelected(collaborator.id) ? 'Selected' : 'Available' }}
-                      </cds-tag>
-                    </div>
-                  </div>
-
-                  <ng-template #noCollaboratorsMsg>
-                    <p class="no-tools-hint">No other agents are available in this workspace yet.</p>
-                  </ng-template>
                 </div>
+
+                <ng-template #noCollaboratorsMsg>
+                  <p class="no-tools-hint">No other agents are available in this workspace yet.</p>
+                </ng-template>
+              </div>
             </div>
           </div>
 
@@ -272,13 +257,9 @@
           <div *ngIf="activeTabIndex === 3" class="tab-content">
             <div class="section">
               <h4 class="section-title">Memory Configuration</h4>
-              
+
               <div class="cds--form-item">
-                <cds-dropdown
-                  label="Memory Type"
-                  placeholder="Select memory type"
-                  [appendInline]="true"
-                  size="md"
+                <cds-dropdown label="Memory Type" placeholder="Select memory type" [appendInline]="true" size="md"
                   (selected)="onMemoryTypeSelect($event)">
                   <cds-dropdown-list [items]="memoryTypeDropdownItems"></cds-dropdown-list>
                 </cds-dropdown>
@@ -296,7 +277,7 @@
 
             <div class="section">
               <h4 class="section-title">Behavior Settings</h4>
-              
+
               <div class="cds--form-item">
                 <cds-label>Max Iterations</cds-label>
                 <input cdsText type="number" [(ngModel)]="formData.max_iterations" placeholder="10" />
@@ -315,29 +296,21 @@
           <div *ngIf="activeTabIndex === 4" class="tab-content tab-content--wide">
             <div class="section">
               <h4 class="section-title">Test Agent</h4>
-              <p>Test the currently selected agent with streaming conversation, reasoning, and tool execution traces.</p>
+              <p>Test the currently selected agent with streaming conversation, reasoning, and tool execution traces.
+              </p>
 
               <div *ngIf="!isEditMode || !agentId" class="test-results">
                 <p class="placeholder-text">Save the agent first to enable interactive testing.</p>
               </div>
 
               <div *ngIf="isEditMode && agentId" class="test-chat-shell">
-                <app-execution-chat
-                  [title]="'Agent Test Console'"
-                  [emptyTitle]="'Test this agent'"
+                <app-execution-chat [title]="'Agent Test Console'" [emptyTitle]="'Test this agent'"
                   [emptyDescription]="'Send prompts to validate the selected agent behavior, reasoning, and tool usage.'"
-                  [placeholder]="'Describe a task for this agent...'"
-                  [showTrace]="testShowTrace"
-                  [isExecuting]="testIsExecuting"
-                  [messages]="testMessages"
-                  [traceEvents]="testTraceEvents"
-                  [userInput]="testUserInput"
-                  [context]="agentExecutionContext"
-                  (userInputChange)="testUserInput = $event"
-                  (send)="runAgentTest()"
-                  (clear)="clearAgentTest()"
-                  (toggleTrace)="toggleAgentTestTrace()"
-                  (stop)="stopAgentTest()">
+                  [placeholder]="'Describe a task for this agent...'" [showTrace]="testShowTrace"
+                  [isExecuting]="testIsExecuting" [messages]="testMessages" [traceEvents]="testTraceEvents"
+                  [userInput]="testUserInput" [context]="agentExecutionContext"
+                  (userInputChange)="testUserInput = $event" (send)="runAgentTest()" (clear)="clearAgentTest()"
+                  (toggleTrace)="toggleAgentTestTrace()" (stop)="stopAgentTest()">
                 </app-execution-chat>
               </div>
             </div>

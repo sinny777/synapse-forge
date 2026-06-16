@@ -90,7 +90,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
     llm_config_id: '',
     use_neural_router: false,
     router_model_id: '',
-    router_top_k: 5,
+    router_top_k: 2,
     memory_type: 'buffer',
     memory_window: 10,
     max_iterations: 10,
@@ -138,6 +138,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   testUserInput = '';
   testIsExecuting = false;
   testShowTrace = true;
+  testSessionId: string | null = null;
 
   activeWorkspace: Workspace | null = null;
   private subs: Subscription[] = [];
@@ -201,7 +202,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
           llm_config_id: agent.llm_config_id || '',
           use_neural_router: agent.use_neural_router ?? false,
           router_model_id: agent.router_model_id || '',
-          router_top_k: agent.router_top_k || 5,
+          router_top_k: agent.router_top_k || 2,
           memory_type: agent.memory_type || 'buffer',
           memory_window: agent.memory_window || 10,
           max_iterations: agent.max_iterations || 10,
@@ -232,7 +233,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
         // Filter tools to show only workspace-specific tools (not from default workspace)
         this.tools = tools.filter(tool => tool.workspace_id === this.activeWorkspace?.id);
       },
-      error: () => {},
+      error: () => { },
     });
   }
 
@@ -242,7 +243,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
       next: (agents) => {
         this.availableCollaborators = agents.filter((agent) => agent.id !== this.agentId);
       },
-      error: () => {},
+      error: () => { },
     });
   }
 
@@ -406,7 +407,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
     this.formData.collaborator_agent_ids = Array.from(this.selectedCollaboratorIds);
     this.formData.use_neural_router = this.formData.use_neural_router ?? false;
     this.formData.router_model_id = this.formData.use_neural_router ? this.selectedRouterModelId : null as any;
-    this.formData.router_top_k = this.formData.use_neural_router ? (this.formData.router_top_k || 5) : null as any;
+    this.formData.router_top_k = this.formData.use_neural_router ? (this.formData.router_top_k || 2) : null as any;
     this.formData.memory_type = this.formData.memory_type || 'buffer';
     this.formData.memory_window = this.formData.memory_window || 10;
     this.formData.max_iterations = this.formData.max_iterations || 10;
@@ -561,44 +562,20 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
       content: prompt,
       timestamp: new Date(),
     });
-    this.testTraceEvents = [];
     this.testIsExecuting = true;
     this.testAbortController = new AbortController();
 
     try {
-      const selectedConfig = this.llmConfigurations.find((config) => config.id === this.selectedLLMConfigId) || null;
-      const attachedTools = this.tools.filter((tool) => this.selectedToolIds.has(tool.id));
-      const collaborators = this.availableCollaborators.filter((agent) =>
-        this.selectedCollaboratorIds.has(agent.id)
-      );
-
-      await this.platformApi.executeAgent(
+      // Use the new session-based executeAgent method
+      const returnedSessionId = await this.platformApi.executeAgent(
         this.activeWorkspace.id,
         this.agentId,
         prompt,
-        selectedConfig,
-        {
-          system_prompt: this.formData.system_prompt,
-          max_iterations: this.formData.max_iterations,
-          timeout_seconds: this.formData.timeout_seconds,
-          memory_type: this.formData.memory_type,
-          memory_window: this.formData.memory_window,
-          use_neural_router: this.formData.use_neural_router,
-          router_model_id: this.formData.router_model_id,
-          router_top_k: this.formData.router_top_k,
-          attached_tools: attachedTools.map((tool) => ({
-            id: tool.id,
-            name: tool.name,
-            type: tool.type,
-          })),
-          collaborators: collaborators.map((agent) => ({
-            id: agent.id,
-            name: agent.name,
-            description: agent.description,
-          })),
-        },
+        this.testSessionId, // Pass existing session ID for multi-turn
+        null, // No top_k override
         (event: any) => {
-          this.testTraceEvents.push({
+          // Create new array reference to trigger Angular change detection
+          this.testTraceEvents = [...this.testTraceEvents, {
             type: event.type,
             label: event.label || event.type,
             detail: event.detail || event.message || '',
@@ -607,7 +584,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
             status: event.status || 'success',
             metadata: event.metadata || event.data,
             format: event.type === 'assistant' ? 'markdown' : 'json',
-          });
+          }];
 
           if (event.type === 'assistant') {
             this.testMessages.push({
@@ -646,6 +623,9 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
         },
         this.testAbortController.signal
       );
+
+      // Store session ID for multi-turn conversations
+      this.testSessionId = returnedSessionId;
     } catch (err: any) {
       const aborted = err?.name === 'AbortError';
       this.testMessages.push({
@@ -653,13 +633,14 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
         content: aborted ? 'Execution stopped by user.' : `Error: ${err.message}`,
         timestamp: new Date(),
       });
-      this.testTraceEvents.push({
+      // Create new array reference to trigger Angular change detection
+      this.testTraceEvents = [...this.testTraceEvents, {
         type: aborted ? 'complete' : 'error',
         label: aborted ? 'Execution Stopped' : 'Execution Error',
         detail: aborted ? 'The current agent execution was stopped by the user.' : (err.message || 'Execution failed'),
         timestamp: new Date().toISOString(),
         status: aborted ? 'success' : 'error',
-      });
+      }];
       this.testIsExecuting = false;
     } finally {
       this.testAbortController = null;
@@ -678,6 +659,7 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   clearAgentTest(): void {
     this.testMessages = [];
     this.testTraceEvents = [];
+    this.testSessionId = null; // Clear session for fresh start
   }
 
   toggleAgentTestTrace(): void {
@@ -689,10 +671,25 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
       return null;
     }
 
+    // Get LLM config details
+    const llmConfig = this.llmConfigurations.find(c => c.id === this.selectedLLMConfigId);
+    const llmModel = llmConfig ? `${llmConfig.provider}/${llmConfig.model_name}` : undefined;
+
     return {
       id: this.agentId,
       label: this.formData.name,
       type: 'agent',
+      config: {
+        use_neural_router: this.formData.use_neural_router,
+        router_top_k: this.formData.router_top_k,
+        tool_count: this.selectedToolIds.size,
+        collaborator_count: this.selectedCollaboratorIds.size,
+        memory_type: this.formData.memory_type,
+        memory_window: this.formData.memory_window,
+        llm_model: llmModel,
+        max_iterations: this.formData.max_iterations,
+        timeout_seconds: this.formData.timeout_seconds,
+      },
     };
   }
 }

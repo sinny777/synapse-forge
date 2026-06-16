@@ -357,7 +357,18 @@ class LLMConfigRead(BaseModel):
 
 
 class AgentExecuteRequest(BaseModel):
-    user_prompt: str = Field(..., min_length=1, examples=["Summarize the claim and validate coverage."])
+    """Request schema for single agent execution with SSE streaming"""
+    user_prompt: str = Field(..., min_length=1, examples=["What is my account balance?"])
+    session_id: str | None = Field(
+        default=None,
+        description="Conversation session ID for multi-turn. Auto-generated if not provided."
+    )
+    top_k: int | None = Field(
+        default=None,
+        ge=1,
+        le=50,
+        description="Override agent.router_top_k for this execution (optional)"
+    )
 
 
 class AgentExecutionToolSummary(BaseModel):

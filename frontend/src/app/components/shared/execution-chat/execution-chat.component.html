@@ -1,191 +1,369 @@
-<div class="execution-chat-shell" [class.trace-hidden]="!showTrace">
-  <cds-tile class="chat-panel">
-    <div class="chat-panel__header">
-      <div>
-        <h4>{{ title }}</h4>
-        <p *ngIf="context">{{ context.type | titlecase }}: {{ context.label }}</p>
-      </div>
-
-      <div class="chat-panel__actions">
-        <button
-          *ngIf="isExecuting"
-          cdsButton="danger--ghost"
+<div class="execution-chat-container">
+  <!-- Header -->
+  <div class="execution-header">
+    <div class="execution-header__info">
+      <h4>{{ title }}</h4>
+      <p *ngIf="context">{{ context.type | titlecase }}: {{ context.label }}</p>
+      <div class="config-summary" *ngIf="hasConfig()">
+        <cds-tag
+          *ngFor="let item of getConfigSummary()"
+          type="cool-gray"
           size="sm"
-          (click)="stop.emit()">
-          Stop
-        </button>
-        <button cdsButton="ghost" size="sm" (click)="toggleTrace.emit()">
-          {{ showTrace ? 'Hide Trace' : 'Show Trace' }}
-        </button>
-        <button cdsButton="ghost" size="sm" (click)="clear.emit()">
-          Clear
-        </button>
+          class="config-tag">
+          {{ item }}
+        </cds-tag>
       </div>
     </div>
 
-    <div class="chat-messages" #chatContainer>
-      <div *ngIf="messages.length === 0" class="chat-empty">
-        <cds-tile class="chat-empty__tile">
-          <h3>{{ emptyTitle }}</h3>
-          <p>{{ emptyDescription }}</p>
-        </cds-tile>
+    <div class="execution-header__actions">
+      <button
+        *ngIf="isExecuting"
+        cdsButton="danger--ghost"
+        size="sm"
+        (click)="stop.emit()">
+        Stop
+      </button>
+      <button cdsButton="ghost" size="sm" (click)="onClear()">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Content Area -->
+  <div class="execution-content" #chatContainer>
+    <!-- Empty State -->
+    <div *ngIf="agentExecutionData.steps.length === 0 && !isExecuting" class="execution-empty">
+      <cds-tile class="execution-empty__tile">
+        <div class="execution-empty__icon">🤖</div>
+        <h3>{{ emptyTitle }}</h3>
+        <p>{{ emptyDescription }}</p>
+      </cds-tile>
+    </div>
+
+    <!-- Agent Execution Panel -->
+    <div class="agent-execution-panel" *ngIf="agentExecutionData.steps.length > 0 || agentExecutionData.userQuery">
+      <!-- User Query Display -->
+      <div class="user-query-display" *ngIf="agentExecutionData.userQuery">
+        <div class="user-query-display__header">
+          <svg cdsIcon="user" size="16"></svg>
+          <span class="ibm--type-label-01">User Query</span>
+          <cds-tag
+            [type]="agentExecutionData.executionMode === 'real' ? 'green' : 'cool-gray'"
+            size="sm"
+            *ngIf="agentExecutionData.executionMode">
+            {{ agentExecutionData.executionMode === 'real' ? '🚀 Real Mode' : '🎭 Test Mode' }}
+          </cds-tag>
+        </div>
+        <div class="user-query-display__content ibm--type-body-compact-01">
+          {{ agentExecutionData.userQuery }}
+        </div>
       </div>
 
-      <cds-tile
-        *ngFor="let msg of messages; let i = index; trackBy: trackMessage"
-        class="chat-message"
-        [class.user]="msg.role === 'user'"
-        [class.assistant]="msg.role === 'assistant'"
-        [class.system]="msg.role === 'system'"
-        [class.tool]="msg.role === 'tool'">
-        <div class="message-avatar">
-          <span *ngIf="msg.role === 'user'">👤</span>
-          <span *ngIf="msg.role === 'assistant'">🤖</span>
-          <span *ngIf="msg.role === 'system'">⚙️</span>
-          <span *ngIf="msg.role === 'tool'">🛠️</span>
-        </div>
-
-        <div class="message-content">
-          <div class="message-role">
-            {{ msg.toolName ? (msg.role + ' · ' + msg.toolName) : msg.role }}
+      <!-- Agent Steps Timeline -->
+      <div class="agent-timeline">
+        <div *ngFor="let step of agentExecutionData.steps; let i = index" class="agent-step">
+          <div class="agent-step__indicator">
+            <div class="agent-step__number">{{ i + 1 }}</div>
+            <div class="agent-step__line" *ngIf="i < agentExecutionData.steps.length - 1"></div>
           </div>
 
-          <div class="message-text" *ngIf="!hasStructuredMessage(msg)">{{ msg.content }}</div>
-
-          <ng-container *ngIf="hasStructuredMessage(msg)">
-            <div class="message-text" *ngIf="getUserVisibleMessageText(msg)">{{ getUserVisibleMessageText(msg) }}</div>
-            <button
-              cdsButton="ghost"
-              size="sm"
-              class="message-toggle"
-              (click)="toggleMessage(i)">
-              {{ isMessageExpanded(i) ? 'Hide' : getMessageActionLabel(msg) }}
-            </button>
-
-            <div class="message-structured" *ngIf="isMessageExpanded(i)">
-              <div
-                class="structured-block"
-                *ngFor="let entry of getMessageDisplayEntries(msg)">
-                <div class="structured-block__label">{{ entry.key }}</div>
-                <pre class="structured-block__value">{{ formatStructured(entry.value) }}</pre>
-              </div>
-              <pre
-                class="structured-block__value structured-block__value--standalone"
-                *ngIf="getMessageDisplayEntries(msg).length === 0">{{ formatStructured(getMessageStructuredContent(msg)) }}</pre>
-            </div>
-          </ng-container>
-
-          <div class="message-time" *ngIf="msg.timestamp">
-            {{ msg.timestamp | date:'HH:mm:ss' }}
-          </div>
-        </div>
-      </cds-tile>
-
-      <cds-tile *ngIf="isExecuting" class="chat-message assistant">
-        <div class="message-avatar"><span>🤖</span></div>
-        <div class="message-content">
-          <div class="typing-indicator">
-            <span></span><span></span><span></span>
-          </div>
-        </div>
-      </cds-tile>
-    </div>
-
-    <div class="chat-input">
-      <cds-tile class="chat-input__composer">
-        <cds-label class="chat-input__label">
-          <span class="chat-input__label-text">{{ placeholder }}</span>
-          <textarea
-            cdsTextArea
-            class="chat-input__textarea"
-            rows="4"
-            [ngModel]="userInput"
-            (ngModelChange)="onInputChange($event)"
-            (keydown)="onKeyDown($event)"
-            [placeholder]="placeholder"
-            [disabled]="disabled || isExecuting">
-          </textarea>
-        </cds-label>
-
-        <div class="chat-input__footer">
-          <div class="chat-input__hint">
-            Enter to send · Shift+Enter for a new line
-          </div>
-          <div class="chat-input__actions">
-            <button
-              cdsButton="primary"
-              size="sm"
-              (click)="send.emit()"
-              [disabled]="!userInput.trim() || disabled || isExecuting">
-              Send message
-            </button>
-          </div>
-        </div>
-      </cds-tile>
-    </div>
-  </cds-tile>
-
-  <cds-tile class="trace-panel" *ngIf="showTrace">
-    <div class="trace-header">
-      <h4>Execution Trace</h4>
-      <span class="trace-count" *ngIf="traceEvents.length > 0">{{ traceEvents.length }} events</span>
-    </div>
-
-    <div class="trace-timeline" *ngIf="traceEvents.length > 0; else noTrace">
-      <cds-structured-list [condensed]="true">
-        <cds-list-row
-          *ngFor="let event of traceEvents; let i = index; trackBy: trackTrace"
-          class="trace-event"
-          [class.running]="event.status === 'running'"
-          [class.error]="event.status === 'error'">
-          <cds-list-column [nowrap]="true" class="trace-event__meta">
-            <div class="trace-event__connector">
-              <div class="trace-dot" [class.active]="event.status === 'running'"></div>
-              <div class="trace-line" *ngIf="i < traceEvents.length - 1"></div>
-            </div>
-          </cds-list-column>
-
-          <cds-list-column>
-            <div class="trace-event__content">
-              <div class="trace-event__header">
-                <span class="trace-icon">{{ getTraceIcon(event.type) }}</span>
-                <cds-tag [type]="getTraceColor(event.type)" size="sm">{{ event.type }}</cds-tag>
-                <span class="trace-latency" *ngIf="event.latency_ms">{{ event.latency_ms | number:'1.0-0' }}ms</span>
-              </div>
-              <div class="trace-event__label">{{ getTraceActionLabel(event) }}</div>
-              <div class="trace-event__detail" *ngIf="event.detail && !hasStructuredTrace(event)">{{ event.detail }}</div>
-
-              <ng-container *ngIf="hasStructuredTrace(event)">
-                <button
-                  cdsButton="ghost"
-                  size="sm"
-                  class="trace-toggle"
-                  (click)="toggleTraceEvent(i)">
-                  {{ isTraceExpanded(i) ? 'Hide' : getTraceActionLabel(event) }}
-                </button>
-
-                <div class="trace-event__structured" *ngIf="isTraceExpanded(i)">
-                  <div
-                    class="structured-block"
-                    *ngFor="let entry of getTraceDisplayEntries(event)">
-                    <div class="structured-block__label">{{ entry.key }}</div>
-                    <pre class="structured-block__value">{{ formatStructured(entry.value) }}</pre>
-                  </div>
-                  <pre
-                    class="structured-block__value structured-block__value--standalone"
-                    *ngIf="getTraceDisplayEntries(event).length === 0">{{ formatStructured(getTraceStructuredDetail(event)) }}</pre>
+          <div class="agent-step__content">
+            <div class="agent-step__header" (click)="toggleAgentStep(step)">
+              <div class="agent-step__header-left">
+                <svg cdsIcon="bot" size="20"></svg>
+                <div>
+                  <h5 class="ibm--type-productive-heading-01">{{ step.agentName }}</h5>
+                  <p class="ibm--type-helper-text-01">{{ step.agentRole }}</p>
                 </div>
-              </ng-container>
+                <cds-tag [type]="getFrameworkBadgeType(step.framework)" size="sm">
+                  {{ step.framework }}
+                </cds-tag>
+                <!-- Status Indicator -->
+                <cds-tag
+                  [type]="step.status === 'complete' ? 'green' : step.status === 'thinking' ? 'blue' : 'gray'"
+                  size="sm"
+                  *ngIf="step.status">
+                  <span *ngIf="step.status === 'activated'">Activated</span>
+                  <span *ngIf="step.status === 'retrieving_tools'">Retrieving Tools...</span>
+                  <span *ngIf="step.status === 'executing_tools'">Executing Tools...</span>
+                  <span *ngIf="step.status === 'thinking'">Thinking...</span>
+                  <span *ngIf="step.status === 'complete'">Complete</span>
+                </cds-tag>
+              </div>
+              <div class="agent-step__header-right">
+                <span class="ibm--type-helper-text-01" *ngIf="step.executionTime">
+                  <svg cdsIcon="time" size="16" style="vertical-align: middle; margin-right: 0.25rem;"></svg>
+                  {{ step.executionTime | number:'1.2-2' }}s
+                </span>
+                <cds-tag type="gray" size="sm" *ngIf="step.toolsRetrieved.length > 0">
+                  {{ step.toolsRetrieved.length }} tools
+                </cds-tag>
+                <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.expanded"></svg>
+              </div>
             </div>
-          </cds-list-column>
-        </cds-list-row>
-      </cds-structured-list>
+
+            <div class="agent-step__body" *ngIf="step.expanded">
+              <!-- Agent LLM Input -->
+              <div class="agent-step__section" *ngIf="step.input">
+                <p class="ibm--type-label-01">
+                  <svg cdsIcon="document" size="16"></svg>
+                  Agent Input (LLM Prompt)
+                </p>
+                <details style="margin-top: 0.5rem;">
+                  <summary class="ibm--type-label-01" style="cursor: pointer; color: var(--cds-link-primary);">View Full Prompt</summary>
+                  <div style="margin-top: 0.5rem; padding: 0.75rem; background: var(--cds-layer-02); border-radius: 4px; border-left: 3px solid var(--cds-border-interactive);">
+                    <pre class="ibm--type-code-01" style="white-space: pre-wrap; color: var(--cds-text-primary); margin: 0;">{{ step.input }}</pre>
+                  </div>
+                </details>
+              </div>
+
+              <!-- Agent Reasoning -->
+              <div class="agent-step__section" *ngIf="step.reasoning">
+                <div class="collapsible-section-header" (click)="step.planningExpanded = !step.planningExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--cds-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">
+                  <p class="ibm--type-label-01" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg cdsIcon="idea" size="16"></svg>
+                    Thinking & Planning Phase
+                    <cds-tag type="purple" size="sm">Think, Plan, Act</cds-tag>
+                  </p>
+                  <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.planningExpanded"></svg>
+                </div>
+                <div class="agent-reasoning ibm--type-body-compact-01" *ngIf="step.planningExpanded" style="padding: 0.75rem; background: var(--cds-layer-01); border-radius: 4px; border-left: 3px solid var(--cds-border-interactive); white-space: pre-wrap;">
+                  {{ step.reasoning }}
+                </div>
+              </div>
+
+              <!-- Agent Updates / Streaming Status -->
+              <div class="agent-step__section" *ngIf="step.updates?.length">
+                <p class="ibm--type-label-01" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <svg cdsIcon="list" size="16"></svg>
+                  Agent Status / Updates
+                  <cds-tag type="blue" size="sm" *ngIf="step.status !== 'complete'">Live</cds-tag>
+                </p>
+                <div style="padding: 0.75rem; background: var(--cds-layer-01); border-radius: 4px; border-left: 3px solid var(--cds-border-interactive);">
+                  <div *ngFor="let update of step.updates" class="ibm--type-body-compact-01 markdown-content" style="margin-bottom: 0.75rem;">
+                    <div [innerHTML]="update | markdown"></div>
+                  </div>
+                </div>
+
+                <!-- Troubleshooting Suggestions for Recursion Limit -->
+                <div *ngIf="hasRecursionLimitError(step)" style="margin-top: 1rem; padding: 1rem; background: var(--cds-support-warning-inverse, #fff8e1); border-left: 4px solid var(--cds-support-warning, #ffb300); color: var(--cds-text-primary, #5d4037); border-radius: 4px;">
+                  <h6 style="font-weight: bold; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.5rem; color: var(--cds-text-primary, #5d4037);">
+                    💡 Troubleshooting Suggestions: Recursion Limit Reached
+                  </h6>
+                  <ul style="margin: 0; padding-left: 1.2rem; font-size: 0.875rem; line-height: 1.4; list-style-type: disc;">
+                    <li>
+                      <strong>Increase Top-K:</strong> If the agent prompt instructs calling other agents (e.g. <em>Billing Agent</em>), but they are not listed under <em>Tools Retrieved</em>, increase the <strong>Top-K</strong> setting (currently {{ context?.config?.router_top_k || 'too low' }}) in Agent Configuration so all required dependencies are routed.
+                    </li>
+                    <li>
+                      <strong>Check Prompt Instructions:</strong> Ensure your prompts do not create infinite loops of self-delegation or redundant tool calls.
+                    </li>
+                    <li>
+                      <strong>Increase Max Iterations:</strong> You can increase the <strong>Max Iterations</strong> setting in the Agent Configuration to allow the agent more steps to complete complex workflows.
+                    </li>
+                  </ul>
+                </div>
+              </div>
+
+              <!-- Tools Retrieved -->
+              <div class="agent-step__section" *ngIf="step.toolsRetrieved.length > 0">
+                <div class="collapsible-section-header" (click)="step.toolsExpanded = !step.toolsExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--cds-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">
+                  <p class="ibm--type-label-01" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg cdsIcon="network--3" size="16"></svg>
+                    Tools Retrieved (Top-{{ step.toolsRetrieved.length }})
+                    <cds-tag type="gray" size="sm" *ngIf="step.status === 'retrieving_tools'">Loading...</cds-tag>
+                  </p>
+                  <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.toolsExpanded"></svg>
+                </div>
+                <div class="tools-list" *ngIf="step.toolsExpanded">
+                  <!-- Router Query Display -->
+                  <div *ngIf="step.routerQuery" style="margin-bottom: 0.75rem; padding: 0.5rem; background: var(--cds-layer-02); border-radius: 4px; border-left: 3px solid var(--cds-link-primary);">
+                    <span class="ibm--type-label-01" style="font-weight: 600; display: block; margin-bottom: 0.25rem;">Router Query:</span>
+                    <span class="ibm--type-body-compact-01" style="color: var(--cds-text-primary);">"{{ step.routerQuery }}"</span>
+                  </div>
+                  
+                  <div *ngFor="let tool of step.toolsRetrieved" style="margin-bottom: 1rem; padding: 0.75rem; background: var(--cds-layer-01); border-radius: 4px;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                      <span class="ibm--type-body-compact-02" style="color: var(--cds-text-primary); font-weight: 600;">{{ tool.name }}</span>
+                      <cds-tag type="teal" size="sm" *ngIf="tool.score">Score: {{ tool.score | number:'1.3-3' }}</cds-tag>
+                      <cds-tag [type]="tool.type === 'SUB_AGENT' ? 'purple' : (tool.type === 'MCP_SERVER' ? 'purple' : (tool.type === 'MCP_TOOL' ? 'blue' : 'cyan'))" size="sm">
+                        {{ tool.type === 'SUB_AGENT' ? '🧠 Sub-Agent' : (tool.type === 'MCP_SERVER' ? 'MCP Server' : (tool.type === 'MCP_TOOL' ? 'MCP Tool' : 'REST')) }}
+                      </cds-tag>
+                      <cds-tag type="gray" size="sm" *ngIf="tool.server_name">{{ tool.server_name }}</cds-tag>
+                    </div>
+                    <div class="ibm--type-body-compact-01" style="color: var(--cds-text-secondary); margin-bottom: 0.5rem;">
+                      {{ tool.description || 'No description available' }}
+                    </div>
+                    <details style="margin-top: 0.5rem;">
+                      <summary class="ibm--type-label-01" style="cursor: pointer; color: var(--cds-link-primary);">View Parameters & Schema</summary>
+                      <div style="margin-top: 0.5rem; padding: 0.5rem; background: var(--cds-layer-02); border-radius: 4px;">
+                        <div class="ibm--type-code-01" style="color: var(--cds-text-primary);">
+                          <div style="margin-bottom: 0.5rem;"><strong>Tool ID:</strong> {{ tool.id || tool.name }}</div>
+                          <div style="margin-bottom: 0.5rem;" *ngIf="tool.parameters">
+                            <strong>Input Parameters:</strong>
+                            <pre style="margin-top: 0.25rem; white-space: pre-wrap;">{{ formatStructured(tool.parameters) }}</pre>
+                          </div>
+                          <div *ngIf="tool.input_schema && tool.input_schema.properties">
+                            <strong>Input Schema:</strong>
+                            <pre style="margin-top: 0.25rem; white-space: pre-wrap;">{{ formatStructured(tool.input_schema) }}</pre>
+                          </div>
+                          <div *ngIf="tool.output_format" style="margin-top: 0.5rem;">
+                            <strong>Output Format:</strong> {{ tool.output_format }}
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Tool Executions -->
+              <div class="agent-step__section" *ngIf="step.toolExecutions.length > 0">
+                <div class="collapsible-section-header" (click)="step.executionsExpanded = !step.executionsExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--cds-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">
+                  <p class="ibm--type-label-01" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg cdsIcon="play--filled" size="16"></svg>
+                    Tool Executions ({{ step.toolExecutions.length }})
+                    <cds-tag type="gray" size="sm" *ngIf="step.status === 'executing_tools'">Running...</cds-tag>
+                  </p>
+                  <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.executionsExpanded"></svg>
+                </div>
+                <div class="tool-executions" *ngIf="step.executionsExpanded">
+                  <div *ngFor="let exec of step.toolExecutions; let j = index" class="tool-execution">
+                    <div class="tool-execution__header" (click)="exec.expanded = !exec.expanded" style="cursor: pointer;">
+                      <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                        <cds-tag [type]="exec.tool.startsWith('delegate_to_') ? 'purple' : getToolStatusType(exec.success)" size="sm">
+                          {{ exec.tool.startsWith('delegate_to_') ? '🤖 DELEGATION' : (exec.success ? 'SUCCESS' : 'ERROR') }}
+                        </cds-tag>
+                        <span class="ibm--type-body-compact-01" style="font-weight: 600;">{{ exec.tool }}</span>
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span class="ibm--type-helper-text-01">{{ exec.time | number:'1.2-2' }}s</span>
+                        <svg cdsIcon="chevron--down" size="16" [class.rotated]="exec.expanded"></svg>
+                      </div>
+                    </div>
+                    <div class="tool-execution__details" *ngIf="exec.expanded">
+                      <div class="tool-execution__detail-section" *ngIf="exec.args && (formatStructured(exec.args) | json) !== '{}'">
+                        <span class="tool-execution__detail-label">Arguments:</span>
+                        <pre class="tool-execution__detail-content">{{ formatStructured(exec.args) }}</pre>
+                      </div>
+                      <div class="tool-execution__detail-section" *ngIf="exec.result">
+                        <span class="tool-execution__detail-label" [style.color]="exec.success ? 'inherit' : 'var(--cds-support-error)'">
+                          {{ exec.success ? 'Result:' : 'Error details:' }}
+                        </span>
+                        <pre class="tool-execution__detail-content" [style.border-left]="exec.success ? '3px solid var(--cds-border-interactive)' : '3px solid var(--cds-support-error)'" [style.color]="exec.success ? 'inherit' : 'var(--cds-support-error)'">{{ formatStructured(exec.result) }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Agent Response -->
+              <div class="agent-step__section" *ngIf="step.response">
+                <p class="ibm--type-label-01" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <svg cdsIcon="chat" size="16"></svg>
+                  Agent Output (LLM Response)
+                  <cds-tag type="blue" size="sm" *ngIf="step.status === 'thinking'">Streaming...</cds-tag>
+                </p>
+                <div class="agent-response ibm--type-body-compact-01 markdown-content" style="padding: 0.75rem; background: var(--cds-layer-01); border-radius: 4px; border-left: 3px solid var(--cds-border-success);">
+                  <div [innerHTML]="step.response | markdown"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metrics Summary -->
+      <div class="agent-metrics" *ngIf="!agentExecutionData.isExecuting && (agentExecutionData.metrics?.execution_time || 0) > 0">
+        <h5 class="ibm--type-productive-heading-01">Execution Metrics</h5>
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <svg cdsIcon="time" size="20"></svg>
+            <div>
+              <span class="metric-card__label">Total Time</span>
+              <strong class="metric-card__value">{{ (agentExecutionData.metrics.execution_time || 0) | number:'1.2-2' }}s</strong>
+            </div>
+          </div>
+          <div class="metric-card">
+            <svg cdsIcon="collaborate" size="20"></svg>
+            <div>
+              <span class="metric-card__label">Agents Used</span>
+              <strong class="metric-card__value">{{ agentExecutionData.metrics.agents_executed || 0 }}</strong>
+            </div>
+          </div>
+          <div class="metric-card">
+            <svg cdsIcon="network--3" size="20"></svg>
+            <div>
+              <span class="metric-card__label">Tools Retrieved</span>
+              <strong class="metric-card__value">{{ agentExecutionData.metrics.tools_retrieved || 0 }}</strong>
+            </div>
+          </div>
+          <div class="metric-card">
+            <svg cdsIcon="data-vis--4" size="20"></svg>
+            <div>
+              <span class="metric-card__label">Tools Executed</span>
+              <strong class="metric-card__value">{{ agentExecutionData.metrics.tools_executed || 0 }}</strong>
+            </div>
+          </div>
+          <div class="metric-card metric-card--highlight" *ngIf="agentExecutionData.metrics.context_reduction">
+            <svg cdsIcon="chart--line" size="20"></svg>
+            <div>
+              <span class="metric-card__label">Context Reduction</span>
+              <strong class="metric-card__value">{{ (agentExecutionData.metrics.context_reduction || 0) | number:'1.0-0' }}%</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Final Agent Response -->
+      <div class="final-response" *ngIf="!agentExecutionData.isExecuting && agentExecutionData.finalResponse">
+        <div class="final-response__header">
+          <svg cdsIcon="checkmark--filled" size="20"></svg>
+          <h5 class="ibm--type-productive-heading-01">Final Response</h5>
+        </div>
+        <div class="final-response__content ibm--type-body-compact-01 markdown-content">
+          <div [innerHTML]="agentExecutionData.finalResponse | markdown"></div>
+        </div>
+      </div>
     </div>
 
-    <ng-template #noTrace>
-      <div class="trace-empty">
-        <p>Trace events, thoughts, reasoning, and tool calls will appear here during execution.</p>
+    <!-- Loading Indicator -->
+    <div *ngIf="isExecuting && agentExecutionData.steps.length === 0" class="execution-loading">
+      <div class="execution-loading__spinner"></div>
+      <p class="ibm--type-body-01">Initializing agent execution...</p>
+    </div>
+  </div>
+
+  <!-- Input Area -->
+  <div class="execution-input">
+    <cds-tile class="execution-input__composer">
+      <cds-label class="execution-input__label">
+        <span class="execution-input__label-text">{{ placeholder }}</span>
+        <textarea
+          cdsTextArea
+          class="execution-input__textarea"
+          rows="4"
+          [ngModel]="userInput"
+          (ngModelChange)="onInputChange($event)"
+          (keydown)="onKeyDown($event)"
+          [placeholder]="placeholder"
+          [disabled]="disabled || isExecuting">
+        </textarea>
+      </cds-label>
+
+      <div class="execution-input__footer">
+        <div class="execution-input__hint">
+          Enter to send · Shift+Enter for a new line
+        </div>
+        <div class="execution-input__actions">
+          <button
+            cdsButton="primary"
+            size="sm"
+            (click)="onSend()"
+            [disabled]="!userInput.trim() || disabled || isExecuting">
+            Send message
+          </button>
+        </div>
       </div>
-    </ng-template>
-  </cds-tile>
+    </cds-tile>
+  </div>
 </div>

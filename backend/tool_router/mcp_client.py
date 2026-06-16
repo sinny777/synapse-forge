@@ -101,6 +101,27 @@ class MCPClient:
             transport = server_config.get("transport", "stdio")
             
             if transport == "stdio":
+                # Resolve relative paths in arguments and command relative to the backend directory
+                backend_dir = Path(__file__).parent.parent.resolve()
+                if command == "python":
+                    command = sys.executable
+                    logger.info(f"Replaced 'python' command with sys.executable: {command}")
+                
+                resolved_args = []
+                for arg in args:
+                    if isinstance(arg, str):
+                        try:
+                            # Try to resolve relative to backend_dir
+                            resolved_path = (backend_dir / arg).resolve()
+                            if resolved_path.exists():
+                                resolved_args.append(str(resolved_path))
+                                logger.info(f"Resolved relative path '{arg}' to absolute path '{resolved_path}'")
+                                continue
+                        except Exception:
+                            pass
+                    resolved_args.append(arg)
+                args = resolved_args
+
                 logger.debug(f"Server command: {command} {' '.join(args)}")
                 
                 # Create server parameters
@@ -110,19 +131,13 @@ class MCPClient:
                     env=env
                 )
                 
-                # Connect using stdio with timeout
+                # Connect using stdio
                 logger.debug(f"Creating stdio context...")
-                read, write = await asyncio.wait_for(
-                    self.exit_stack.enter_async_context(stdio_client(server_params)),
-                    timeout=10.0
-                )
+                read, write = await self.exit_stack.enter_async_context(stdio_client(server_params))
                 
                 logger.debug(f"Creating client session...")
                 # Create session
-                session = await asyncio.wait_for(
-                    self.exit_stack.enter_async_context(ClientSession(read, write)),
-                    timeout=10.0
-                )
+                session = await self.exit_stack.enter_async_context(ClientSession(read, write))
                 
                 logger.debug(f"Initializing session...")
                 await asyncio.wait_for(
@@ -145,16 +160,10 @@ class MCPClient:
                 logger.debug(f"Connecting to SSE URL: {url}")
                 
                 # Connect using SSE
-                read, write = await asyncio.wait_for(
-                    self.exit_stack.enter_async_context(sse_client(url)),
-                    timeout=15.0
-                )
+                read, write = await self.exit_stack.enter_async_context(sse_client(url))
                 
                 logger.debug(f"Creating SSE client session...")
-                session = await asyncio.wait_for(
-                    self.exit_stack.enter_async_context(ClientSession(read, write)),
-                    timeout=15.0
-                )
+                session = await self.exit_stack.enter_async_context(ClientSession(read, write))
                 
                 logger.debug(f"Initializing SSE session...")
                 await asyncio.wait_for(
@@ -174,7 +183,9 @@ class MCPClient:
         except asyncio.TimeoutError:
             logger.error(f"Timeout connecting to {server_name}")
             return False
-        except Exception as e:
+        except BaseException as e:
+            if isinstance(e, (KeyboardInterrupt, SystemExit)):
+                raise
             logger.error(f"Failed to connect to {server_name}: {e}")
             import traceback
             logger.debug(traceback.format_exc())
