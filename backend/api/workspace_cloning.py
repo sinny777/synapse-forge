@@ -14,12 +14,11 @@ import uuid
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.engine import AsyncSessionDep
+from db.engine import get_db, normalize_mongo_document, prepare_document
 from db.models import (
     Workspace,
     Tool,
@@ -31,7 +30,6 @@ from db.models import (
 )
 from db.schemas import ToolRead, AgentRead
 from services.embedding_service import embedding_service
-from services.mcp_service import MCPService
 from api.auth import get_current_user
 from api.dependencies import require_workspace_access
 
@@ -83,23 +81,54 @@ class CloneResult(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _workspace_from_doc(document: dict | None) -> Workspace | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Workspace.model_validate(normalized)
+
+
+def _tool_from_doc(document: dict | None) -> Tool | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Tool.model_validate(normalized)
+
+
+def _agent_from_doc(document: dict | None) -> Agent | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Agent.model_validate(normalized)
+
+
+def _orchestration_from_doc(document: dict | None) -> Orchestration | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Orchestration.model_validate(normalized)
+
+
+def _llm_config_from_doc(document: dict | None) -> LLMConfig | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return LLMConfig.model_validate(normalized)
+
+
 async def _resolve_source_workspace(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     source_id: uuid.UUID | None,
 ) -> Workspace:
     """Resolve the source workspace — default or explicit."""
     if source_id:
-        ws = await session.get(Workspace, source_id)
-        if not ws:
+        ws = _workspace_from_doc(await db.workspaces.find_one({"_id": str(source_id)}))
+        if ws is None:
             raise HTTPException(status_code=404, detail="Source workspace not found")
         return ws
 
-    # Find the system default workspace
-    result = await session.execute(
-        select(Workspace).where(Workspace.is_default == True)  # noqa: E712
-    )
-    ws = result.scalar_one_or_none()
-    if not ws:
+    ws = _workspace_from_doc(await db.workspaces.find_one({"is_default": True}))
+    if ws is None:
         raise HTTPException(
             status_code=404,
             detail="Default Workspace not found. Run 'python -m setup.reset_db' to create it.",
@@ -124,35 +153,28 @@ def _generate_embedding(
 
 
 async def _clone_tool(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     source_tool: Tool,
     target_ws: Workspace,
     email: str | None,
-    old_to_new_id: dict[uuid.UUID, uuid.UUID] | None = None,
+    old_to_new_id: dict[str, str] | None = None,
 ) -> Tool | None:
-    """Deep-copy a single Tool row into the target workspace."""
-    # Skip if tool with same name already exists in target
-    exists = await session.execute(
-        select(Tool).where(
-            Tool.workspace_id == target_ws.id,
-            Tool.name == source_tool.name,
-        )
+    """Deep-copy a single Tool document into the target workspace."""
+    exists = await db.tools.find_one(
+        {"workspace_id": target_ws.id, "name": source_tool.name}
     )
-    if exists.scalar_one_or_none():
-        return None  # Already exists, skip
+    if exists:
+        return None
 
-    # Generate embedding for non-MCP_SERVER tools
     vec = None
     if source_tool.type != ToolType.MCP_SERVER:
         vec = _generate_embedding(
             target_ws, source_tool.name, source_tool.description, source_tool.schema_def
         )
 
-    # Resolve parent_id mapping if this is a child tool
     new_parent_id = None
     if source_tool.parent_id and old_to_new_id:
-        old_parent = uuid.UUID(source_tool.parent_id) if isinstance(source_tool.parent_id, str) else source_tool.parent_id
-        new_parent_id = old_to_new_id.get(old_parent)
+        new_parent_id = old_to_new_id.get(str(source_tool.parent_id))
 
     cloned = Tool(
         workspace_id=target_ws.id,
@@ -168,52 +190,45 @@ async def _clone_tool(
         env=dict(source_tool.env) if source_tool.env else None,
         url=source_tool.url,
         status=source_tool.status or MCPServerStatus.DISABLED,
-        parent_id=str(new_parent_id) if new_parent_id else None,
+        parent_id=new_parent_id,
         embedding=vec,
         created_by=email,
         updated_by=email,
     )
-    session.add(cloned)
-    await session.flush()
+    await db.tools.insert_one(prepare_document(cloned.model_dump()))
 
-    # Track old→new ID mapping for child tool resolution
     if old_to_new_id is not None:
-        old_to_new_id[source_tool.id] = cloned.id
+        old_to_new_id[str(source_tool.id)] = str(cloned.id)
 
     return cloned
 
 
 async def _clone_agent(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     source_agent: Agent,
     target_ws: Workspace,
     email: str | None,
-    tool_id_mapping: dict[uuid.UUID, uuid.UUID] | None = None,
+    tool_id_mapping: dict[str, str] | None = None,
 ) -> Agent | None:
-    """Deep-copy a single Agent row into the target workspace."""
-    # Skip if agent with same name already exists in target
-    exists = await session.execute(
-        select(Agent).where(
-            Agent.workspace_id == target_ws.id,
-            Agent.name == source_agent.name,
-        )
+    """Deep-copy a single Agent document into the target workspace."""
+    exists = await db.agents.find_one(
+        {"workspace_id": target_ws.id, "name": source_agent.name}
     )
-    if exists.scalar_one_or_none():
+    if exists:
         return None
 
-    # Remap attached_tool_ids to new IDs if a mapping is available
     new_tool_ids = None
     if source_agent.attached_tool_ids:
         new_tool_ids = []
         for old_tid in source_agent.attached_tool_ids:
-            old_uuid = uuid.UUID(str(old_tid)) if not isinstance(old_tid, uuid.UUID) else old_tid
-            if tool_id_mapping and old_uuid in tool_id_mapping:
-                new_tool_ids.append(tool_id_mapping[old_uuid])
+            old_id = str(old_tid)
+            if tool_id_mapping and old_id in tool_id_mapping:
+                new_tool_ids.append(tool_id_mapping[old_id])
             else:
-                # Tool hasn't been cloned yet — skip this attachment
                 logger.warning(
                     "Agent '%s': attached tool %s not found in ID mapping, skipping attachment",
-                    source_agent.name, old_tid,
+                    source_agent.name,
+                    old_tid,
                 )
 
     cloned = Agent(
@@ -232,8 +247,7 @@ async def _clone_agent(
         created_by=email,
         updated_by=email,
     )
-    session.add(cloned)
-    await session.flush()
+    await db.agents.insert_one(prepare_document(cloned.model_dump()))
     return cloned
 
 
@@ -244,7 +258,7 @@ async def _clone_agent(
 @router.post("/tools", response_model=CloneResult)
 async def clone_tools(
     body: CloneBatchRequest,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
     """
@@ -257,40 +271,42 @@ async def clone_tools(
     email = user.get("email")
 
     # Validate access
-    source_ws = await _resolve_source_workspace(session, body.source_workspace_id)
+    source_ws = await _resolve_source_workspace(db, body.source_workspace_id)
     target_ws = await require_workspace_access(
-        body.destination_workspace_id, session, user, require_write=True
+        body.destination_workspace_id, db, user, require_write=True
     )
 
     if source_ws.id == target_ws.id:
         raise HTTPException(status_code=400, detail="Source and destination must be different workspaces")
 
     # Load requested tools
-    result = await session.execute(
-        select(Tool).where(
-            Tool.workspace_id == source_ws.id,
-            Tool.id.in_(body.resource_ids),
-        )
-    )
-    source_tools = result.scalars().all()
+    source_tool_docs = await db.tools.find(
+        {
+            "workspace_id": source_ws.id,
+            "_id": {"$in": [str(resource_id) for resource_id in body.resource_ids]},
+        }
+    ).to_list(length=None)
+    source_tools = [_tool_from_doc(doc) for doc in source_tool_docs]
+    source_tools = [tool for tool in source_tools if tool is not None]
 
     if not source_tools:
         raise HTTPException(status_code=404, detail="No matching tools found in source workspace")
 
     # Also load any child tools of MCP servers being cloned
-    parent_ids = [t.id for t in source_tools if t.type == ToolType.MCP_SERVER]
-    child_tools = []
+    parent_ids = [tool.id for tool in source_tools if tool.type == ToolType.MCP_SERVER]
+    child_tools: list[Tool] = []
     if parent_ids:
-        child_result = await session.execute(
-            select(Tool).where(
-                Tool.workspace_id == source_ws.id,
-                Tool.parent_id.in_([str(pid) for pid in parent_ids]),
-            )
-        )
-        child_tools = child_result.scalars().all()
+        child_tool_docs = await db.tools.find(
+            {
+                "workspace_id": source_ws.id,
+                "parent_id": {"$in": parent_ids},
+            }
+        ).to_list(length=None)
+        child_tools = [_tool_from_doc(doc) for doc in child_tool_docs]
+        child_tools = [tool for tool in child_tools if tool is not None]
 
     # Clone: parents first, then children
-    old_to_new: dict[uuid.UUID, uuid.UUID] = {}
+    old_to_new: dict[str, str] = {}
     cloned_count = 0
     skipped_count = 0
     errors: list[str] = []
@@ -298,7 +314,7 @@ async def clone_tools(
     # Clone top-level tools
     for tool in source_tools:
         try:
-            result_tool = await _clone_tool(session, tool, target_ws, email, old_to_new)
+            result_tool = await _clone_tool(db, tool, target_ws, email, old_to_new)
             if result_tool:
                 cloned_count += 1
             else:
@@ -309,15 +325,13 @@ async def clone_tools(
     # Clone child tools
     for child in child_tools:
         try:
-            result_tool = await _clone_tool(session, child, target_ws, email, old_to_new)
+            result_tool = await _clone_tool(db, child, target_ws, email, old_to_new)
             if result_tool:
                 cloned_count += 1
             else:
                 skipped_count += 1
         except Exception as e:
             errors.append(f"Failed to clone child '{child.name}': {str(e)}")
-
-    await session.commit()
 
     logger.info(
         "Cloned %d tools (%d skipped) from workspace %s → %s by %s",
@@ -333,7 +347,7 @@ async def clone_tools(
 @router.post("/agents", response_model=CloneResult)
 async def clone_agents(
     body: CloneBatchRequest,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
     """
@@ -345,41 +359,42 @@ async def clone_agents(
     """
     email = user.get("email")
 
-    source_ws = await _resolve_source_workspace(session, body.source_workspace_id)
+    source_ws = await _resolve_source_workspace(db, body.source_workspace_id)
     target_ws = await require_workspace_access(
-        body.destination_workspace_id, session, user, require_write=True
+        body.destination_workspace_id, db, user, require_write=True
     )
 
     if source_ws.id == target_ws.id:
         raise HTTPException(status_code=400, detail="Source and destination must be different workspaces")
 
     # Load requested agents
-    result = await session.execute(
-        select(Agent).where(
-            Agent.workspace_id == source_ws.id,
-            Agent.id.in_(body.resource_ids),
-        )
-    )
-    source_agents = result.scalars().all()
+    source_agent_docs = await db.agents.find(
+        {
+            "workspace_id": source_ws.id,
+            "_id": {"$in": [str(resource_id) for resource_id in body.resource_ids]},
+        }
+    ).to_list(length=None)
+    source_agents = [_agent_from_doc(doc) for doc in source_agent_docs]
+    source_agents = [agent for agent in source_agents if agent is not None]
 
     if not source_agents:
         raise HTTPException(status_code=404, detail="No matching agents found in source workspace")
 
-    # Build a tool ID mapping from source → target (for tools already cloned)
-    # Load all tools from source workspace
-    src_tools_result = await session.execute(
-        select(Tool).where(Tool.workspace_id == source_ws.id)
-    )
-    src_tools = {t.id: t for t in src_tools_result.scalars().all()}
+    src_tool_docs = await db.tools.find({"workspace_id": source_ws.id}).to_list(length=None)
+    src_tools = {
+        tool.id: tool
+        for tool in (_tool_from_doc(doc) for doc in src_tool_docs)
+        if tool is not None
+    }
 
-    # Load all tools from target workspace (matched by name)
-    tgt_tools_result = await session.execute(
-        select(Tool).where(Tool.workspace_id == target_ws.id)
-    )
-    tgt_tools_by_name = {t.name: t for t in tgt_tools_result.scalars().all()}
+    tgt_tool_docs = await db.tools.find({"workspace_id": target_ws.id}).to_list(length=None)
+    tgt_tools_by_name = {
+        tool.name: tool
+        for tool in (_tool_from_doc(doc) for doc in tgt_tool_docs)
+        if tool is not None
+    }
 
-    # Map: source tool ID → target tool ID (matched by name)
-    tool_id_mapping: dict[uuid.UUID, uuid.UUID] = {}
+    tool_id_mapping: dict[str, str] = {}
     for src_id, src_tool in src_tools.items():
         if src_tool.name in tgt_tools_by_name:
             tool_id_mapping[src_id] = tgt_tools_by_name[src_tool.name].id
@@ -391,15 +406,13 @@ async def clone_agents(
 
     for agent in source_agents:
         try:
-            result_agent = await _clone_agent(session, agent, target_ws, email, tool_id_mapping)
+            result_agent = await _clone_agent(db, agent, target_ws, email, tool_id_mapping)
             if result_agent:
                 cloned_count += 1
             else:
                 skipped_count += 1
         except Exception as e:
             errors.append(f"Failed to clone '{agent.name}': {str(e)}")
-
-    await session.commit()
 
     logger.info(
         "Cloned %d agents (%d skipped) from workspace %s → %s by %s",
@@ -417,7 +430,7 @@ async def clone_single_resource(
     resource_type: Literal["tool", "agent", "orchestration"],
     resource_id: uuid.UUID,
     body: CloneSingleRequest,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
     """
@@ -427,43 +440,39 @@ async def clone_single_resource(
     """
     email = user.get("email")
     target_ws = await require_workspace_access(
-        body.destination_workspace_id, session, user, require_write=True
+        body.destination_workspace_id, db, user, require_write=True
     )
 
     if resource_type == "tool":
-        source = await session.get(Tool, resource_id)
+        source = _tool_from_doc(await db.tools.find_one({"_id": str(resource_id)}))
         if not source:
             raise HTTPException(status_code=404, detail="Tool not found")
-        old_to_new: dict[uuid.UUID, uuid.UUID] = {}
-        cloned = await _clone_tool(session, source, target_ws, email, old_to_new)
+        old_to_new: dict[str, str] = {}
+        cloned = await _clone_tool(db, source, target_ws, email, old_to_new)
         if cloned:
-            await session.commit()
             return CloneResult(cloned=1)
         return CloneResult(cloned=0, skipped=1)
 
     elif resource_type == "agent":
-        source = await session.get(Agent, resource_id)
+        source = _agent_from_doc(await db.agents.find_one({"_id": str(resource_id)}))
         if not source:
             raise HTTPException(status_code=404, detail="Agent not found")
-        cloned = await _clone_agent(session, source, target_ws, email)
+        cloned = await _clone_agent(db, source, target_ws, email)
         if cloned:
-            await session.commit()
             return CloneResult(cloned=1)
         return CloneResult(cloned=0, skipped=1)
 
     elif resource_type == "orchestration":
-        source = await session.get(Orchestration, resource_id)
+        source = _orchestration_from_doc(
+            await db.orchestrations.find_one({"_id": str(resource_id)})
+        )
         if not source:
             raise HTTPException(status_code=404, detail="Orchestration not found")
 
-        # Check for duplicate
-        exists = await session.execute(
-            select(Orchestration).where(
-                Orchestration.workspace_id == target_ws.id,
-                Orchestration.name == source.name,
-            )
+        exists = await db.orchestrations.find_one(
+            {"workspace_id": target_ws.id, "name": source.name}
         )
-        if exists.scalar_one_or_none():
+        if exists:
             return CloneResult(cloned=0, skipped=1)
 
         cloned_orch = Orchestration(
@@ -475,8 +484,7 @@ async def clone_single_resource(
             created_by=email,
             updated_by=email,
         )
-        session.add(cloned_orch)
-        await session.commit()
+        await db.orchestrations.insert_one(prepare_document(cloned_orch.model_dump()))
         return CloneResult(cloned=1)
 
     raise HTTPException(status_code=400, detail=f"Unknown resource type: {resource_type}")
@@ -494,16 +502,16 @@ class CloneWorkflowResourcesRequest(BaseModel):
 @router.post("/workflow-resources", response_model=CloneResult)
 async def clone_workflow_resources(
     body: CloneWorkflowResourcesRequest,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
     """
     Clone resources required for a specific workflow phase from the Default Workspace.
     """
     email = user.get("email")
-    source_ws = await _resolve_source_workspace(session, None)
+    source_ws = await _resolve_source_workspace(db, None)
     target_ws = await require_workspace_access(
-        body.destination_workspace_id, session, user, require_write=True
+        body.destination_workspace_id, db, user, require_write=True
     )
 
     if source_ws.id == target_ws.id:
@@ -517,16 +525,15 @@ async def clone_workflow_resources(
     # We clone all tools from default to be safe, or just the ones needed for the phase.
     # The requirement says "select MCP servers that are enabled under his/her workspace".
     # So we clone all tools from default.
-    result = await session.execute(
-        select(Tool).where(Tool.workspace_id == source_ws.id)
-    )
-    source_tools = result.scalars().all()
-    
-    old_to_new: dict[uuid.UUID, uuid.UUID] = {}
+    source_tool_docs = await db.tools.find({"workspace_id": source_ws.id}).to_list(length=None)
+    source_tools = [_tool_from_doc(doc) for doc in source_tool_docs]
+    source_tools = [tool for tool in source_tools if tool is not None]
+
+    old_to_new: dict[str, str] = {}
     # Parents first
     for tool in [t for t in source_tools if t.parent_id is None]:
         try:
-            res = await _clone_tool(session, tool, target_ws, email, old_to_new)
+            res = await _clone_tool(db, tool, target_ws, email, old_to_new)
             if res: cloned_count += 1
             else: skipped_count += 1
         except Exception as e:
@@ -535,29 +542,24 @@ async def clone_workflow_resources(
     # Children next
     for tool in [t for t in source_tools if t.parent_id is not None]:
         try:
-            res = await _clone_tool(session, tool, target_ws, email, old_to_new)
+            res = await _clone_tool(db, tool, target_ws, email, old_to_new)
             if res: cloned_count += 1
             else: skipped_count += 1
         except Exception as e:
             errors.append(f"Child tool clone failed: {str(e)}")
 
     # 2. Clone LLM Configs (for all phases)
-    llm_result = await session.execute(
-        select(LLMConfig).where(LLMConfig.workspace_id == source_ws.id)
-    )
-    source_llms = llm_result.scalars().all()
+    source_llm_docs = await db.llm_configs.find({"workspace_id": source_ws.id}).to_list(length=None)
+    source_llms = [_llm_config_from_doc(doc) for doc in source_llm_docs]
+    source_llms = [llm for llm in source_llms if llm is not None]
     for llm in source_llms:
-        # Check for duplicate by name
-        exists = await session.execute(
-            select(LLMConfig).where(
-                LLMConfig.workspace_id == target_ws.id,
-                LLMConfig.name == llm.name
-            )
+        exists = await db.llm_configs.find_one(
+            {"workspace_id": target_ws.id, "name": llm.name}
         )
-        if exists.scalar_one_or_none():
+        if exists:
             skipped_count += 1
             continue
-            
+
         cloned_llm = LLMConfig(
             workspace_id=target_ws.id,
             name=llm.name,
@@ -569,10 +571,8 @@ async def clone_workflow_resources(
             created_by=email,
             updated_by=email
         )
-        session.add(cloned_llm)
+        await db.llm_configs.insert_one(prepare_document(cloned_llm.model_dump()))
         cloned_count += 1
-
-    await session.commit()
 
     logger.info(
         "Workflow resources cloned for phase %s to workspace %s by %s",

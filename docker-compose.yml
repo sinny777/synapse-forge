@@ -1,48 +1,42 @@
 ##############################################################################
 # SynapseForge - Infrastructure Services
-# PostgreSQL (pgvector) + Redis
+# MongoDB + Milvus + Redis
 #
 # USAGE:
-#   If you already have PostgreSQL & Redis running (e.g. orby-postgres,
-#   my-redis), just configure the connection in backend/.env — these
-#   services are behind a "infra" profile and WON'T start by default.
-#
-#   docker compose up -d                # Starts NOTHING (profile not active)
-#   docker compose --profile infra up -d  # Starts PG + Redis (fresh install)
-#   docker compose --profile infra down   # Stops only profiled services
-#   docker compose --profile infra down -v  # Stops + removes volumes (DESTRUCTIVE)
-#
-# EXISTING CONTAINERS:
-#   If you already have a PostgreSQL container, just ensure pgvector is
-#   enabled in your target database:
-#     docker exec <container> psql -U <user> -d <db> \
-#       -c "CREATE EXTENSION IF NOT EXISTS vector;"
+#   docker compose up -d                     # Starts NOTHING (profile not active)
+#   docker compose --profile infra up -d     # Starts MongoDB + Milvus + Redis
+#   docker compose --profile infra down      # Stops only profiled services
+#   docker compose --profile infra down -v   # Stops + removes volumes (DESTRUCTIVE)
 ##############################################################################
 
 services:
   # --------------------------------------------------------------------------
-  # PostgreSQL 16 with pgvector extension
+  # MongoDB 7 — Primary application database
   # Only starts with: docker compose --profile infra up -d
   # --------------------------------------------------------------------------
-  postgres:
+  mongodb:
     profiles: ["infra"]
-    image: pgvector/pgvector:pg16
-    container_name: synapse_postgres
+    image: mongo:7
+    pull_policy: if_not_present
+    container_name: synapse_mongodb
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-synapse_user}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synapse_secret_2026}
-      POSTGRES_DB: ${POSTGRES_DB:-synapse_forge}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER:-synapse_user}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-synapse_secret_2026}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-synapse_forge}
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "${MONGODB_PORT:-27017}:27017"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./infra/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - mongodbdata:/data/db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-synapse_user} -d ${POSTGRES_DB:-synapse_forge}"]
+      test:
+        [
+          "CMD-SHELL",
+          "mongosh --quiet --username ${MONGODB_USER:-synapse_user} --password ${MONGODB_PASSWORD:-synapse_secret_2026} --authenticationDatabase admin --eval 'db.adminCommand({ ping: 1 })'"
+        ]
       interval: 10s
-      timeout: 5s
-      retries: 5
+      timeout: 10s
+      retries: 10
       start_period: 30s
 
   # --------------------------------------------------------------------------
@@ -52,6 +46,7 @@ services:
   redis:
     profiles: ["infra"]
     image: redis:7-alpine
+    pull_policy: if_not_present
     container_name: synapse_redis
     restart: unless-stopped
     command: >
@@ -71,8 +66,76 @@ services:
       retries: 5
       start_period: 10s
 
+  # --------------------------------------------------------------------------
+  # Milvus dependencies
+  # --------------------------------------------------------------------------
+  etcd:
+    profiles: ["infra"]
+    image: quay.io/coreos/etcd:v3.5.5
+    pull_policy: if_not_present
+    container_name: synapse_milvus_etcd
+    restart: unless-stopped
+    environment:
+      ETCD_AUTO_COMPACTION_MODE: revision
+      ETCD_AUTO_COMPACTION_RETENTION: "1000"
+      ETCD_QUOTA_BACKEND_BYTES: "4294967296"
+      ETCD_SNAPSHOT_COUNT: "50000"
+    command: >
+      etcd
+      -advertise-client-urls=http://127.0.0.1:2379
+      -listen-client-urls=http://0.0.0.0:2379
+      --data-dir=/etcd
+    volumes:
+      - etcddata:/etcd
+
+  minio:
+    profiles: ["infra"]
+    image: minio/minio:RELEASE.2024-05-10T01-41-38Z
+    pull_policy: if_not_present
+    container_name: synapse_milvus_minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-synapse_minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-synapse_minio_2026}
+    command: minio server /minio_data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - miniodata:/minio_data
+
+  milvus:
+    profiles: ["infra"]
+    image: milvusdb/milvus:v2.4.13
+    pull_policy: if_not_present
+    container_name: synapse_milvus
+    restart: unless-stopped
+    command: ["milvus", "run", "standalone"]
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER:-synapse_minio}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:-synapse_minio_2026}
+      MINIO_USE_SSL: "false"
+    ports:
+      - "${MILVUS_PORT:-19530}:19530"
+      - "${MILVUS_HTTP_PORT:-9091}:9091"
+    volumes:
+      - milvusdata:/var/lib/milvus
+    depends_on:
+      - etcd
+      - minio
+
 volumes:
-  pgdata:
+  mongodbdata:
     driver: local
   redisdata:
     driver: local
+  etcddata:
+    driver: local
+  miniodata:
+    driver: local
+  milvusdata:
+    driver: local
+
+# Made with Bob

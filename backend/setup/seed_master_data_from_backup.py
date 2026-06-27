@@ -1,7 +1,7 @@
 """
-SynapseForge — Master Data Seeder from PostgreSQL Backup
+SynapseForge — Master Data Seeder from Backup
 
-Creates or synchronizes master data directly from the canonical PostgreSQL backup
+Creates or synchronizes master data directly from the canonical backup
 stored in backend/db/backup/synapse-backup-v2-260526.
 
 The script parses INSERT INTO public.<table> statements for the following tables:
@@ -10,8 +10,9 @@ The script parses INSERT INTO public.<table> statements for the following tables
 - tools
 - agents
 - orchestrations
+- pipeline_artifacts
 
-It then upserts those records into the current database while masking any
+It then upserts those records into MongoDB while masking any
 secret-bearing fields before persistence.
 
 Usage:
@@ -27,7 +28,6 @@ import asyncio
 import ast
 import json
 import logging
-import os
 import re
 import sys
 import uuid
@@ -42,13 +42,10 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=_backend_dir / ".env")
 
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
+from db.engine import get_database, init_db, normalize_mongo_document, prepare_document, reset_db
 from db.models import (
     Agent,
     ArchitectureType,
-    Base,
     LLMConfig,
     LLMProviderEnum,
     MCPServerStatus,
@@ -72,15 +69,6 @@ INSERT_PATTERN = re.compile(
     r"INSERT INTO public\.(?P<table>workspaces|llm_configs|tools|agents|orchestrations|pipeline_artifacts)\s*"
     r"\((?P<columns>.*?)\)\s*VALUES\s*\((?P<values>.*)\);$"
 )
-
-
-def _build_database_url() -> str:
-    user = os.getenv("POSTGRES_USER", "ntr_user")
-    password = os.getenv("POSTGRES_PASSWORD", "ntr_secret_2026")
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "synapse_forge")
-    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 
 
 def _split_sql_csv(text: str) -> list[str]:
@@ -149,17 +137,10 @@ def _parse_pg_array(value: str) -> list[Any]:
             continue
         cleaned = _strip_quotes(raw)
         if re.fullmatch(r"[0-9a-fA-F-]{36}", cleaned):
-            parsed.append(uuid.UUID(cleaned))
+            parsed.append(str(uuid.UUID(cleaned)))
         else:
             parsed.append(cleaned)
     return parsed
-
-
-def _parse_json_like(value: str) -> Any:
-    text = _strip_quotes(value)
-    if text == "null":
-        return None
-    return json.loads(text)
 
 
 def _parse_scalar(value: str) -> Any:
@@ -176,7 +157,7 @@ def _parse_scalar(value: str) -> Any:
         if re.fullmatch(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(\.\d+)?\+00", inner):
             return datetime.fromisoformat(inner.replace(" ", "T"))
         if re.fullmatch(r"[0-9a-fA-F-]{36}", inner):
-            return uuid.UUID(inner)
+            return str(uuid.UUID(inner))
         if inner.startswith("[") or inner == "null":
             try:
                 return json.loads(inner)
@@ -269,192 +250,136 @@ def _enum_or_none(enum_cls: type, value: Any) -> Any:
     raise ValueError(f"{value!r} is not a valid {enum_cls.__name__}")
 
 
-async def _upsert_workspace(session: AsyncSession, row: dict[str, Any]) -> None:
-    record = await session.get(Workspace, row["id"])
-    payload = {
-        "id": row["id"],
-        "name": row["name"],
-        "description": row.get("description"),
-        "embedding_model": row["embedding_model"],
-        "embedding_dim": row["embedding_dim"],
-        "is_default": row["is_default"],
-        "status": _enum_or_none(WorkspaceStatus, row["status"]),
-        "shared_with": row.get("shared_with"),
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "created_by": row.get("created_by"),
-        "updated_by": row.get("updated_by"),
-    }
-    if record is None:
-        session.add(Workspace(**payload))
-    else:
-        for key, value in payload.items():
-            setattr(record, key, value)
+def _workspace_from_row(row: dict[str, Any]) -> Workspace:
+    return Workspace(
+        id=row["id"],
+        name=row["name"],
+        description=row.get("description"),
+        embedding_model=row["embedding_model"],
+        embedding_dim=row["embedding_dim"],
+        is_default=row["is_default"],
+        status=_enum_or_none(WorkspaceStatus, row["status"]),
+        shared_with=row.get("shared_with"),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        created_by=row.get("created_by"),
+        updated_by=row.get("updated_by"),
+    )
 
 
-async def _upsert_llm_config(session: AsyncSession, row: dict[str, Any]) -> None:
-    record = await session.get(LLMConfig, row["id"])
-    payload = {
-        "id": row["id"],
-        "workspace_id": row["workspace_id"],
-        "name": row["name"],
-        "provider": _enum_or_none(LLMProviderEnum, row["provider"]),
-        "model_name": row["model_name"],
-        "credentials": row.get("credentials"),
-        "temperature": row["temperature"],
-        "max_tokens": row["max_tokens"],
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "created_by": row.get("created_by"),
-        "updated_by": row.get("updated_by"),
-    }
-    if record is None:
-        session.add(LLMConfig(**payload))
-    else:
-        for key, value in payload.items():
-            setattr(record, key, value)
+def _llm_config_from_row(row: dict[str, Any]) -> LLMConfig:
+    return LLMConfig(
+        id=row["id"],
+        workspace_id=row["workspace_id"],
+        name=row["name"],
+        provider=_enum_or_none(LLMProviderEnum, row["provider"]),
+        model_name=row["model_name"],
+        credentials=row.get("credentials"),
+        temperature=row["temperature"],
+        max_tokens=row["max_tokens"],
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        created_by=row.get("created_by"),
+        updated_by=row.get("updated_by"),
+    )
 
 
-async def _upsert_tool(session: AsyncSession, row: dict[str, Any]) -> None:
-    with session.no_autoflush:
-        record = await session.get(Tool, row["id"])
-    payload = {
-        "id": row["id"],
-        "workspace_id": row["workspace_id"],
-        "name": row["name"],
-        "description": row.get("description"),
-        "type": _enum_or_none(ToolType, row["type"]),
-        "is_enabled": row["is_enabled"],
-        "connection_config": row.get("connection_config"),
-        "schema_def": row.get("schema"),
-        "transport": _enum_or_none(MCPTransportType, row.get("transport")),
-        "command": row.get("command"),
-        "args": row.get("args"),
-        "env": row.get("env"),
-        "url": row.get("url"),
-        "status": _enum_or_none(MCPServerStatus, row["status"]),
-        "last_error": row.get("last_error"),
-        "parent_id": row.get("parent_id"),
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "created_by": row.get("created_by"),
-        "updated_by": row.get("updated_by"),
-    }
-    if record is None:
-        session.add(Tool(**payload))
-    else:
-        for key, value in payload.items():
-            setattr(record, key, value)
+def _tool_from_row(row: dict[str, Any]) -> Tool:
+    return Tool(
+        id=row["id"],
+        workspace_id=row["workspace_id"],
+        name=row["name"],
+        description=row.get("description"),
+        type=_enum_or_none(ToolType, row["type"]),
+        is_enabled=row["is_enabled"],
+        connection_config=row.get("connection_config"),
+        schema_def=row.get("schema"),
+        transport=_enum_or_none(MCPTransportType, row.get("transport")),
+        command=row.get("command"),
+        args=row.get("args"),
+        env=row.get("env"),
+        url=row.get("url"),
+        status=_enum_or_none(MCPServerStatus, row["status"]),
+        last_error=row.get("last_error"),
+        parent_id=row.get("parent_id"),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        created_by=row.get("created_by"),
+        updated_by=row.get("updated_by"),
+    )
 
 
-async def _upsert_agent(session: AsyncSession, row: dict[str, Any]) -> None:
-    record = await session.get(Agent, row["id"])
-    payload = {
-        "id": row["id"],
-        "workspace_id": row["workspace_id"],
-        "name": row["name"],
-        "description": row.get("description"),
-        "system_prompt": row.get("system_prompt"),
-        "llm_config_id": row.get("llm_config_id"),
-        "use_neural_router": row["use_neural_router"],
-        "router_model_id": row.get("router_model_id"),  # New field
-        "router_top_k": row.get("router_top_k"),
-        "memory_type": row.get("memory_type"),
-        "memory_window": row.get("memory_window"),
-        "max_iterations": row.get("max_iterations"),
-        "timeout_seconds": row.get("timeout_seconds"),
-        "attached_tool_ids": row.get("attached_tool_ids"),
-        "collaborator_agent_ids": row.get("collaborator_agent_ids"),
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "created_by": row.get("created_by"),
-        "updated_by": row.get("updated_by"),
-    }
-    if record is None:
-        session.add(Agent(**payload))
-    else:
-        for key, value in payload.items():
-            setattr(record, key, value)
+def _agent_from_row(row: dict[str, Any]) -> Agent:
+    return Agent(
+        id=row["id"],
+        workspace_id=row["workspace_id"],
+        name=row["name"],
+        description=row.get("description"),
+        system_prompt=row.get("system_prompt"),
+        llm_config_id=row.get("llm_config_id"),
+        use_neural_router=row["use_neural_router"],
+        router_model_id=row.get("router_model_id"),
+        router_top_k=row.get("router_top_k"),
+        memory_type=row.get("memory_type"),
+        memory_window=row.get("memory_window"),
+        max_iterations=row.get("max_iterations"),
+        timeout_seconds=row.get("timeout_seconds"),
+        attached_tool_ids=row.get("attached_tool_ids"),
+        collaborator_agent_ids=row.get("collaborator_agent_ids"),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        created_by=row.get("created_by"),
+        updated_by=row.get("updated_by"),
+    )
 
 
-async def _upsert_orchestration(session: AsyncSession, row: dict[str, Any]) -> None:
-    record = await session.get(Orchestration, row["id"])
-    payload = {
-        "id": row["id"],
-        "workspace_id": row["workspace_id"],
-        "name": row["name"],
-        "framework": _enum_or_none(OrchestrationFramework, row["framework"]),
-        "architecture_type": _enum_or_none(ArchitectureType, row["architecture_type"]),
-        "config": row.get("config"),
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "created_by": row.get("created_by"),
-        "updated_by": row.get("updated_by"),
-    }
-    if record is None:
-        session.add(Orchestration(**payload))
-    else:
-        for key, value in payload.items():
-            setattr(record, key, value)
+def _orchestration_from_row(row: dict[str, Any]) -> Orchestration:
+    return Orchestration(
+        id=row["id"],
+        workspace_id=row["workspace_id"],
+        name=row["name"],
+        framework=_enum_or_none(OrchestrationFramework, row["framework"]),
+        architecture_type=_enum_or_none(ArchitectureType, row["architecture_type"]),
+        config=row.get("config"),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        created_by=row.get("created_by"),
+        updated_by=row.get("updated_by"),
+    )
 
 
-async def _upsert_pipeline_artifact(session: AsyncSession, row: dict[str, Any]) -> None:
-    record = await session.get(PipelineArtifact, row["id"])
-    payload = {
-        "id": row["id"],
-        "workspace_id": row["workspace_id"],
-        "phase": row["phase"],
-        "artifact_type": row["artifact_type"],
-        "name": row["name"],
-        "cos_bucket": row["cos_bucket"],
-        "cos_key": row["cos_key"],
-        "cos_endpoint": row["cos_endpoint"],
-        "url": row.get("url"),
-        "created_at": row["created_at"],
-        "updated_at": row["updated_at"],
-        "created_by": row.get("created_by"),
-        "updated_by": row.get("updated_by"),
-    }
-    if record is None:
-        session.add(PipelineArtifact(**payload))
-    else:
-        for key, value in payload.items():
-            setattr(record, key, value)
+def _pipeline_artifact_from_row(row: dict[str, Any]) -> PipelineArtifact:
+    return PipelineArtifact(
+        id=row["id"],
+        workspace_id=row["workspace_id"],
+        phase=row["phase"],
+        artifact_type=row["artifact_type"],
+        name=row["name"],
+        cos_bucket=row["cos_bucket"],
+        cos_key=row["cos_key"],
+        cos_endpoint=row["cos_endpoint"],
+        url=row.get("url"),
+        created_at=row["created_at"],
+        updated_at=row["updated_at"],
+        created_by=row.get("created_by"),
+        updated_by=row.get("updated_by"),
+    )
 
 
-async def _reset_target_tables(session: AsyncSession) -> None:
-    for model in (PipelineArtifact, Orchestration, Agent, Tool, LLMConfig, Workspace):
-        rows = await session.execute(select(model))
-        for record in rows.scalars().all():
-            await session.delete(record)
-    await session.flush()
-
-
-async def _apply_schema_migrations(engine) -> None:
-    """Apply any necessary schema migrations before seeding data."""
-    async with engine.begin() as conn:
-        # Migration: Add router_model_id column to agents table if it doesn't exist
-        result = await conn.execute(text("""
-            SELECT column_name
-            FROM information_schema.columns
-            WHERE table_name = 'agents'
-            AND column_name = 'router_model_id'
-        """))
-        
-        if not result.fetchone():
-            logger.info("Adding 'router_model_id' column to 'agents' table...")
-            await conn.execute(text("""
-                ALTER TABLE agents
-                ADD COLUMN router_model_id VARCHAR(255)
-            """))
-            logger.info("✓ Successfully added 'router_model_id' column")
-        else:
-            logger.info("✓ Column 'router_model_id' already exists")
+async def _upsert_document(collection_name: str, document_id: str, payload: dict[str, Any]) -> None:
+    db = get_database()
+    await db[collection_name].replace_one(
+        {"_id": document_id},
+        prepare_document(payload),
+        upsert=True,
+    )
 
 
 async def seed_from_backup(backup_path: Path, reset: bool = False) -> None:
     if not backup_path.exists():
         raise FileNotFoundError(f"Backup file not found: {backup_path}")
+
+    await init_db()
 
     parsed = _load_backup_rows(backup_path)
     logger.info(
@@ -462,66 +387,54 @@ async def seed_from_backup(backup_path: Path, reset: bool = False) -> None:
         ", ".join(f"{table}={len(parsed[table])}" for table in TARGET_TABLES),
     )
 
-    database_url = os.getenv("DATABASE_URL") or _build_database_url()
-    engine = create_async_engine(database_url, echo=False)
-    session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    if reset:
+        logger.warning("Reset requested; deleting existing master-data collections before reseeding.")
+        await reset_db()
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    
-    # Apply schema migrations
-    await _apply_schema_migrations(engine)
+    for row in parsed["workspaces"]:
+        workspace = _workspace_from_row(row)
+        await _upsert_document("workspaces", workspace.id, workspace.model_dump())
 
-    async with session_factory() as session:
-        if reset:
-            logger.warning("Reset requested; deleting existing master-data rows before reseeding.")
-            await _reset_target_tables(session)
+    for row in parsed["llm_configs"]:
+        llm_config = _llm_config_from_row(row)
+        await _upsert_document("llm_configs", llm_config.id, llm_config.model_dump())
 
-        for row in parsed["workspaces"]:
-            await _upsert_workspace(session, row)
-        await session.flush()
+    tool_rows = parsed["tools"]
+    parent_tool_rows = [row for row in tool_rows if row.get("parent_id") is None]
+    child_tool_rows = [row for row in tool_rows if row.get("parent_id") is not None]
 
-        for row in parsed["llm_configs"]:
-            await _upsert_llm_config(session, row)
-        await session.flush()
+    for row in parent_tool_rows:
+        tool = _tool_from_row(row)
+        await _upsert_document("tools", tool.id, tool.model_dump())
 
-        tool_rows = parsed["tools"]
-        parent_tool_rows = [row for row in tool_rows if row.get("parent_id") is None]
-        child_tool_rows = [row for row in tool_rows if row.get("parent_id") is not None]
+    child_tool_rows.sort(key=lambda row: str(row.get("parent_id")))
+    for row in child_tool_rows:
+        tool = _tool_from_row(row)
+        await _upsert_document("tools", tool.id, tool.model_dump())
 
-        for row in parent_tool_rows:
-            await _upsert_tool(session, row)
-        await session.flush()
+    for row in parsed["agents"]:
+        agent = _agent_from_row(row)
+        await _upsert_document("agents", agent.id, agent.model_dump())
 
-        child_tool_rows.sort(key=lambda row: str(row.get("parent_id")))
-        for row in child_tool_rows:
-            await _upsert_tool(session, row)
-            await session.flush()
+    for row in parsed["orchestrations"]:
+        orchestration = _orchestration_from_row(row)
+        await _upsert_document("orchestrations", orchestration.id, orchestration.model_dump())
 
-        for row in parsed["agents"]:
-            await _upsert_agent(session, row)
-        await session.flush()
+    for row in parsed["pipeline_artifacts"]:
+        artifact = _pipeline_artifact_from_row(row)
+        await _upsert_document("pipeline_artifacts", artifact.id, artifact.model_dump())
 
-        for row in parsed["orchestrations"]:
-            await _upsert_orchestration(session, row)
-        await session.flush()
-
-        for row in parsed["pipeline_artifacts"]:
-            await _upsert_pipeline_artifact(session, row)
-        await session.commit()
-
-    await engine.dispose()
     logger.info("Master data sync complete from backup: %s", backup_path)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Seed SynapseForge master data from the canonical PostgreSQL backup."
+        description="Seed SynapseForge master data from the canonical backup."
     )
     parser.add_argument(
         "--backup",
         default=str(DEFAULT_BACKUP_PATH),
-        help="Path to PostgreSQL backup file.",
+        help="Path to backup file.",
     )
     parser.add_argument(
         "--reset",

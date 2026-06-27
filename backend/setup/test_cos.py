@@ -28,9 +28,8 @@ logger = logging.getLogger("test_cos")
 
 from services.ibm_cos_service import cos_service
 from services.artifact_manager import ArtifactManager
-from db.engine import init_db, close_db
-from db.models import Workspace, PipelineArtifact
-from sqlalchemy import select
+from db.engine import close_db, get_database, init_db, normalize_mongo_document, prepare_document
+from db.models import PipelineArtifact, Workspace
 
 
 async def run_test():
@@ -38,21 +37,18 @@ async def run_test():
 
     # 1. Initialize database connection
     await init_db()
-    from db.engine import _session_factory
+    db = get_database()
 
     # 2. Setup mock workspace
     ws_id = uuid.uuid4()
-    async with _session_factory() as session:
-        # Create a temporary workspace record for testing
-        test_ws = Workspace(
-            id=ws_id,
-            name=f"Test Workspace - {ws_id.hex[:6]}",
-            description="Created for testing IBM COS pipeline integration",
-            created_by="test_system",
-            updated_by="test_system"
-        )
-        session.add(test_ws)
-        await session.commit()
+    test_ws = Workspace(
+        id=str(ws_id),
+        name=f"Test Workspace - {ws_id.hex[:6]}",
+        description="Created for testing IBM COS pipeline integration",
+        created_by="test_system",
+        updated_by="test_system",
+    )
+    await db.workspaces.replace_one({"_id": test_ws.id}, prepare_document(test_ws.model_dump()), upsert=True)
     logger.info(f"Created temporary workspace in DB: {ws_id}")
 
     # 3. Create test files
@@ -81,13 +77,13 @@ async def run_test():
         logger.info("✓ Upload, database registration, and local file deletion successful!")
 
         # 5. Verify Database Entry
-        async with _session_factory() as session:
-            stmt = select(PipelineArtifact).where(PipelineArtifact.workspace_id == ws_id)
-            db_artifact = (await session.execute(stmt)).scalars().first()
-            
-            assert db_artifact is not None, "No artifact found in database!"
-            assert db_artifact.cos_key.startswith(f"workspaces/{ws_id}"), "COS key prefix is incorrect!"
-            logger.info(f"✓ Database record successfully verified: {db_artifact.url}")
+        artifact_doc = await db.pipeline_artifacts.find_one({"workspace_id": str(ws_id)})
+        artifact_data = normalize_mongo_document(artifact_doc)
+        db_artifact = PipelineArtifact(**artifact_data) if artifact_data else None
+
+        assert db_artifact is not None, "No artifact found in database!"
+        assert db_artifact.cos_key.startswith(f"workspaces/{ws_id}"), "COS key prefix is incorrect!"
+        logger.info(f"✓ Database record successfully verified: {db_artifact.url}")
 
         # 6. Download on-demand
         logger.info("Downloading file on-demand back to local path...")
@@ -113,19 +109,9 @@ async def run_test():
         cos_service.delete_prefix(f"workspaces/{ws_id}")
         
         # Delete from DB
-        async with _session_factory() as session:
-            stmt_art = select(PipelineArtifact).where(PipelineArtifact.workspace_id == ws_id)
-            arts = (await session.execute(stmt_art)).scalars().all()
-            for art in arts:
-                await session.delete(art)
-                
-            stmt_ws = select(Workspace).where(Workspace.id == ws_id)
-            ws_rec = (await session.execute(stmt_ws)).scalars().first()
-            if ws_rec:
-                await session.delete(ws_rec)
-                
-            await session.commit()
-            
+        await db.pipeline_artifacts.delete_many({"workspace_id": str(ws_id)})
+        await db.workspaces.delete_one({"_id": str(ws_id)})
+
         if test_file_path.exists():
             os.remove(test_file_path)
             

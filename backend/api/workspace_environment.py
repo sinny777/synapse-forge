@@ -18,7 +18,8 @@ from functools import lru_cache
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, ConfigDict
 
-from db.engine import AsyncSessionDep
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from db.engine import get_db, prepare_document
 from db.models import Workspace, WorkspaceStatus
 from api.auth import get_current_user
 from api.dependencies import require_workspace_access
@@ -92,7 +93,7 @@ def get_docker_service():
 )
 async def start_workspace_environment(
     workspace_id: uuid.UUID,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(get_current_user),
     docker_svc=Depends(get_docker_service),
 ):
@@ -105,7 +106,7 @@ async def start_workspace_environment(
     4. Updates the workspace status to RUNNING in the database.
     """
     # 1. Validate workspace access
-    ws = await require_workspace_access(workspace_id, session, user, require_write=True)
+    ws = await require_workspace_access(workspace_id, db, user, require_write=True)
 
     # 2. Block starting the Default Workspace
     if ws.is_default:
@@ -127,8 +128,7 @@ async def start_workspace_environment(
     except RuntimeError as exc:
         # Container already running at Docker level — sync DB status
         ws.status = WorkspaceStatus.RUNNING
-        await session.flush()
-        await session.refresh(ws)
+        await db.workspaces.replace_one({"_id": ws.id}, prepare_document(ws.model_dump()))
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=str(exc),
@@ -136,7 +136,7 @@ async def start_workspace_environment(
     except Exception as exc:
         # Unexpected failure — mark workspace as FAILED
         ws.status = WorkspaceStatus.FAILED
-        await session.flush()
+        await db.workspaces.replace_one({"_id": ws.id}, prepare_document(ws.model_dump()))
         logger.error("Failed to start container for workspace %s: %s", workspace_id, exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -146,8 +146,8 @@ async def start_workspace_environment(
     # 5. Update workspace status in DB
     ws.status = WorkspaceStatus.RUNNING
     ws.updated_by = user.get("email")
-    await session.flush()
-    await session.refresh(ws)
+    ws.touch(user.get("email"))
+    await db.workspaces.replace_one({"_id": ws.id}, prepare_document(ws.model_dump()))
 
     logger.info(
         "Workspace %s environment started by %s", workspace_id, user.get("email")
@@ -170,7 +170,7 @@ async def start_workspace_environment(
 )
 async def stop_workspace_environment(
     workspace_id: uuid.UUID,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(get_current_user),
     docker_svc=Depends(get_docker_service),
 ):
@@ -183,7 +183,7 @@ async def stop_workspace_environment(
     4. Updates the workspace status to STOPPED in the database.
     """
     # 1. Validate workspace access
-    ws = await require_workspace_access(workspace_id, session, user, require_write=True)
+    ws = await require_workspace_access(workspace_id, db, user, require_write=True)
 
     # 2. Block stopping the Default Workspace (it should never be running)
     if ws.is_default:
@@ -198,15 +198,14 @@ async def stop_workspace_environment(
     except RuntimeError as exc:
         # No container found — ensure DB status is STOPPED
         ws.status = WorkspaceStatus.STOPPED
-        await session.flush()
-        await session.refresh(ws)
+        await db.workspaces.replace_one({"_id": ws.id}, prepare_document(ws.model_dump()))
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         )
     except Exception as exc:
         ws.status = WorkspaceStatus.FAILED
-        await session.flush()
+        await db.workspaces.replace_one({"_id": ws.id}, prepare_document(ws.model_dump()))
         logger.error("Failed to stop container for workspace %s: %s", workspace_id, exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -216,8 +215,8 @@ async def stop_workspace_environment(
     # 4. Update workspace status in DB
     ws.status = WorkspaceStatus.STOPPED
     ws.updated_by = user.get("email")
-    await session.flush()
-    await session.refresh(ws)
+    ws.touch(user.get("email"))
+    await db.workspaces.replace_one({"_id": ws.id}, prepare_document(ws.model_dump()))
 
     logger.info(
         "Workspace %s environment stopped by %s", workspace_id, user.get("email")

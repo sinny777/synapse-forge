@@ -35,11 +35,10 @@ tqdm>=4.65.0
 # Utilities
 python-dotenv>=1.0.0
 
-# Database & Storage (Phase 1 & 2)
-sqlalchemy[asyncio]>=2.0.0
-asyncpg>=0.29.0          # Async PostgreSQL driver
-pgvector>=0.3.0          # pgvector SQLAlchemy integration
-# alembic & psycopg2-binary removed — using reset_db.py for schema management
+# Database & Storage (MongoDB + Redis + Milvus)
+motor>=3.6.0             # Async MongoDB driver
+pymongo>=4.9.0           # MongoDB client utilities
+pymilvus>=2.5.0          # Milvus vector database client
 redis>=5.0.0             # redis.asyncio for caching & checkpoints
 boto3>=1.26.0
 ibm-cos-sdk>=2.13.0

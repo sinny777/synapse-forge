@@ -39,7 +39,7 @@ logger = logging.getLogger("fastapi_app")
 async def lifespan(app: FastAPI):
     """
     Application lifespan context manager.
-    - Startup:  connect to PostgreSQL (pgvector) and Redis.
+    - Startup:  connect to MongoDB and Redis.
     - Shutdown: close all connections gracefully.
     """
     from db.engine import init_db, close_db
@@ -50,9 +50,9 @@ async def lifespan(app: FastAPI):
     # --- Startup ---
     try:
         await init_db()
-        logger.info("✅ PostgreSQL (pgvector) connected")
+        logger.info("✅ MongoDB connected")
     except Exception as e:
-        logger.warning(f"⚠️  PostgreSQL not available (running without DB): {e}")
+        logger.warning(f"⚠️  MongoDB not available (running without DB): {e}")
 
     try:
         await init_redis()
@@ -118,7 +118,14 @@ from api.models import router as models_router
 from api.datasets import router as datasets_router
 from api.env_config import router as env_config_router
 from api.scenarios import router as scenarios_router
-from api.execute import router as execute_router
+try:
+    from api.execute import router as execute_router
+    print("✓ Execute router imported successfully")
+except Exception as e:
+    print(f"✗ Failed to import execute router: {e}")
+    import traceback
+    traceback.print_exc()
+    execute_router = None
 
 # Platform routes
 app.include_router(auth_router)
@@ -138,7 +145,18 @@ app.include_router(models_router)
 app.include_router(datasets_router)
 app.include_router(env_config_router)
 app.include_router(scenarios_router)
-app.include_router(execute_router)
+if execute_router is not None:
+    app.include_router(execute_router)
+    print("✓ Execute router registered")
+    # Debug: Print all orchestrator routes
+    print("\n=== Registered Orchestrator Routes ===")
+    for route in app.routes:
+        if hasattr(route, 'path') and 'orchestrator' in route.path:
+            methods = getattr(route, 'methods', set())
+            print(f"  {methods} {route.path}")
+    print("=====================================\n")
+else:
+    print("✗ Execute router not registered due to import error")
 
 
 # ---------------------------------------------------------------------------

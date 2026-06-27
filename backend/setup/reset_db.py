@@ -1,11 +1,11 @@
 """
 SynapseForge — Database Reset & Re-seed Script
 
-Drops ALL tables, recreates them from the current ORM models, and seeds
+Drops ALL collections, recreates indexes, and seeds
 the default workspace with template Agents and Tools.
 
 ⚠️  DESTRUCTIVE — intended for rapid prototyping only.
-    Does NOT use Alembic migrations.
+    Does NOT use migrations.
 
 Usage:
     # From the backend/ directory with venv activated:
@@ -16,7 +16,6 @@ Usage:
 import argparse
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
@@ -29,26 +28,10 @@ sys.path.insert(0, str(_backend_dir))
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=_backend_dir / ".env")
 
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
-
-from db.models import Base
+from db.engine import init_db, reset_db
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("reset_db")
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Database URL builder (mirrors db/engine.py)
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _build_database_url() -> str:
-    user = os.getenv("POSTGRES_USER", "ntr_user")
-    password = os.getenv("POSTGRES_PASSWORD", "ntr_secret_2026")
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "synapse_forge")
-    return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{db}"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -57,46 +40,13 @@ def _build_database_url() -> str:
 
 async def reset_schema() -> None:
     """
-    Connect to PostgreSQL, drop ALL tables, ensure pgvector extension,
-    and recreate the full schema from SQLAlchemy ORM models.
+    Connect to MongoDB, drop ALL collections, and recreate indexes.
     """
-    url = os.getenv("DATABASE_URL") or _build_database_url()
-    logger.info("Connecting to PostgreSQL at %s", url.split("@")[-1])
-
-    engine = create_async_engine(url, echo=False)
-
-    async with engine.begin() as conn:
-        # 1. Drop all existing tables
-        logger.warning("🗑  Dropping ALL tables...")
-        await conn.run_sync(Base.metadata.drop_all)
-        logger.info("   All tables dropped.")
-
-        # 2. Ensure pgvector extension exists (must happen before create_all)
-        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-        logger.info("   pgvector extension verified ✓")
-
-        # 3. Drop stale enum types that SQLAlchemy won't clean up automatically
-        #    (prevents "type already exists" errors on re-creation)
-        for enum_name in [
-            "workspace_status",
-            "tool_type",
-            "mcp_transport_type",
-            "mcp_server_status",
-            "orchestration_framework",
-            "architecture_type",
-            "llm_provider_enum",
-        ]:
-            await conn.execute(
-                text(f"DROP TYPE IF EXISTS {enum_name} CASCADE")
-            )
-        logger.info("   Stale enum types cleaned up ✓")
-
-        # 4. Recreate all tables from ORM models
-        logger.info("📦 Recreating tables from ORM models...")
-        await conn.run_sync(Base.metadata.create_all)
-        logger.info("   All tables created ✓")
-
-    await engine.dispose()
+    logger.info("Connecting to MongoDB...")
+    await init_db()
+    
+    logger.warning("🗑  Dropping ALL collections...")
+    await reset_db()
     logger.info("✅ Schema reset complete!")
 
 
@@ -123,7 +73,7 @@ async def run(skip_seed: bool = False) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
-            "Drop all tables, recreate the schema from ORM models, "
+            "Drop all collections, recreate indexes, "
             "and seed the default workspace. ⚠️ DESTRUCTIVE."
         )
     )
@@ -137,7 +87,7 @@ def main() -> None:
     print()
     print("╔══════════════════════════════════════════════════════════╗")
     print("║       SynapseForge — Database Reset Utility             ║")
-    print("║  ⚠️  This will DROP all tables and recreate them.       ║")
+    print("║  ⚠️  This will DROP all collections and recreate them.  ║")
     print("╚══════════════════════════════════════════════════════════╝")
     print()
 
@@ -146,3 +96,5 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+# Made with Bob

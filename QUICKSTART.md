@@ -10,7 +10,8 @@ Get the full-stack Agentic AI Platform running locally in under 10 minutes.
 |---|---|---|
 | Python | 3.11+ | Backend API & NeuralToolRouter engine |
 | Node.js | 18+ | Angular frontend & MCP server runtimes |
-| PostgreSQL | 14+ | With the `pgvector` extension enabled |
+| MongoDB | 7+ | Primary backend database |
+| Milvus | 2.4+ | Semantic vector search service |
 | Redis | 7+ | Caching & LangGraph checkpointing |
 | Docker | 24+ | Docker Desktop for workspace container orchestration (Control Plane) |
 | Ollama | Latest | Local LLM inference (default for development) |
@@ -26,7 +27,7 @@ cd synapse-forge
 
 ---
 
-## 2. Infrastructure (PostgreSQL + Redis)
+## 2. Infrastructure (MongoDB + Milvus + Redis)
 
 ### Option A: Use Docker (Recommended for fresh installs)
 
@@ -34,18 +35,12 @@ cd synapse-forge
 docker compose --profile infra up -d
 ```
 
-This starts PostgreSQL 16 (pgvector) and Redis 7 with default credentials.
+This starts MongoDB 7, Milvus standalone, and Redis 7 with default credentials.
 
-### Option B: Use existing PostgreSQL & Redis
+### Option B: Use existing MongoDB, Milvus & Redis
 
-If you already have these running, just ensure pgvector is enabled:
-
-```bash
-# In your existing PostgreSQL database:
-psql -U <user> -d <db> -c "CREATE EXTENSION IF NOT EXISTS vector;"
-```
-
-Then configure connection details in `backend/.env` (see step 3).
+If you already have these running, configure their connection details in
+`backend/.env` (see step 3).
 
 ---
 
@@ -65,20 +60,26 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-Edit `backend/.env` with your database credentials:
+Edit `backend/.env` with your infrastructure credentials:
 
 ```bash
-# ── Database ──────────────────────────────────────
-POSTGRES_USER=ntr_user
-POSTGRES_PASSWORD=ntr_secret_2026
-POSTGRES_HOST=localhost
-POSTGRES_PORT=5432
-POSTGRES_DB=neural_tool_router
+# ── MongoDB ───────────────────────────────────────
+MONGODB_HOST=localhost
+MONGODB_PORT=27017
+MONGODB_DATABASE=synapse_forge
+MONGODB_USER=synapse_user
+MONGODB_PASSWORD=synapse_secret_2026
+MONGODB_AUTH_DATABASE=admin
+
+# ── Milvus ────────────────────────────────────────
+MILVUS_HOST=localhost
+MILVUS_PORT=19530
+MILVUS_COLLECTION_PREFIX=synapse_forge
 
 # ── Redis ─────────────────────────────────────────
 REDIS_HOST=localhost
-REDIS_PORT=6379
-REDIS_PASSWORD=ntr_redis_2026
+REDIS_PORT=6380
+REDIS_PASSWORD=synapse_redis_2026
 
 # ── Docker Control Plane (workspace containers) ──
 # WORKSPACE_CONTAINER_IMAGE=python:3.11-slim
@@ -88,8 +89,6 @@ REDIS_PASSWORD=ntr_redis_2026
 OLLAMA_API_BASE=http://localhost:11434
 
 # ── IBM Cloud Object Storage (COS) ───────────────
-# Required for production use to store pipeline artifacts
-# If not configured, system runs in MOCK mode (local storage)
 IBM_COS_ENDPOINT=https://s3.us-south.cloud-object-storage.appdomain.cloud
 IBM_COS_API_KEY_ID=your-ibm-cos-api-key
 IBM_COS_SERVICE_INSTANCE_ID=crn:v1:bluemix:public:cloud-object-storage:global:a/your-account-id:your-service-instance-id::
@@ -124,7 +123,8 @@ IBM_COS_SECRET_ACCESS_KEY=your_secret_access_key_here
 
 ## 4. Database: Reset & Seed
 
-SynapseForge uses a direct schema management approach (no Alembic migrations) for rapid prototyping.
+SynapseForge now uses MongoDB for primary persistence and Milvus for semantic
+tool retrieval.
 
 ### Reset the database & seed default data
 
@@ -133,12 +133,8 @@ SynapseForge uses a direct schema management approach (no Alembic migrations) fo
 python -m setup.reset_db
 ```
 
-This single command will:
-
-1. **Drop** all existing tables
-2. **Recreate** the full schema from SQLAlchemy ORM models (Workspace, Tool, Agent, Orchestration, LLMConfig)
-3. **Ensure** the `pgvector` extension is available
-4. **Seed** the "System Default Workspace" with pre-built templates
+This command resets the managed MongoDB collections and seeds the
+"System Default Workspace" with pre-built templates.
 
 ### What gets seeded
 

@@ -1,49 +1,63 @@
 """
 SynapseForge — Workspace API Routes
 
-CRUD operations for workspaces (the multi-tenant root entity).
+CRUD operations for workspaces (the multi-tenant root entity) using MongoDB.
 """
 
-import uuid
+from __future__ import annotations
+
 import logging
+import uuid
 
 from fastapi import APIRouter, HTTPException, status, Depends
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from db.engine import AsyncSessionDep
+from api.auth import get_current_user
+from db.engine import get_db, normalize_mongo_document, prepare_document, utcnow
 from db.models import Workspace
 from db.schemas import WorkspaceCreate, WorkspaceUpdate, WorkspaceRead
-from api.auth import get_current_user
-from api.dependencies import require_workspace_access
 
 logger = logging.getLogger("ntr.api.workspaces")
 
 router = APIRouter(prefix="/api/workspaces", tags=["Workspaces"])
 
 
-# ---------------------------------------------------------------------------
-# LIST
-# ---------------------------------------------------------------------------
+def _workspace_from_doc(document: dict | None) -> Workspace | None:
+    """Convert a MongoDB document into a Workspace model."""
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Workspace.model_validate(normalized)
+
 
 @router.get("", response_model=list[WorkspaceRead])
-async def list_workspaces(session: AsyncSessionDep):
+async def list_workspaces(db: AsyncIOMotorDatabase = Depends(get_db)):
     """Return all workspaces."""
-    result = await session.execute(
-        select(Workspace).order_by(Workspace.created_at.desc())
-    )
-    return result.scalars().all()
+    cursor = db.workspaces.find().sort("created_at", -1)
+    workspaces: list[WorkspaceRead] = []
+    async for document in cursor:
+        workspace = _workspace_from_doc(document)
+        if workspace is not None:
+            workspaces.append(WorkspaceRead.model_validate(workspace))
+    return workspaces
 
-
-# ---------------------------------------------------------------------------
-# CREATE
-# ---------------------------------------------------------------------------
 
 @router.post("", response_model=WorkspaceRead, status_code=status.HTTP_201_CREATED)
-async def create_workspace(body: WorkspaceCreate, session: AsyncSessionDep, user: dict = Depends(get_current_user)):
+async def create_workspace(
+    body: WorkspaceCreate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
     """Create a new workspace."""
+    existing = await db.workspaces.find_one({"name": body.name})
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Workspace with name '{body.name}' already exists",
+        )
+
     email = user.get("email")
-    ws = Workspace(
+    workspace = Workspace(
         name=body.name,
         description=body.description,
         embedding_model=body.embedding_model,
@@ -51,71 +65,76 @@ async def create_workspace(body: WorkspaceCreate, session: AsyncSessionDep, user
         created_by=email,
         updated_by=email,
     )
-    session.add(ws)
-    try:
-        await session.flush()
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Workspace with name '{body.name}' already exists",
-        )
-    await session.refresh(ws)
-    logger.info("Created workspace %s (%s) by %s", ws.id, ws.name, email)
-    return ws
+    await db.workspaces.insert_one(prepare_document(workspace.model_dump()))
+    logger.info("Created workspace %s (%s) by %s", workspace.id, workspace.name, email)
+    return WorkspaceRead.model_validate(workspace)
 
-
-# ---------------------------------------------------------------------------
-# GET ONE
-# ---------------------------------------------------------------------------
 
 @router.get("/{workspace_id}", response_model=WorkspaceRead)
-async def get_workspace(workspace_id: uuid.UUID, session: AsyncSessionDep):
+async def get_workspace(
+    workspace_id: uuid.UUID,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
     """Get a single workspace by ID."""
-    ws = await session.get(Workspace, workspace_id)
-    if ws is None:
+    workspace = _workspace_from_doc(await db.workspaces.find_one({"_id": str(workspace_id)}))
+    if workspace is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    return ws
+    return WorkspaceRead.model_validate(workspace)
 
-
-# ---------------------------------------------------------------------------
-# UPDATE
-# ---------------------------------------------------------------------------
 
 @router.put("/{workspace_id}", response_model=WorkspaceRead)
 async def update_workspace(
-    workspace_id: uuid.UUID, body: WorkspaceUpdate, session: AsyncSessionDep, user: dict = Depends(get_current_user)
+    workspace_id: uuid.UUID,
+    body: WorkspaceUpdate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Update workspace fields (partial update — only provided fields change)."""
-    ws = await require_workspace_access(workspace_id, session, user, require_write=True)
+    existing = _workspace_from_doc(await db.workspaces.find_one({"_id": str(workspace_id)}))
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
 
     update_data = body.model_dump(exclude_unset=True)
-    for field, value in update_data.items():
-        setattr(ws, field, value)
-        
-    ws.updated_by = user.get("email")
+    if "name" in update_data and update_data["name"] != existing.name:
+        duplicate = await db.workspaces.find_one({"name": update_data["name"]})
+        if duplicate:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Workspace name '{body.name}' already exists",
+            )
 
-    try:
-        await session.flush()
-    except IntegrityError:
-        await session.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"Workspace name '{body.name}' already exists",
-        )
-    await session.refresh(ws)
-    logger.info("Updated workspace %s by %s", ws.id, user.get("email"))
-    return ws
+    updated_payload = existing.model_dump()
+    updated_payload.update(update_data)
+    updated_payload["updated_by"] = user.get("email")
+    updated_payload["updated_at"] = utcnow()
 
+    updated_workspace = Workspace.model_validate(updated_payload)
+    await db.workspaces.replace_one(
+        {"_id": str(workspace_id)},
+        prepare_document(updated_workspace.model_dump()),
+    )
+    logger.info("Updated workspace %s by %s", updated_workspace.id, user.get("email"))
+    return WorkspaceRead.model_validate(updated_workspace)
 
-# ---------------------------------------------------------------------------
-# DELETE
-# ---------------------------------------------------------------------------
 
 @router.delete("/{workspace_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_workspace(workspace_id: uuid.UUID, session: AsyncSessionDep, user: dict = Depends(get_current_user)):
-    """Delete a workspace and all its children (cascade)."""
-    ws = await require_workspace_access(workspace_id, session, user, require_write=True)
+async def delete_workspace(
+    workspace_id: uuid.UUID,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: dict = Depends(get_current_user),
+):
+    """Delete a workspace and all its children."""
+    workspace_key = str(workspace_id)
+    existing = await db.workspaces.find_one({"_id": workspace_key})
+    if existing is None:
+        raise HTTPException(status_code=404, detail="Workspace not found")
 
-    await session.delete(ws)
-    logger.info("Deleted workspace %s by %s", workspace_id, user.get("email"))
+    await db.tools.delete_many({"workspace_id": workspace_key})
+    await db.agents.delete_many({"workspace_id": workspace_key})
+    await db.orchestrations.delete_many({"workspace_id": workspace_key})
+    await db.llm_configs.delete_many({"workspace_id": workspace_key})
+    await db.pipeline_artifacts.delete_many({"workspace_id": workspace_key})
+    await db.workspaces.delete_one({"_id": workspace_key})
+    logger.info("Deleted workspace %s by %s", workspace_key, user.get("email"))
+
+# Made with Bob

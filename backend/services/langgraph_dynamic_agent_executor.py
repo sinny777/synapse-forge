@@ -21,8 +21,7 @@ import uuid
 from typing import Any, AsyncGenerator, Annotated, Sequence, Literal
 from operator import add
 
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage, AIMessage, ToolMessage
 from langchain_core.tools import StructuredTool
@@ -31,6 +30,7 @@ from langgraph.graph.message import add_messages
 from pydantic import BaseModel, Field, create_model
 from typing_extensions import TypedDict
 
+from db.engine import normalize_mongo_document
 from db.models import Agent, Tool, LLMConfig, Workspace
 from services.router_service import RouterService
 from services.embedding_service import embedding_service
@@ -113,8 +113,8 @@ class DynamicLangGraphAgentExecutor:
     before the LLM is invoked.
     """
 
-    def __init__(self, session: AsyncSession):
-        self.session = session
+    def __init__(self, db: AsyncIOMotorDatabase):
+        self.db = db
         self.event_queue: list[str] = []  # Queue for SSE events
         self.queue: asyncio.Queue | None = None
 
@@ -161,7 +161,8 @@ class DynamicLangGraphAgentExecutor:
                         status_value="error",
                         metadata={"agent_id": str(agent.id), "agent_name": agent.name},
                     ))
-                    await self.queue.put(None)
+                    if self.queue is not None:
+                        await self.queue.put(None)
                     return
 
                 tools = await self._load_agent_tools(agent)
@@ -204,7 +205,8 @@ class DynamicLangGraphAgentExecutor:
                     router_top_k_override=router_top_k_override,
                     conversation_history=conversation_history,
                 )
-                await self.queue.put(None)
+                if self.queue is not None:
+                    await self.queue.put(None)
 
             except Exception as exc:
                 logger.exception(f"Dynamic agent execution failed for {agent.id}")
@@ -219,7 +221,8 @@ class DynamicLangGraphAgentExecutor:
                         "depth": depth,
                     },
                 ))
-                await self.queue.put(None)
+                if self.queue is not None:
+                    await self.queue.put(None)
 
         task = asyncio.create_task(run_flow())
         try:
@@ -374,7 +377,7 @@ class DynamicLangGraphAgentExecutor:
                     
                     # 1. Retrieve candidates from NeuralToolRouter (workspace-wide search)
                     router_result = await RouterService.predict(
-                        session=executor.session,
+                        db=executor.db,
                         workspace_id=agent_obj.workspace_id,
                         user_prompt=router_query,
                         top_k=max(top_k * 3, 10),  # fetch extra to filter
@@ -390,16 +393,22 @@ class DynamicLangGraphAgentExecutor:
                     ]
                     
                     # 3. Fetch DB records for filtered candidates only
-                    filtered_candidate_ids = [uuid.UUID(t["id"]) for t in filtered_candidates]
+                    filtered_candidate_ids = [t["id"] for t in filtered_candidates]
                     if filtered_candidate_ids:
-                        db_tools_res = await executor.session.execute(
-                            select(Tool).where(
-                                Tool.workspace_id == agent_obj.workspace_id,
-                                Tool.id.in_(filtered_candidate_ids),
-                                Tool.is_enabled == True,
-                            )
-                        )
-                        db_tools = {str(t.id): t for t in db_tools_res.scalars().all()}
+                        db_tool_docs = await executor.db.tools.find(
+                            {
+                                "workspace_id": agent_obj.workspace_id,
+                                "_id": {"$in": filtered_candidate_ids},
+                                "is_enabled": True,
+                            }
+                        ).to_list(length=None)
+                        db_tools = {}
+                        for doc in db_tool_docs:
+                            normalized = normalize_mongo_document(doc)
+                            if normalized is None:
+                                continue
+                            tool_obj = Tool.model_validate(normalized)
+                            db_tools[str(tool_obj.id)] = tool_obj
                     else:
                         db_tools = {}
                     
@@ -1554,7 +1563,9 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
             if not tool.parent_id:
                 return "MCP tool has no parent server"
             
-            parent_server = await self.session.get(Tool, tool.parent_id)
+            parent_server_doc = await self.db.tools.find_one({"_id": str(tool.parent_id)})
+            normalized_parent = normalize_mongo_document(parent_server_doc)
+            parent_server = Tool.model_validate(normalized_parent) if normalized_parent else None
             if not parent_server or parent_server.type.value != "MCP_SERVER":
                 return "Parent MCP server not found"
             
@@ -1565,15 +1576,17 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
             
             async with _MCP_CLIENT_LOCK:
                 if server_id not in _MCP_CLIENT_CACHE:
-                    server_cfg: dict[str, Any] = {"transport": parent_server.transport.value}
+                    reconnect_server_cfg: dict[str, Any] = {
+                        "transport": parent_server.transport.value
+                    }
                     if parent_server.transport.value == "stdio":
-                        server_cfg["command"] = parent_server.command
-                        server_cfg["args"] = parent_server.args or []
-                        server_cfg["env"] = parent_server.env or {}
+                        reconnect_server_cfg["command"] = parent_server.command
+                        reconnect_server_cfg["args"] = parent_server.args or []
+                        reconnect_server_cfg["env"] = parent_server.env or {}
                     elif parent_server.url:
-                        server_cfg["url"] = parent_server.url
-                    
-                    client = MCPClient(MCPConfig(servers={server_id: server_cfg}))
+                        reconnect_server_cfg["url"] = parent_server.url
+
+                    client = MCPClient(MCPConfig(servers={server_id: reconnect_server_cfg}))
                     await client.connect_all()
                     await client.list_tools()
                     _MCP_CLIENT_CACHE[server_id] = client
@@ -1690,7 +1703,7 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
         async def delegate_to_collaborator(task: str) -> str:
             """Delegate a task to a collaborator agent"""
             result_text = ""
-            sub_executor = DynamicLangGraphAgentExecutor(self.session)
+            sub_executor = DynamicLangGraphAgentExecutor(self.db)
             async for event in sub_executor.execute_agent(
                 agent=collaborator,
                 user_prompt=task,
@@ -1719,7 +1732,9 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
         """Load LLM configuration for agent"""
         if not agent.llm_config_id:
             return None
-        config = await self.session.get(LLMConfig, agent.llm_config_id)
+        config_doc = await self.db.llm_configs.find_one({"_id": str(agent.llm_config_id)})
+        normalized = normalize_mongo_document(config_doc)
+        config = LLMConfig.model_validate(normalized) if normalized else None
         if config and config.workspace_id == agent.workspace_id:
             return config
         return None
@@ -1730,37 +1745,45 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
         if not tool_ids:
             return []
 
-        result = await self.session.execute(
-            select(Tool).where(
-                Tool.workspace_id == agent.workspace_id,
-                Tool.id.in_(tool_ids),
-                Tool.is_enabled == True,
-            )
-        )
-        attached_tools = result.scalars().all()
+        attached_tool_docs = await self.db.tools.find(
+            {
+                "workspace_id": agent.workspace_id,
+                "_id": {"$in": [str(tool_id) for tool_id in tool_ids]},
+                "is_enabled": True,
+            }
+        ).to_list(length=None)
+        attached_tools = []
+        for doc in attached_tool_docs:
+            normalized = normalize_mongo_document(doc)
+            if normalized is None:
+                continue
+            attached_tools.append(Tool.model_validate(normalized))
         tools_by_id = {tool.id: tool for tool in attached_tools}
 
         mcp_server_ids = [
-            tool.id for tool in attached_tools
-            if tool.type.value == "MCP_SERVER"
+            tool.id for tool in attached_tools if tool.type.value == "MCP_SERVER"
         ]
 
         expanded_child_tools: list[Tool] = []
         if mcp_server_ids:
-            child_result = await self.session.execute(
-                select(Tool).where(
-                    Tool.workspace_id == agent.workspace_id,
-                    Tool.parent_id.in_(mcp_server_ids),
-                    Tool.is_enabled == True,
-                )
-            )
-            expanded_child_tools = list(child_result.scalars().all())
+            child_tool_docs = await self.db.tools.find(
+                {
+                    "workspace_id": agent.workspace_id,
+                    "parent_id": {"$in": mcp_server_ids},
+                    "is_enabled": True,
+                }
+            ).to_list(length=None)
+            for doc in child_tool_docs:
+                normalized = normalize_mongo_document(doc)
+                if normalized is None:
+                    continue
+                expanded_child_tools.append(Tool.model_validate(normalized))
 
         ordered_tools: list[Tool] = []
-        seen_ids: set[uuid.UUID] = set()
+        seen_ids: set[str] = set()
 
         for tool_id in tool_ids:
-            attached_tool = tools_by_id.get(tool_id)
+            attached_tool = tools_by_id.get(str(tool_id))
             if not attached_tool:
                 continue
 
@@ -1783,13 +1806,19 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
         if not collaborator_ids:
             return []
 
-        result = await self.session.execute(
-            select(Agent).where(
-                Agent.workspace_id == agent.workspace_id,
-                Agent.id.in_(collaborator_ids),
-            )
-        )
-        collaborators_by_id = {collab.id: collab for collab in result.scalars().all()}
+        collaborator_docs = await self.db.agents.find(
+            {
+                "workspace_id": agent.workspace_id,
+                "_id": {"$in": [str(collab_id) for collab_id in collaborator_ids]},
+            }
+        ).to_list(length=None)
+        collaborators_by_id: dict[str, Agent] = {}
+        for doc in collaborator_docs:
+            normalized = normalize_mongo_document(doc)
+            if normalized is None:
+                continue
+            collaborator = Agent.model_validate(normalized)
+            collaborators_by_id[collaborator.id] = collaborator
         return [
             collaborators_by_id[collab_id]
             for collab_id in collaborator_ids

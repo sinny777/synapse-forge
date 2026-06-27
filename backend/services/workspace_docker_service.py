@@ -3,7 +3,7 @@ SynapseForge — Workspace Docker Service (Control Plane)
 
 Manages the lifecycle of isolated Docker containers for each workspace.
 Each workspace runs in its own "Data Plane" container that receives the
-workspace_id, database URL, and Redis URL as environment variables, and
+workspace_id, MongoDB URL, and Redis URL as environment variables, and
 is attached to the shared SynapseForge Docker network.
 
 Reference: PLATFORM_REQUIREMENTS_V2.md §3.2, §6.2
@@ -27,7 +27,7 @@ logger = logging.getLogger("ntr.services.workspace_docker")
 DEFAULT_CONTAINER_IMAGE = "python:3.11-slim"
 
 # Shared Docker network name for inter-container communication.
-# This network connects workspace containers to PostgreSQL, Redis, etc.
+# This network connects workspace containers to MongoDB, Redis, Milvus, etc.
 DOCKER_NETWORK_NAME = os.getenv("DOCKER_NETWORK_NAME", "synapse-forge_default")
 
 # Naming convention for workspace containers
@@ -76,17 +76,25 @@ class WorkspaceDockerService:
 
     def _build_database_url(self) -> str:
         """
-        Build the PostgreSQL connection URL that workspace containers will use.
+        Build the MongoDB connection URL that workspace containers will use.
 
         Inside the Docker network, the DB host is the container name
-        (e.g. 'ntr_postgres') rather than 'localhost'.
+        (e.g. 'synapse_mongodb') rather than 'localhost'.
         """
-        user = os.getenv("POSTGRES_USER", "ntr_user")
-        password = os.getenv("POSTGRES_PASSWORD", "ntr_secret_2026")
-        host = os.getenv("WORKSPACE_DB_HOST", os.getenv("POSTGRES_HOST", "localhost"))
-        port = os.getenv("POSTGRES_PORT", "5432")
-        db = os.getenv("POSTGRES_DB", "synapse_forge")
-        return f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        explicit_url = os.getenv("MONGODB_URL")
+        if explicit_url:
+            return explicit_url
+
+        user = os.getenv("MONGODB_USER", "synapse_user")
+        password = os.getenv("MONGODB_PASSWORD", "synapse_secret_2026")
+        host = os.getenv("WORKSPACE_DB_HOST", os.getenv("MONGODB_HOST", "localhost"))
+        port = os.getenv("MONGODB_PORT", "27017")
+        db = os.getenv("MONGODB_DATABASE", "synapse_forge")
+        auth_db = os.getenv("MONGODB_AUTH_DATABASE", "admin")
+
+        if user and password:
+            return f"mongodb://{user}:{password}@{host}:{port}/{db}?authSource={auth_db}"
+        return f"mongodb://{host}:{port}/{db}"
 
     def _build_redis_url(self) -> str:
         """
@@ -121,7 +129,7 @@ class WorkspaceDockerService:
         The container:
           • Runs the Data Plane image (configurable via WORKSPACE_CONTAINER_IMAGE)
           • Receives WORKSPACE_ID, DATABASE_URL, and REDIS_URL as env vars
-          • Is attached to the shared Docker network for DB/Redis access
+          • Is attached to the shared Docker network for MongoDB/Redis access
           • Is named deterministically: ``sf-workspace-<workspace_id>``
 
         Returns a dict with container metadata (id, name, status, ports).

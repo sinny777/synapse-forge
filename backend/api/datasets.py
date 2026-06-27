@@ -53,31 +53,31 @@ async def list_datasets(workspace_id: Optional[str] = Query(None)):
                 
     # Also list versioned datasets registered in IBM COS
     if workspace_id:
-        import uuid
-        from db.engine import _session_factory
-        from db.models import PipelineArtifact
-        from sqlalchemy import select
+        from db.engine import get_database, normalize_mongo_document
         try:
-            async with _session_factory() as session:
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == uuid.UUID(workspace_id),
-                    PipelineArtifact.artifact_type == "dataset"
-                )
-                db_artifacts = (await session.execute(stmt)).scalars().all()
-                
-                # Avoid duplicates
-                existing_names = {f"{d['name']}_v{d['version']}" for d in datasets}
-                
-                for art in db_artifacts:
-                    name_parts = art.name.replace(".jsonl", "").split("_v")
-                    if len(name_parts) == 2:
-                        name, version = name_parts[0], name_parts[1]
-                    else:
-                        name, version = art.name.replace(".jsonl", ""), "1.0"
-                    
-                    full_name = f"{name}_v{version}"
-                    if full_name not in existing_names:
-                        datasets.append({"name": name, "version": version, "path": art.url})
+            db = get_database()
+            db_artifacts = await db.pipeline_artifacts.find(
+                {
+                    "workspace_id": workspace_id,
+                    "artifact_type": "dataset",
+                }
+            ).to_list(length=None)
+
+            # Avoid duplicates
+            existing_names = {f"{d['name']}_v{d['version']}" for d in datasets}
+
+            for artifact_doc in db_artifacts:
+                art = normalize_mongo_document(artifact_doc) or {}
+                artifact_name = str(art.get("name", "")).replace(".jsonl", "")
+                name_parts = artifact_name.split("_v")
+                if len(name_parts) == 2:
+                    name, version = name_parts[0], name_parts[1]
+                else:
+                    name, version = artifact_name, "1.0"
+
+                full_name = f"{name}_v{version}"
+                if full_name not in existing_names:
+                    datasets.append({"name": name, "version": version, "path": art.get("url")})
         except Exception as e:
             logger.error(f"Error querying datasets from DB: {e}")
             
@@ -252,10 +252,7 @@ async def delete_dataset(dataset_name: str, workspace_id: Optional[str] = Query(
     """Delete an archived dataset from local storage, IBM COS, and database."""
     from tool_router.config import config
     from services.ibm_cos_service import cos_service
-    import uuid
-    from db.engine import _session_factory
-    from db.models import PipelineArtifact
-    from sqlalchemy import select
+    from db.engine import get_database, normalize_mongo_document
     
     datasets_dir = config.datasets_dir
     if workspace_id:
@@ -280,39 +277,35 @@ async def delete_dataset(dataset_name: str, workspace_id: Optional[str] = Query(
     cos_deleted_count = 0
     if workspace_id:
         try:
-            ws_uuid = uuid.UUID(workspace_id)
-            async with _session_factory() as session:
-                # Find all dataset artifacts matching this name
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == ws_uuid,
-                    PipelineArtifact.artifact_type == "dataset"
-                )
-                artifacts = (await session.execute(stmt)).scalars().all()
-                
-                for artifact in artifacts:
-                    # Check if artifact name matches the dataset_name
-                    artifact_base_name = artifact.name.replace(".jsonl", "").split("_v")[0]
-                    if artifact_base_name == dataset_name:
-                        try:
-                            # Delete from COS
-                            cos_service.delete_prefix(
-                                key_prefix=artifact.cos_key,
-                                bucket_name=artifact.cos_bucket
-                            )
-                            logger.info(f"Deleted dataset from COS: {artifact.cos_key}")
-                            
-                            # Delete from database
-                            await session.delete(artifact)
-                            cos_deleted_count += 1
-                            deleted = True
-                        except Exception as cos_err:
-                            logger.error(f"Error deleting dataset from COS: {cos_err}")
-                
-                await session.commit()
-                
-                if cos_deleted_count > 0:
-                    logger.info(f"Deleted {cos_deleted_count} dataset artifact(s) from COS and database")
-                
+            db = get_database()
+            artifacts = await db.pipeline_artifacts.find(
+                {
+                    "workspace_id": workspace_id,
+                    "artifact_type": "dataset",
+                }
+            ).to_list(length=None)
+
+            for artifact_doc in artifacts:
+                artifact = normalize_mongo_document(artifact_doc) or {}
+                artifact_name = str(artifact.get("name", "")).replace(".jsonl", "")
+                artifact_base_name = artifact_name.split("_v")[0]
+                if artifact_base_name == dataset_name:
+                    try:
+                        cos_service.delete_prefix(
+                            key_prefix=str(artifact.get("cos_key", "")),
+                            bucket_name=str(artifact.get("cos_bucket", "")),
+                        )
+                        logger.info(f"Deleted dataset from COS: {artifact.get('cos_key')}")
+
+                        await db.pipeline_artifacts.delete_one({"_id": artifact["id"]})
+                        cos_deleted_count += 1
+                        deleted = True
+                    except Exception as cos_err:
+                        logger.error(f"Error deleting dataset from COS: {cos_err}")
+
+            if cos_deleted_count > 0:
+                logger.info(f"Deleted {cos_deleted_count} dataset artifact(s) from COS and database")
+
         except Exception as e:
             logger.error(f"Error deleting dataset from COS/DB: {e}")
             raise HTTPException(status_code=500, detail=f"Failed to delete dataset from COS: {str(e)}")

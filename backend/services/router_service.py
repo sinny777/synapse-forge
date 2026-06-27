@@ -1,58 +1,58 @@
 """
 SynapseForge — Router Service (Platform Mode)
 
-Performs semantic tool retrieval using pgvector similarity search
-against the ``tools`` table, with an optional Redis cache layer.
-
-This replaces the standalone FAISS/ChromaDB-based SemanticRouter
-for the multi-tenant platform.  The standalone mode in
-``tool_router/runtime.py`` remains available for file-based usage.
+Performs semantic tool retrieval from MongoDB-stored embeddings with an optional
+Redis cache layer. This is an interim Phase 1 implementation until Milvus-backed
+vector search is wired in.
 """
+
+from __future__ import annotations
 
 import hashlib
 import json
 import logging
+import math
 import time
 import uuid
-from typing import Optional
+from typing import Any
 
-import numpy as np
-from sqlalchemy import select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from db.models import Tool, Workspace
+from db.engine import normalize_mongo_document
+from db.models import Tool, ToolType, Workspace
 from services.embedding_service import embedding_service
 
 logger = logging.getLogger("ntr.router")
 
-# Redis key prefix & TTL
 _CACHE_PREFIX = "ntr:predict:"
-_CACHE_TTL_SECONDS = 300  # 5 minutes
+_CACHE_TTL_SECONDS = 300
+
+
+def _cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
+    """Compute cosine similarity between two vectors."""
+    if not vec_a or not vec_b or len(vec_a) != len(vec_b):
+        return 0.0
+
+    dot_product = sum(a * b for a, b in zip(vec_a, vec_b))
+    norm_a = math.sqrt(sum(a * a for a in vec_a))
+    norm_b = math.sqrt(sum(b * b for b in vec_b))
+
+    if norm_a == 0 or norm_b == 0:
+        return 0.0
+    return dot_product / (norm_a * norm_b)
 
 
 class RouterService:
-    """
-    Semantic tool retrieval using pgvector.
-
-    Flow:
-      1. Check Redis cache for ``hash(workspace_id + prompt)``.
-      2. If miss → embed prompt → pgvector cosine distance query.
-      3. Store result in Redis.
-      4. Return ranked tool list.
-    """
-
-    # ------------------------------------------------------------------
-    # Cache helpers
-    # ------------------------------------------------------------------
+    """Semantic tool retrieval using MongoDB documents and in-app similarity."""
 
     @staticmethod
-    def _cache_key(workspace_id: uuid.UUID, prompt: str) -> str:
+    def _cache_key(workspace_id: uuid.UUID | str, prompt: str) -> str:
         raw = f"{workspace_id}:{prompt}"
         digest = hashlib.sha256(raw.encode()).hexdigest()
         return f"{_CACHE_PREFIX}{digest}"
 
     @staticmethod
-    async def _get_cached(redis, key: str) -> Optional[list[dict]]:
+    async def _get_cached(redis, key: str) -> list[dict[str, Any]] | None:
         """Attempt to read cached prediction from Redis."""
         if redis is None:
             return None
@@ -65,7 +65,7 @@ class RouterService:
         return None
 
     @staticmethod
-    async def _set_cached(redis, key: str, data: list[dict]) -> None:
+    async def _set_cached(redis, key: str, data: list[dict[str, Any]]) -> None:
         """Store prediction result in Redis."""
         if redis is None:
             return
@@ -74,135 +74,102 @@ class RouterService:
         except Exception as exc:
             logger.debug("Redis cache write failed: %s", exc)
 
-    # ------------------------------------------------------------------
-    # Core prediction
-    # ------------------------------------------------------------------
-
     @staticmethod
     async def predict(
-        session: AsyncSession,
-        workspace_id: uuid.UUID,
+        db: AsyncIOMotorDatabase,
+        workspace_id: uuid.UUID | str,
         user_prompt: str,
         top_k: int = 5,
         redis=None,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         Predict the top-K tools for a user prompt within a workspace.
 
-        Args:
-            session: Async SQLAlchemy session.
-            workspace_id: Target workspace UUID.
-            user_prompt: Natural language query.
-            top_k: Number of results to return.
-            redis: Optional async Redis client for caching.
-
-        Returns:
-            dict with keys: ``tools`` (list[ToolRead-like dicts]),
-            ``cached`` (bool), ``latency_ms`` (float).
+        Phase 1 note:
+        This uses embeddings stored on tool documents and computes cosine
+        similarity in application code. Milvus integration will replace this.
         """
         t0 = time.perf_counter()
+        workspace_key = str(workspace_id)
 
-        # --- 1. Check cache ---
-        cache_key = RouterService._cache_key(workspace_id, user_prompt)
+        cache_key = RouterService._cache_key(workspace_key, user_prompt)
         cached = await RouterService._get_cached(redis, cache_key)
         if cached is not None:
             latency = (time.perf_counter() - t0) * 1000
-            logger.info("Cache HIT for workspace=%s  (%.1f ms)", workspace_id, latency)
+            logger.info("Cache HIT for workspace=%s (%.1f ms)", workspace_key, latency)
             return {"tools": cached, "cached": True, "latency_ms": round(latency, 2)}
 
-        # --- 2. Load workspace embedding config ---
-        ws = await session.get(Workspace, workspace_id)
-        if ws is None:
-            raise ValueError(f"Workspace {workspace_id} not found")
+        workspace_doc = await db.workspaces.find_one({"_id": workspace_key})
+        workspace_data = normalize_mongo_document(workspace_doc)
+        if workspace_data is None:
+            raise ValueError(f"Workspace {workspace_key} not found")
 
-        model_name = ws.embedding_model
+        workspace = Workspace.model_validate(workspace_data)
+        prompt_vec = embedding_service.embed_text(user_prompt, workspace.embedding_model)
 
-        # --- 3. Embed the prompt ---
-        prompt_vec = embedding_service.embed_text(user_prompt, model_name)
-
-        # --- 4. pgvector cosine similarity query ---
-        #
-        # pgvector's <=> operator returns *cosine distance* (0 = identical).
-        # We order by ascending distance and convert to similarity:
-        #   similarity = 1 - distance
-        #
-        # We filter by workspace_id for multi-tenant isolation.
-        # Using raw SQL here because pgvector operators aren't natively
-        # exposed via the ORM for arbitrary-dimension vectors.
-        vec_literal = "[" + ",".join(str(v) for v in prompt_vec) + "]"
-
-        query = text("""
-            SELECT
-                id,
-                name,
-                description,
-                type,
-                connection_config,
-                schema AS schema_def,
-                created_at,
-                updated_at,
-                (1 - (embedding <=> :vec ::vector)) AS similarity
-            FROM tools
-            WHERE workspace_id = :ws_id
-              AND is_enabled = true
-              AND type != 'MCP_SERVER'
-              AND embedding IS NOT NULL
-            ORDER BY embedding <=> :vec ::vector
-            LIMIT :k
-        """)
-
-        result = await session.execute(
-            query,
-            {"vec": vec_literal, "ws_id": str(workspace_id), "k": top_k},
+        cursor = db.tools.find(
+            {
+                "workspace_id": workspace_key,
+                "is_enabled": True,
+                "embedding": {"$ne": None},
+                "type": {"$ne": ToolType.MCP_SERVER.value},
+            }
         )
-        rows = result.mappings().all()
 
-        tools_out = []
-        for row in rows:
-            tools_out.append({
-                "id": str(row["id"]),
-                "workspace_id": str(workspace_id),
-                "name": row["name"],
-                "description": row["description"],
-                "type": row["type"],
-                "connection_config": row["connection_config"],
-                "schema_def": row["schema_def"],
-                "similarity": round(float(row["similarity"]), 4),
-                "created_at": row["created_at"].isoformat() if row["created_at"] else None,
-                "updated_at": row["updated_at"].isoformat() if row["updated_at"] else None,
-            })
+        ranked_tools: list[dict[str, Any]] = []
+        async for document in cursor:
+            tool_data = normalize_mongo_document(document)
+            if tool_data is None:
+                continue
 
-        # --- 5. Cache result ---
+            tool = Tool.model_validate(tool_data)
+            if not tool.embedding:
+                continue
+
+            similarity = _cosine_similarity(prompt_vec, tool.embedding)
+            ranked_tools.append(
+                {
+                    "id": str(tool.id),
+                    "workspace_id": tool.workspace_id,
+                    "name": tool.name,
+                    "description": tool.description,
+                    "type": tool.type.value,
+                    "connection_config": tool.connection_config,
+                    "schema_def": tool.schema_def,
+                    "similarity": round(float(similarity), 4),
+                    "created_at": tool.created_at.isoformat() if tool.created_at else None,
+                    "updated_at": tool.updated_at.isoformat() if tool.updated_at else None,
+                }
+            )
+
+        ranked_tools.sort(key=lambda item: item["similarity"], reverse=True)
+        tools_out = ranked_tools[:top_k]
+
         await RouterService._set_cached(redis, cache_key, tools_out)
 
         latency = (time.perf_counter() - t0) * 1000
         logger.info(
-            "Cache MISS for workspace=%s → %d tools  (%.1f ms)",
-            workspace_id, len(tools_out), latency,
+            "Cache MISS for workspace=%s → %d tools (%.1f ms)",
+            workspace_key,
+            len(tools_out),
+            latency,
         )
         return {"tools": tools_out, "cached": False, "latency_ms": round(latency, 2)}
 
-    # ------------------------------------------------------------------
-    # Cache invalidation (called when tools are created/updated/deleted)
-    # ------------------------------------------------------------------
-
     @staticmethod
-    async def invalidate_workspace_cache(redis, workspace_id: uuid.UUID) -> None:
-        """
-        Delete all cached predictions for a workspace.
-
-        Uses SCAN + DELETE to avoid blocking Redis with KEYS.
-        """
+    async def invalidate_workspace_cache(redis, workspace_id: uuid.UUID | str) -> None:
+        """Delete cached predictions for a workspace when tracking keys is available."""
         if redis is None:
             return
         try:
-            # Since we hash workspace_id + prompt, we can't target by
-            # workspace alone with the SHA-256 key.  Instead we use a
-            # secondary set to track keys per workspace.
             ws_set_key = f"ntr:ws_keys:{workspace_id}"
             members = await redis.smembers(ws_set_key)
             if members:
                 await redis.delete(*members, ws_set_key)
-                logger.info("Invalidated %d cached predictions for workspace=%s", len(members), workspace_id)
+                logger.info(
+                    "Invalidated %d cached predictions for workspace=%s",
+                    len(members),
+                    workspace_id,
+                )
         except Exception as exc:
             logger.debug("Cache invalidation failed: %s", exc)

@@ -11,7 +11,7 @@ SynapseForge evolves the standalone [NeuralToolRouter](#-the-neuralToolRouter-en
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue?logo=python)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-009688?logo=fastapi)](https://fastapi.tiangolo.com)
 [![Angular](https://img.shields.io/badge/Angular-Latest-DD0031?logo=angular)](https://angular.io)
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791?logo=postgresql)](https://github.com/pgvector/pgvector)
+[![MongoDB](https://img.shields.io/badge/MongoDB-7+-47A248?logo=mongodb)](https://www.mongodb.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 </div>
@@ -92,7 +92,8 @@ graph TB
     end
 
     subgraph "💾 Shared Infrastructure"
-        PG[("PostgreSQL + pgvector<br/>Workspaces | Tools | Agents<br/>Orchestrations | Embeddings")]
+        MONGO[("MongoDB<br/>Workspaces | Tools | Agents<br/>Orchestrations | Metadata")]
+        MILVUS[("Milvus<br/>Embeddings | Semantic Search")]
         REDIS[("Redis 7<br/>Cache | Checkpoints<br/>Shared State")]
     end
 
@@ -112,11 +113,11 @@ graph TB
     UI <-->|"HTTP/WebSocket"| API
     API --> AUTH
     API --> WS_API & TOOL_API & AGENT_API & ORCH_API & CLONE_API & ROUTER_API
-    WS_API & TOOL_API & AGENT_API & ORCH_API --> PG
+    WS_API & TOOL_API & AGENT_API & ORCH_API --> MONGO
     ROUTER_API --> ROUTER_SVC
     TOOL_API --> MCP_SVC
     ROUTER_SVC --> EMBED
-    EMBED --> PG
+    EMBED --> MILVUS
     MCP_SVC --> MCP_SERVERS
 
     API -->|"Docker SDK<br/>Start/Stop"| NTR
@@ -129,7 +130,8 @@ graph TB
 
     style UI fill:#1a1a2e,stroke:#e94560,color:#fff
     style API fill:#16213e,stroke:#0f3460,color:#fff
-    style PG fill:#0f3460,stroke:#533483,color:#fff
+    style MONGO fill:#0f3460,stroke:#533483,color:#fff
+    style MILVUS fill:#0f3460,stroke:#533483,color:#fff
     style REDIS fill:#0f3460,stroke:#533483,color:#fff
     style NTR fill:#533483,stroke:#e94560,color:#fff
     style KAFKA fill:#1a1a2e,stroke:#e94560,color:#fff
@@ -142,7 +144,7 @@ sequenceDiagram
     participant User
     participant UI as Angular UI
     participant CP as Control Plane (FastAPI)
-    participant DB as PostgreSQL + pgvector
+    participant DB as MongoDB + Milvus
     participant DP as Data Plane (Container)
     participant MCP as MCP Servers
     participant LLM as LLM Provider
@@ -151,7 +153,7 @@ sequenceDiagram
     UI->>CP: POST /api/workspaces/{id}/execute
     CP->>DB: Load workspace config + tools
     CP->>CP: NeuralToolRouter: Embed query
-    CP->>DB: pgvector similarity search (Top-K)
+    CP->>DB: Milvus similarity search (Top-K)
     CP->>DP: Forward prompt + Top-K tool schemas
     DP->>DP: LangGraph: Plan execution
     DP->>MCP: Execute tool calls via MCP

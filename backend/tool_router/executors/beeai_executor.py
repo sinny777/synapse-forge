@@ -174,17 +174,21 @@ class BeeAIExecutor(BaseAgentExecutor):
 
             if heavy_config_id:
                 try:
-                    from db.engine import _session_factory
+                    from db.engine import get_database, normalize_mongo_document
                     from db.models import LLMConfig
                     import uuid
-                    config_uuid = uuid.UUID(str(heavy_config_id))
-                    
-                    async with _session_factory() as session:
-                        config_row = await session.get(LLMConfig, config_uuid)
-                        if config_row:
-                            db_provider = config_row.provider.value
-                            db_credentials = config_row.credentials
-                            logger.info(f"Loaded credentials from database for LLMConfig '{config_row.name}' (provider: {db_provider})")
+
+                    config_uuid = str(uuid.UUID(str(heavy_config_id)))
+                    config_doc = await get_database().llm_configs.find_one({"_id": config_uuid})
+                    config_data = normalize_mongo_document(config_doc)
+                    config_row = LLMConfig(**config_data) if config_data else None
+                    if config_row:
+                        db_provider = config_row.provider.value
+                        db_credentials = config_row.credentials
+                        logger.info(
+                            f"Loaded credentials from database for LLMConfig "
+                            f"'{config_row.name}' (provider: {db_provider})"
+                        )
                 except Exception as db_err:
                     logger.error(f"Error loading LLMConfig by ID {heavy_config_id}: {db_err}")
 

@@ -1,17 +1,18 @@
 """
 SynapseForge — Database Package
 
-Provides async SQLAlchemy engine, session factory, Redis connection pool,
-and all ORM models for the Agentic AI Platform.
+Provides the MongoDB client lifecycle, Redis connection pool, and document
+models for the Phase 1 MongoDB migration.
 """
 
 from db.engine import (
-    get_async_engine,
-    get_async_session,
-    AsyncSessionDep,
+    get_database,
+    get_db,
     init_db,
     close_db,
     reset_db,
+    prepare_document,
+    normalize_mongo_document,
 )
 from db.redis_pool import (
     get_redis_pool,
@@ -19,27 +20,47 @@ from db.redis_pool import (
     init_redis,
     close_redis,
 )
-from db.models import Base, Workspace, Tool, Agent, Orchestration, WorkspaceStatus
+from db.models import (
+    Workspace,
+    Tool,
+    Agent,
+    Orchestration,
+    LLMConfig,
+    PipelineArtifact,
+    WorkspaceStatus,
+    ToolType,
+    MCPTransportType,
+    MCPServerStatus,
+    OrchestrationFramework,
+    ArchitectureType,
+    LLMProviderEnum,
+)
 
 __all__ = [
-    # Engine / Sessions
-    "get_async_engine",
-    "get_async_session",
-    "AsyncSessionDep",
+    "get_database",
+    "get_db",
     "init_db",
     "close_db",
-    # Redis
+    "reset_db",
+    "prepare_document",
+    "normalize_mongo_document",
     "get_redis_pool",
     "get_redis",
     "init_redis",
     "close_redis",
-    # DB Reset
-    "reset_db",
-    # ORM Models
-    "Base",
     "Workspace",
     "Tool",
     "Agent",
     "Orchestration",
+    "LLMConfig",
+    "PipelineArtifact",
     "WorkspaceStatus",
+    "ToolType",
+    "MCPTransportType",
+    "MCPServerStatus",
+    "OrchestrationFramework",
+    "ArchitectureType",
+    "LLMProviderEnum",
 ]
+
+# Made with Bob

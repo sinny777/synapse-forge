@@ -15,11 +15,9 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
-from sqlalchemy.orm import aliased
-from sqlalchemy.ext.asyncio import AsyncSession
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from db.engine import AsyncSessionDep
+from db.engine import get_db, normalize_mongo_document, prepare_document
 from db.models import Agent, Workspace, Tool, LLMConfig
 from db.schemas import (
     AgentCreate,
@@ -44,10 +42,38 @@ router = APIRouter(
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _workspace_from_doc(document: dict | None) -> Workspace | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Workspace.model_validate(normalized)
+
+
+def _tool_from_doc(document: dict | None) -> Tool | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Tool.model_validate(normalized)
+
+
+def _agent_from_doc(document: dict | None) -> Agent | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return Agent.model_validate(normalized)
+
+
+def _llm_config_from_doc(document: dict | None) -> LLMConfig | None:
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return LLMConfig.model_validate(normalized)
+
+
 async def _get_workspace_or_404(
-    session: AsyncSession, workspace_id: uuid.UUID
+    db: AsyncIOMotorDatabase, workspace_id: uuid.UUID
 ) -> Workspace:
-    ws = await session.get(Workspace, workspace_id)
+    ws = _workspace_from_doc(await db.workspaces.find_one({"_id": str(workspace_id)}))
     if ws is None:
         raise HTTPException(status_code=404, detail="Workspace not found")
     return ws
@@ -58,7 +84,7 @@ async def _get_workspace_or_404(
 # ---------------------------------------------------------------------------
 
 async def _validate_collaborators(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     workspace_id: uuid.UUID,
     collaborator_ids: list[uuid.UUID] | None,
     agent_id: uuid.UUID | None = None,
@@ -79,14 +105,19 @@ async def _validate_collaborators(
     if not normalized_ids:
         return []
 
-    result = await session.execute(
-        select(Agent.id).where(
-            Agent.workspace_id == workspace_id,
-            Agent.id.in_(normalized_ids),
-        )
-    )
-    valid_ids = {row[0] for row in result.all()}
-    missing = [str(collaborator_id) for collaborator_id in normalized_ids if collaborator_id not in valid_ids]
+    collaborator_docs = await db.agents.find(
+        {
+            "workspace_id": str(workspace_id),
+            "_id": {"$in": [str(collaborator_id) for collaborator_id in normalized_ids]},
+        },
+        {"_id": 1},
+    ).to_list(length=None)
+    valid_ids = {str(doc["_id"]) for doc in collaborator_docs}
+    missing = [
+        str(collaborator_id)
+        for collaborator_id in normalized_ids
+        if str(collaborator_id) not in valid_ids
+    ]
     if missing:
         raise HTTPException(
             status_code=400,
@@ -97,22 +128,29 @@ async def _validate_collaborators(
 
 
 async def _build_agent_read_payload(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     agent: Agent,
 ) -> AgentRead:
     collaborator_ids = agent.collaborator_agent_ids or []
     collaborators: list[Agent] = []
 
     if collaborator_ids:
-        collaborator_alias = aliased(Agent)
-        result = await session.execute(
-            select(collaborator_alias).where(
-                collaborator_alias.workspace_id == agent.workspace_id,
-                collaborator_alias.id.in_(collaborator_ids),
-            )
-        )
-        collaborators_by_id = {collaborator.id: collaborator for collaborator in result.scalars().all()}
-        collaborators = [collaborators_by_id[collaborator_id] for collaborator_id in collaborator_ids if collaborator_id in collaborators_by_id]
+        collaborator_docs = await db.agents.find(
+            {
+                "workspace_id": agent.workspace_id,
+                "_id": {"$in": [str(collaborator_id) for collaborator_id in collaborator_ids]},
+            }
+        ).to_list(length=None)
+        collaborators_by_id = {
+            collaborator.id: collaborator
+            for collaborator in (_agent_from_doc(doc) for doc in collaborator_docs)
+            if collaborator is not None
+        }
+        collaborators = [
+            collaborators_by_id[collaborator_id]
+            for collaborator_id in collaborator_ids
+            if collaborator_id in collaborators_by_id
+        ]
 
     payload = AgentRead.model_validate(agent)
     payload.collaborators = [
@@ -212,62 +250,68 @@ def _apply_llm_credentials(config: LLMConfig | None) -> None:
 
 
 async def _load_agent_with_workspace_guard(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     workspace_id: uuid.UUID,
     agent_id: uuid.UUID,
 ) -> Agent:
-    agent = await session.get(Agent, agent_id)
-    if agent is None or agent.workspace_id != workspace_id:
+    agent = _agent_from_doc(await db.agents.find_one({"_id": str(agent_id)}))
+    if agent is None or agent.workspace_id != str(workspace_id):
         raise HTTPException(status_code=404, detail="Agent not found")
     return agent
 
 
-async def _load_agent_llm_config(session: AsyncSession, agent: Agent) -> LLMConfig | None:
+async def _load_agent_llm_config(
+    db: AsyncIOMotorDatabase, agent: Agent
+) -> LLMConfig | None:
     if not agent.llm_config_id:
         return None
-    config = await session.get(LLMConfig, agent.llm_config_id)
+    config = _llm_config_from_doc(
+        await db.llm_configs.find_one({"_id": str(agent.llm_config_id)})
+    )
     if config is None or config.workspace_id != agent.workspace_id:
         return None
     return config
 
 
-async def _load_agent_tools(session: AsyncSession, agent: Agent) -> list[Tool]:
+async def _load_agent_tools(db: AsyncIOMotorDatabase, agent: Agent) -> list[Tool]:
     tool_ids = agent.attached_tool_ids or []
     if not tool_ids:
         return []
 
-    result = await session.execute(
-        select(Tool).where(
-            Tool.workspace_id == agent.workspace_id,
-            Tool.id.in_(tool_ids),
-            Tool.is_enabled == True,
-        )
-    )
-    attached_tools = result.scalars().all()
+    attached_tool_docs = await db.tools.find(
+        {
+            "workspace_id": agent.workspace_id,
+            "_id": {"$in": [str(tool_id) for tool_id in tool_ids]},
+            "is_enabled": True,
+        }
+    ).to_list(length=None)
+    attached_tools = [
+        tool for tool in (_tool_from_doc(doc) for doc in attached_tool_docs) if tool is not None
+    ]
     tools_by_id = {tool.id: tool for tool in attached_tools}
 
     mcp_server_ids = [
-        tool.id
-        for tool in attached_tools
-        if tool.type.value == "MCP_SERVER"
+        tool.id for tool in attached_tools if tool.type.value == "MCP_SERVER"
     ]
 
     expanded_child_tools: list[Tool] = []
     if mcp_server_ids:
-        child_result = await session.execute(
-            select(Tool).where(
-                Tool.workspace_id == agent.workspace_id,
-                Tool.parent_id.in_(mcp_server_ids),
-                Tool.is_enabled == True,
-            )
-        )
-        expanded_child_tools = list(child_result.scalars().all())
+        child_tool_docs = await db.tools.find(
+            {
+                "workspace_id": agent.workspace_id,
+                "parent_id": {"$in": mcp_server_ids},
+                "is_enabled": True,
+            }
+        ).to_list(length=None)
+        expanded_child_tools = [
+            tool for tool in (_tool_from_doc(doc) for doc in child_tool_docs) if tool is not None
+        ]
 
     ordered_tools: list[Tool] = []
-    seen_ids: set[uuid.UUID] = set()
+    seen_ids: set[str] = set()
 
     for tool_id in tool_ids:
-        attached_tool = tools_by_id.get(tool_id)
+        attached_tool = tools_by_id.get(str(tool_id))
         if not attached_tool:
             continue
 
@@ -285,19 +329,29 @@ async def _load_agent_tools(session: AsyncSession, agent: Agent) -> list[Tool]:
     return ordered_tools
 
 
-async def _load_collaborator_agents(session: AsyncSession, agent: Agent) -> list[Agent]:
+async def _load_collaborator_agents(
+    db: AsyncIOMotorDatabase, agent: Agent
+) -> list[Agent]:
     collaborator_ids = agent.collaborator_agent_ids or []
     if not collaborator_ids:
         return []
 
-    result = await session.execute(
-        select(Agent).where(
-            Agent.workspace_id == agent.workspace_id,
-            Agent.id.in_(collaborator_ids),
-        )
-    )
-    collaborators_by_id = {collaborator.id: collaborator for collaborator in result.scalars().all()}
-    return [collaborators_by_id[collaborator_id] for collaborator_id in collaborator_ids if collaborator_id in collaborators_by_id]
+    collaborator_docs = await db.agents.find(
+        {
+            "workspace_id": agent.workspace_id,
+            "_id": {"$in": [str(collaborator_id) for collaborator_id in collaborator_ids]},
+        }
+    ).to_list(length=None)
+    collaborators_by_id = {
+        collaborator.id: collaborator
+        for collaborator in (_agent_from_doc(doc) for doc in collaborator_docs)
+        if collaborator is not None
+    }
+    return [
+        collaborators_by_id[collaborator_id]
+        for collaborator_id in collaborator_ids
+        if collaborator_id in collaborators_by_id
+    ]
 
 
 def _safe_json(value: Any) -> str:
@@ -498,7 +552,7 @@ def _build_rest_tool_args(tool: Tool, prompt: str) -> dict[str, Any]:
 
 
 async def _select_tools_for_prompt(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     agent: Agent,
     available_tools: list[Tool],
     prompt: str,
@@ -520,7 +574,7 @@ async def _select_tools_for_prompt(
 
     top_k = agent.router_top_k or min(5, len(fallback_tools))
     router_result = await RouterService.predict(
-        session=session,
+        db=db,
         workspace_id=agent.workspace_id,
         user_prompt=prompt,
         top_k=max(top_k, len(fallback_tools)),
@@ -570,7 +624,9 @@ async def _select_tools_for_prompt(
     }
 
 
-async def _build_mcp_client_for_tools(session: AsyncSession, tools: list[Tool]):
+async def _build_mcp_client_for_tools(
+    db: AsyncIOMotorDatabase, tools: list[Tool]
+):
     if not tools:
         return None, {}, {}
 
@@ -580,20 +636,26 @@ async def _build_mcp_client_for_tools(session: AsyncSession, tools: list[Tool]):
     servers: dict[str, dict] = {}
     executable_mcp_tools: list[Tool] = []
 
-    parent_ids = list({tool.parent_id for tool in tools if tool.type == "MCP_TOOL" and tool.parent_id})
-    parent_servers_by_id: dict[uuid.UUID, Tool] = {}
+    parent_ids = list(
+        {tool.parent_id for tool in tools if tool.type.value == "MCP_TOOL" and tool.parent_id}
+    )
+    parent_servers_by_id: dict[str, Tool] = {}
     if parent_ids:
-        parent_result = await session.execute(
-            select(Tool).where(
-                Tool.id.in_(parent_ids),
-                Tool.workspace_id == tools[0].workspace_id,
-                Tool.is_enabled == True,
-            )
-        )
-        parent_servers_by_id = {server.id: server for server in parent_result.scalars().all()}
+        parent_server_docs = await db.tools.find(
+            {
+                "_id": {"$in": parent_ids},
+                "workspace_id": tools[0].workspace_id,
+                "is_enabled": True,
+            }
+        ).to_list(length=None)
+        parent_servers_by_id = {
+            server.id: server
+            for server in (_tool_from_doc(doc) for doc in parent_server_docs)
+            if server is not None
+        }
 
     for tool in tools:
-        if tool.type == "MCP_TOOL" and tool.parent_id:
+        if tool.type.value == "MCP_TOOL" and tool.parent_id:
             server = parent_servers_by_id.get(tool.parent_id)
             if server and server.type.value == "MCP_SERVER" and server.transport is not None:
                 executable_mcp_tools.append(tool)
@@ -628,11 +690,11 @@ async def _build_mcp_client_for_tools(session: AsyncSession, tools: list[Tool]):
             continue
         discovered_schema = discovered_by_server_and_name.get((server_id, tool.name))
         runtime_tool_id = (
-            discovered_schema.id
-            if discovered_schema
-            else f"{server_id}.{tool.name}"
+            discovered_schema.id if discovered_schema else f"{server_id}.{tool.name}"
         )
-        runtime_schema = discovered_schema.parameters if discovered_schema else (_tool_json_schema(tool) or {})
+        runtime_schema = (
+            discovered_schema.parameters if discovered_schema else (_tool_json_schema(tool) or {})
+        )
         tool_runtime_info[str(tool.id)] = {
             "server_id": server_id,
             "tool_id": runtime_tool_id,
@@ -643,7 +705,7 @@ async def _build_mcp_client_for_tools(session: AsyncSession, tools: list[Tool]):
 
 
 async def _execute_single_agent(
-    session: AsyncSession,
+    db: AsyncIOMotorDatabase,
     *,
     agent: Agent,
     prompt: str,
@@ -674,7 +736,9 @@ async def _execute_single_agent(
         metadata=metadata,
     )
 
-    selected_tools, router_metadata = await _select_tools_for_prompt(session, agent, available_tools, prompt)
+    selected_tools, router_metadata = await _select_tools_for_prompt(
+        db, agent, available_tools, prompt
+    )
     if router_metadata:
         strategy = router_metadata.get("strategy", "attached_tools")
         label = "Neural Tool Router Selection" if strategy == "neural_router" else "Attached Tool Selection"
@@ -711,7 +775,9 @@ async def _execute_single_agent(
     tool_summaries: list[dict] = []
     collaborator_context: list[dict] = []
     try:
-        mcp_client, connection_results, mcp_runtime_info = await _build_mcp_client_for_tools(session, selected_tools)
+        mcp_client, connection_results, mcp_runtime_info = await _build_mcp_client_for_tools(
+            db, selected_tools
+        )
 
         if connection_results:
             yield _sse_event(
@@ -867,9 +933,9 @@ async def _execute_single_agent(
             )
 
         for collaborator in collaborator_agents:
-            collaborator_config = await _load_agent_llm_config(session, collaborator)
-            collaborator_tools = await _load_agent_tools(session, collaborator)
-            collaborator_children = await _load_collaborator_agents(session, collaborator)
+            collaborator_config = await _load_agent_llm_config(db, collaborator)
+            collaborator_tools = await _load_agent_tools(db, collaborator)
+            collaborator_children = await _load_collaborator_agents(db, collaborator)
 
             yield _sse_event(
                 "reasoning",
@@ -895,7 +961,7 @@ async def _execute_single_agent(
             collaborator_events: list[dict[str, Any]] = []
             collaborator_final_output = ""
             async for collaborator_event in _execute_single_agent(
-                session,
+                db,
                 agent=collaborator,
                 prompt=prompt,
                 llm_config=collaborator_config,
@@ -1017,16 +1083,18 @@ async def _execute_single_agent(
 # ---------------------------------------------------------------------------
 
 @router.get("", response_model=list[AgentRead])
-async def list_agents(workspace_id: uuid.UUID, session: AsyncSessionDep):
+async def list_agents(
+    workspace_id: uuid.UUID,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
     """List all agents in a workspace."""
-    await _get_workspace_or_404(session, workspace_id)
-    result = await session.execute(
-        select(Agent)
-        .where(Agent.workspace_id == workspace_id)
-        .order_by(Agent.created_at.desc())
-    )
-    agents = result.scalars().all()
-    return [await _build_agent_read_payload(session, agent) for agent in agents]
+    await _get_workspace_or_404(db, workspace_id)
+    agent_docs = await db.agents.find(
+        {"workspace_id": str(workspace_id)}
+    ).sort("created_at", -1).to_list(length=None)
+    agents = [_agent_from_doc(doc) for doc in agent_docs]
+    agents = [agent for agent in agents if agent is not None]
+    return [await _build_agent_read_payload(db, agent) for agent in agents]
 
 
 # ---------------------------------------------------------------------------
@@ -1035,24 +1103,27 @@ async def list_agents(workspace_id: uuid.UUID, session: AsyncSessionDep):
 
 @router.post("", response_model=AgentRead, status_code=status.HTTP_201_CREATED)
 async def create_agent(
-    workspace_id: uuid.UUID, body: AgentCreate, session: AsyncSessionDep, user: dict = Depends(get_current_user)
+    workspace_id: uuid.UUID,
+    body: AgentCreate,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Create a new agent definition in the workspace."""
-    await require_workspace_access(workspace_id, session, user, require_write=True)
+    await require_workspace_access(workspace_id, db, user, require_write=True)
     email = user.get("email")
 
     collaborator_agent_ids = await _validate_collaborators(
-        session,
+        db,
         workspace_id,
         body.collaborator_agent_ids,
     )
 
     agent = Agent(
-        workspace_id=workspace_id,
+        workspace_id=str(workspace_id),
         name=body.name,
         description=body.description,
         system_prompt=body.system_prompt,
-        llm_config_id=body.llm_config_id,
+        llm_config_id=str(body.llm_config_id) if body.llm_config_id else None,
         use_neural_router=body.use_neural_router,
         router_model_id=body.router_model_id,
         router_top_k=body.router_top_k,
@@ -1060,16 +1131,18 @@ async def create_agent(
         memory_window=body.memory_window,
         max_iterations=body.max_iterations,
         timeout_seconds=body.timeout_seconds,
-        attached_tool_ids=body.attached_tool_ids,
-        collaborator_agent_ids=collaborator_agent_ids,
+        attached_tool_ids=[str(tool_id) for tool_id in body.attached_tool_ids]
+        if body.attached_tool_ids
+        else None,
+        collaborator_agent_ids=[str(agent_id) for agent_id in collaborator_agent_ids]
+        if collaborator_agent_ids
+        else None,
         created_by=email,
         updated_by=email,
     )
-    session.add(agent)
-    await session.flush()
-    await session.refresh(agent)
+    await db.agents.insert_one(prepare_document(agent.model_dump()))
     logger.info("Created agent %s (%s) in workspace %s", agent.id, agent.name, workspace_id)
-    return await _build_agent_read_payload(session, agent)
+    return await _build_agent_read_payload(db, agent)
 
 
 # ---------------------------------------------------------------------------
@@ -1078,14 +1151,16 @@ async def create_agent(
 
 @router.get("/{agent_id}", response_model=AgentRead)
 async def get_agent(
-    workspace_id: uuid.UUID, agent_id: uuid.UUID, session: AsyncSessionDep
+    workspace_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Get a single agent by ID."""
-    await _get_workspace_or_404(session, workspace_id)
-    agent = await session.get(Agent, agent_id)
-    if agent is None or agent.workspace_id != workspace_id:
+    await _get_workspace_or_404(db, workspace_id)
+    agent = _agent_from_doc(await db.agents.find_one({"_id": str(agent_id)}))
+    if agent is None or agent.workspace_id != str(workspace_id):
         raise HTTPException(status_code=404, detail="Agent not found")
-    return await _build_agent_read_payload(session, agent)
+    return await _build_agent_read_payload(db, agent)
 
 
 # ---------------------------------------------------------------------------
@@ -1097,34 +1172,43 @@ async def update_agent(
     workspace_id: uuid.UUID,
     agent_id: uuid.UUID,
     body: AgentUpdate,
-    session: AsyncSessionDep,
-    user: dict = Depends(get_current_user)
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Update an agent definition (partial update)."""
-    await require_workspace_access(workspace_id, session, user, require_write=True)
-    agent = await session.get(Agent, agent_id)
-    if agent is None or agent.workspace_id != workspace_id:
+    await require_workspace_access(workspace_id, db, user, require_write=True)
+    agent = _agent_from_doc(await db.agents.find_one({"_id": str(agent_id)}))
+    if agent is None or agent.workspace_id != str(workspace_id):
         raise HTTPException(status_code=404, detail="Agent not found")
 
     update_data = body.model_dump(exclude_unset=True)
 
     if "collaborator_agent_ids" in update_data:
-        update_data["collaborator_agent_ids"] = await _validate_collaborators(
-            session,
+        validated = await _validate_collaborators(
+            db,
             workspace_id,
             update_data["collaborator_agent_ids"],
-            agent_id=agent.id,
+            agent_id=uuid.UUID(str(agent.id)),
         )
+        update_data["collaborator_agent_ids"] = (
+            [str(collaborator_id) for collaborator_id in validated] if validated is not None else None
+        )
+
+    if "llm_config_id" in update_data and update_data["llm_config_id"] is not None:
+        update_data["llm_config_id"] = str(update_data["llm_config_id"])
+
+    if "attached_tool_ids" in update_data and update_data["attached_tool_ids"] is not None:
+        update_data["attached_tool_ids"] = [str(tool_id) for tool_id in update_data["attached_tool_ids"]]
 
     for field, value in update_data.items():
         setattr(agent, field, value)
 
     agent.updated_by = user.get("email")
+    agent.updated_at = datetime.now(timezone.utc)
 
-    await session.flush()
-    await session.refresh(agent)
+    await db.agents.replace_one({"_id": str(agent_id)}, prepare_document(agent.model_dump()))
     logger.info("Updated agent %s", agent_id)
-    return await _build_agent_read_payload(session, agent)
+    return await _build_agent_read_payload(db, agent)
 
 
 # ---------------------------------------------------------------------------
@@ -1133,15 +1217,18 @@ async def update_agent(
 
 @router.delete("/{agent_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_agent(
-    workspace_id: uuid.UUID, agent_id: uuid.UUID, session: AsyncSessionDep, user: dict = Depends(get_current_user)
+    workspace_id: uuid.UUID,
+    agent_id: uuid.UUID,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """Delete an agent from the workspace."""
-    await require_workspace_access(workspace_id, session, user, require_write=True)
-    agent = await session.get(Agent, agent_id)
-    if agent is None or agent.workspace_id != workspace_id:
+    await require_workspace_access(workspace_id, db, user, require_write=True)
+    agent = _agent_from_doc(await db.agents.find_one({"_id": str(agent_id)}))
+    if agent is None or agent.workspace_id != str(workspace_id):
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    await session.delete(agent)
+    await db.agents.delete_one({"_id": str(agent_id)})
     logger.info("Deleted agent %s from workspace %s", agent_id, workspace_id)
 
 
@@ -1150,44 +1237,40 @@ async def execute_agent(
     workspace_id: uuid.UUID,
     agent_id: uuid.UUID,
     body: AgentExecuteRequest,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
     user: dict = Depends(get_current_user),
 ):
     """
     Execute a workspace agent with SSE streaming using LangGraph ReAct pattern.
-    
+
     Supports multi-turn conversations via session_id parameter.
     Configuration-driven execution based on agent settings.
     """
-    await require_workspace_access(workspace_id, session, user, require_write=False)
-    agent = await _load_agent_with_workspace_guard(session, workspace_id, agent_id)
-    
-    # Generate or use provided session_id
+    await require_workspace_access(workspace_id, db, user, require_write=False)
+    agent = await _load_agent_with_workspace_guard(db, workspace_id, agent_id)
+
     session_id = body.session_id or str(uuid.uuid4())
-    
-    # Get Redis client for conversation service
+
     from db.redis_pool import get_redis_pool
     import redis.asyncio as aioredis
-    
+
     redis_pool = get_redis_pool()
     redis_client = aioredis.Redis(connection_pool=redis_pool)
 
     async def event_stream():
         try:
-            # Initialize conversation service
             from services.conversation_service import ConversationService
+
             conv_service = ConversationService(redis_client)
-            
-            # Get or create session
-            await conv_service.get_or_create_session(session_id, agent.id)
-            
-            # Load conversation history based on agent's memory settings
+
+            await conv_service.get_or_create_session(session_id, uuid.UUID(str(agent.id)))
+
             history = await conv_service.get_history(
                 session_id=session_id,
                 limit=agent.memory_window or 10,
-                memory_type=agent.memory_type or "buffer"
+                memory_type=agent.memory_type or "buffer",
             )
-            
+
             yield _sse_event(
                 "thought",
                 "User Prompt Received",
@@ -1202,14 +1285,12 @@ async def execute_agent(
                 },
             )
 
-            # Use Dynamic LangGraph-based executor with Neural Tool Routing
             from services.langgraph_dynamic_agent_executor import DynamicLangGraphAgentExecutor
-            
-            executor = DynamicLangGraphAgentExecutor(session)
-            
-            # Track assistant response for saving to history
+
+            executor = DynamicLangGraphAgentExecutor(db)
+
             assistant_response = ""
-            
+
             async for event in executor.execute_agent(
                 agent=agent,
                 user_prompt=body.user_prompt,
@@ -1218,24 +1299,22 @@ async def execute_agent(
                 router_top_k_override=body.top_k,
             ):
                 yield event
-                
-                # Capture assistant response
+
                 event_data = json.loads(event.replace("data: ", "").strip())
                 if event_data.get("type") == "assistant":
                     assistant_response = event_data.get("detail", "")
-            
-            # Save conversation to history
+
             await conv_service.add_message(
                 session_id=session_id,
                 role="user",
-                content=body.user_prompt
+                content=body.user_prompt,
             )
-            
+
             if assistant_response:
                 await conv_service.add_message(
                     session_id=session_id,
                     role="assistant",
-                    content=assistant_response
+                    content=assistant_response,
                 )
 
             yield _sse_event(

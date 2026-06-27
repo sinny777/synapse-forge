@@ -1,22 +1,17 @@
 """
 SynapseForge — Router Predict API Route
 
-POST /api/router/predict — Semantic tool retrieval using pgvector.
-
-Flow:
-  1. Check Redis cache for hash(workspace_id + prompt).
-  2. Embed the user prompt using the workspace's embedding model.
-  3. Query pgvector for the top-K nearest tools by cosine similarity.
-  4. Cache the result in Redis.
-  5. Return the ranked tool list.
+POST /api/router/predict — semantic tool retrieval using MongoDB-stored
+embeddings during Phase 1, to be replaced by Milvus-backed search later.
 """
 
 import logging
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from db.engine import AsyncSessionDep
-from db.schemas import RouterPredictRequest, RouterPredictResponse, ToolRead
+from db.engine import get_db
+from db.schemas import RouterPredictRequest
 from services.router_service import RouterService
 
 logger = logging.getLogger("ntr.api.router")
@@ -24,15 +19,8 @@ logger = logging.getLogger("ntr.api.router")
 router = APIRouter(prefix="/api/router", tags=["SynapseForge"])
 
 
-# ---------------------------------------------------------------------------
-# Attempt to get the Redis client (optional dependency)
-# ---------------------------------------------------------------------------
-
 async def _get_redis_or_none():
-    """
-    Return the shared Redis client if available, or None.
-    The router service degrades gracefully without Redis (no caching).
-    """
+    """Return the shared Redis client if available, or None."""
     try:
         from db.redis_pool import _redis
         return _redis
@@ -40,27 +28,22 @@ async def _get_redis_or_none():
         return None
 
 
-# ---------------------------------------------------------------------------
-# PREDICT
-# ---------------------------------------------------------------------------
-
 @router.post("/predict")
-async def router_predict(body: RouterPredictRequest, session: AsyncSessionDep):
+async def router_predict(
+    body: RouterPredictRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
     """
     Semantic tool retrieval for a user prompt.
 
     Accepts a natural-language prompt and workspace_id, and returns
-    the top-K most relevant tools from the workspace's pgvector index.
-
-    Redis caching is used when available:
-      - cache key: ``sha256(workspace_id + prompt)``
-      - TTL: 5 minutes
+    the top-K most relevant tools from the workspace's current embedding index.
     """
     redis = await _get_redis_or_none()
 
     try:
         result = await RouterService.predict(
-            session=session,
+            db=db,
             workspace_id=body.workspace_id,
             user_prompt=body.user_prompt,
             top_k=body.top_k,

@@ -17,13 +17,14 @@ import logging
 import asyncio
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, Field
-from sqlalchemy import select
 
-from db.engine import AsyncSessionDep
-from db.models import Orchestration, Tool, Workspace
+from api.auth import get_current_user
+from db.engine import get_db, normalize_mongo_document
+from db.models import Orchestration, Tool, Workspace, Agent
 
 logger = logging.getLogger("ntr.api.execute")
 
@@ -66,7 +67,8 @@ def _sse_event(event_type: str, label: str, detail: str = "",
 async def execute_orchestration(
     orchestration_id: uuid.UUID,
     body: ExecuteRequest,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+    user: dict = Depends(get_current_user),
 ):
     """
     Execute an orchestration graph with real-time SSE trace events.
@@ -84,145 +86,127 @@ async def execute_orchestration(
       - complete: Execution finished
     """
     # 1. Load orchestration
-    orch = await session.get(Orchestration, orchestration_id)
+    logger.info(f"Loading orchestration: {orchestration_id}")
+    orch_doc = await db.orchestrations.find_one({"_id": str(orchestration_id)})
+    orch_data = normalize_mongo_document(orch_doc)
+    orch = Orchestration(**orch_data) if orch_data else None
     if orch is None:
+        logger.error(f"Orchestration not found: {orchestration_id}")
         raise HTTPException(status_code=404, detail="Orchestration not found")
+    logger.info(f"Orchestration loaded: {orch.name}")
 
     # 2. Load workspace
-    ws = await session.get(Workspace, orch.workspace_id)
+    logger.info(f"Loading workspace: {orch.workspace_id}")
+    ws_doc = await db.workspaces.find_one({"_id": orch.workspace_id})
+    ws_data = normalize_mongo_document(ws_doc)
+    ws = Workspace(**ws_data) if ws_data else None
     if ws is None:
+        logger.error(f"Workspace not found: {orch.workspace_id}")
         raise HTTPException(status_code=404, detail="Workspace not found")
+    logger.info(f"Workspace loaded: {ws.name}")
 
-    # 3. Load workspace tools for routing
-    result = await session.execute(
-        select(Tool).where(Tool.workspace_id == ws.id)
-    )
-    tools = result.scalars().all()
+    # 3. Load the primary agent from orchestration config
+    # Support both 'agent_id' and 'supervisor_agent_id' for different orchestration patterns
+    agent_id = None
+    if orch.config:
+        agent_id = orch.config.get("agent_id") or orch.config.get("supervisor_agent_id")
+    
+    if not agent_id:
+        logger.error(f"No agent_id found in orchestration config: {orch.config}")
+        raise HTTPException(
+            status_code=400,
+            detail="Orchestration must have an 'agent_id' or 'supervisor_agent_id' in config"
+        )
+    
+    logger.info(f"Loading agent: {agent_id} from workspace: {ws.id}")
+    agent_doc = await db.agents.find_one({"_id": agent_id, "workspace_id": str(ws.id)})
+    logger.info(f"Agent doc found: {agent_doc is not None}")
+    agent_data = normalize_mongo_document(agent_doc)
+    agent = Agent(**agent_data) if agent_data else None
+    if agent is None:
+        logger.error(f"Agent {agent_id} not found in workspace {ws.id}")
+        raise HTTPException(
+            status_code=404,
+            detail=f"Agent {agent_id} not found in workspace"
+        )
+    logger.info(f"Agent loaded: {agent.name}")
+
+    # 4. Setup session management
+    session_id = body.thread_id or str(uuid.uuid4())
+    
+    from db.redis_pool import get_redis_pool
+    import redis.asyncio as aioredis
+    
+    redis_pool = get_redis_pool()
+    redis_client = aioredis.Redis(connection_pool=redis_pool)
 
     async def event_stream():
-        """Generate SSE trace events."""
+        """Generate SSE trace events using real agent execution."""
         try:
-            # --- Step 1: Router Phase ---
-            t0 = time.perf_counter()
-            yield _sse_event("router", "Semantic Tool Routing",
-                             f"Searching {len(tools)} tools for: \"{body.user_prompt[:100]}\"",
-                             status="running")
-            await asyncio.sleep(0.1)  # Small delay for UI animation
+            from services.conversation_service import ConversationService
+            from services.langgraph_dynamic_agent_executor import DynamicLangGraphAgentExecutor
 
-            # Attempt pgvector semantic search
-            matched_tools = []
-            try:
-                from services.embedding_service import embedding_service
-                from services.router_service import RouterService
+            # Initialize conversation service
+            conv_service = ConversationService(redis_client)
+            await conv_service.get_or_create_session(session_id, uuid.UUID(str(agent.id)))
+            
+            # Get conversation history
+            history = await conv_service.get_history(
+                session_id=session_id,
+                limit=agent.memory_window or 10,
+                memory_type=agent.memory_type or "buffer",
+            )
 
-                # Try Redis
-                redis = None
+            # Emit initial event
+            yield _sse_event(
+                "thought",
+                "User Prompt Received",
+                body.user_prompt,
+                status="success",
+            )
+
+            # Execute agent with DynamicLangGraphAgentExecutor
+            executor = DynamicLangGraphAgentExecutor(db)
+            assistant_response = ""
+
+            async for event in executor.execute_agent(
+                agent=agent,
+                user_prompt=body.user_prompt,
+                conversation_history=history,
+                depth=0,
+                router_top_k_override=body.top_k,
+            ):
+                yield event
+                
+                # Track assistant response for conversation history
                 try:
-                    from db.redis_pool import _redis
-                    redis = _redis
+                    event_data = json.loads(event.replace("data: ", "").strip())
+                    if event_data.get("type") == "assistant":
+                        assistant_response = event_data.get("detail", "")
                 except Exception:
                     pass
 
-                router_result = await RouterService.predict(
-                    session=session,
-                    workspace_id=ws.id,
-                    user_prompt=body.user_prompt,
-                    top_k=body.top_k,
-                    redis=redis,
-                )
-                matched_tools = router_result.get("tools", [])
-                router_latency = (time.perf_counter() - t0) * 1000
-
-                tool_names = [t.get("name", t.get("id", "?")) if isinstance(t, dict) else getattr(t, 'name', '?') for t in matched_tools]
-                yield _sse_event("router", "Tools Retrieved",
-                                 f"Found {len(matched_tools)} relevant tools: {', '.join(tool_names[:5])}",
-                                 latency_ms=router_latency,
-                                 status="success")
-
-            except Exception as e:
-                router_latency = (time.perf_counter() - t0) * 1000
-                logger.warning("Router search failed, using all tools: %s", e)
-
-                # Fallback: use all workspace tools
-                matched_tools = [
-                    {"name": t.name, "description": t.description or "", "schema": t.schema_def or {}}
-                    for t in tools[:body.top_k]
-                ]
-                yield _sse_event("router", "Router Fallback",
-                                 f"pgvector search unavailable. Using top {len(matched_tools)} tools.",
-                                 latency_ms=router_latency,
-                                 status="success")
-
-            await asyncio.sleep(0.2)
-
-            # --- Step 2: LLM Call Phase ---
-            t1 = time.perf_counter()
-            orch_config = orch.config or {}
-            framework = orch.framework.value
-            arch = orch.architecture_type.value
-
-            yield _sse_event("llm_call", "LLM Invocation",
-                             f"Framework: {framework} | Architecture: {arch} | Tools bound: {len(matched_tools)}",
-                             status="running")
-            await asyncio.sleep(0.3)
-
-            # Simulate LLM reasoning (in production, this calls the actual LangGraph engine)
-            llm_latency = (time.perf_counter() - t1) * 1000
-
-            # Determine if tool calls are needed based on matched tools
-            if matched_tools:
-                first_tool = matched_tools[0] if matched_tools else None
-                tool_name = first_tool.get("name", "unknown") if isinstance(first_tool, dict) else getattr(first_tool, 'name', 'unknown')
-
-                yield _sse_event("llm_call", "LLM Decision",
-                                 f"LLM decided to call tool: {tool_name}",
-                                 latency_ms=llm_latency, status="success")
-                await asyncio.sleep(0.2)
-
-                # --- Step 3: Tool Call Phase ---
-                t2 = time.perf_counter()
-                yield _sse_event("tool_call", f"Executing: {tool_name}",
-                                 f"Calling {tool_name} with extracted parameters",
-                                 status="running")
-                await asyncio.sleep(0.4)
-
-                tool_latency = (time.perf_counter() - t2) * 1000
-                yield _sse_event("tool_result", f"Result: {tool_name}",
-                                 f"Tool execution completed successfully",
-                                 latency_ms=tool_latency, status="success")
-                await asyncio.sleep(0.1)
-            else:
-                yield _sse_event("llm_call", "Direct Response",
-                                 "No tools matched. LLM generating direct response.",
-                                 latency_ms=llm_latency, status="success")
-
-            # --- Step 4: Final Response ---
-            total_latency = (time.perf_counter() - t0) * 1000
-
-            response_text = (
-                f"Based on analyzing your request \"{body.user_prompt[:80]}\", "
-                f"I found {len(matched_tools)} relevant tool(s) in the "
-                f"\"{ws.name}\" workspace using the {arch} architecture. "
+            # Save conversation to history
+            await conv_service.add_message(
+                session_id=session_id,
+                role="user",
+                content=body.user_prompt,
             )
-            if matched_tools:
-                tool_names_str = ", ".join(
-                    t.get("name", "?") if isinstance(t, dict) else getattr(t, 'name', '?')
-                    for t in matched_tools[:3]
+            
+            if assistant_response:
+                await conv_service.add_message(
+                    session_id=session_id,
+                    role="assistant",
+                    content=assistant_response,
                 )
-                response_text += f"The most relevant tools were: {tool_names_str}. "
-            response_text += (
-                f"Total execution time: {total_latency:.0f}ms. "
-                f"This was executed using the {framework} framework."
+
+            # Emit completion event
+            yield _sse_event(
+                "complete",
+                "Execution Complete",
+                f"Session: {session_id}",
+                status="success",
             )
-
-            yield _sse_event("assistant", "Response Generated",
-                             response_text,
-                             latency_ms=total_latency, status="success")
-
-            # --- Complete ---
-            yield _sse_event("complete", "Execution Complete",
-                             f"Total latency: {total_latency:.0f}ms",
-                             latency_ms=total_latency, status="success")
 
         except Exception as e:
             logger.error("Execution error: %s", e, exc_info=True)

@@ -204,6 +204,10 @@ async def generate_phase(config_data: GenerateConfig):
         teacher_model_str = config_data.teacher_model
         if teacher_model_str:
             import uuid
+            import os
+            from db.engine import get_database, normalize_mongo_document
+            from db.models import LLMConfig
+
             is_uuid = False
             try:
                 uuid.UUID(str(teacher_model_str))
@@ -212,77 +216,81 @@ async def generate_phase(config_data: GenerateConfig):
                 pass
 
             if is_uuid:
-                from db.engine import _session_factory
-                from db.models import LLMConfig
-                import os
+                db = get_database()
+                config_doc = await db.llm_configs.find_one({"_id": str(teacher_model_str)})
+                config_data_doc = normalize_mongo_document(config_doc)
+                config_row = LLMConfig(**config_data_doc) if config_data_doc else None
+                if config_row:
+                    provider = config_row.provider.value
+                    model_name = config_row.model_name
+                    credentials = config_row.credentials or {}
 
-                async with _session_factory() as session:
-                    config_row = await session.get(LLMConfig, uuid.UUID(str(teacher_model_str)))
-                    if config_row:
-                        provider = config_row.provider.value
-                        model_name = config_row.model_name
-                        credentials = config_row.credentials or {}
-                        
-                        logger.info(f"Using selected LLM Config '{config_row.name}' (provider: {provider}, model: {model_name}) for Phase 1 generation.")
+                    logger.info(
+                        f"Using selected LLM Config '{config_row.name}' "
+                        f"(provider: {provider}, model: {model_name}) for Phase 1 generation."
+                    )
 
-                        # Inject credentials into env vars
-                        if provider == "ibm_watsonx":
-                            api_key = credentials.get("api_key") or credentials.get("apikey")
-                            project_id = credentials.get("project_id")
-                            region = credentials.get("region", "us-south")
-                            
-                            if api_key:
-                                os.environ["WATSONX_APIKEY"] = api_key
-                                os.environ["WATSONX_API_KEY"] = api_key
-                            if project_id:
-                                os.environ["WATSONX_PROJECT_ID"] = project_id
-                            if region:
-                                if region.startswith("http"):
-                                    os.environ["WATSONX_URL"] = region
-                                else:
-                                    os.environ["WATSONX_URL"] = f"https://{region}.ml.cloud.ibm.com"
-                                os.environ["WATSONX_REGION"] = region
-                            
-                            config_data.teacher_model = f"watsonx/{model_name}"
+                    # Inject credentials into env vars
+                    if provider == "ibm_watsonx":
+                        api_key = credentials.get("api_key") or credentials.get("apikey")
+                        project_id = credentials.get("project_id")
+                        region = credentials.get("region", "us-south")
 
-                        elif provider == "openai":
-                            api_key = credentials.get("api_key") or credentials.get("apikey")
-                            api_base = credentials.get("api_base") or credentials.get("url")
-                            if api_key:
-                                os.environ["OPENAI_API_KEY"] = api_key
-                            if api_base:
-                                os.environ["OPENAI_API_BASE"] = api_base
-                            
-                            config_data.teacher_model = f"openai/{model_name}"
+                        if api_key:
+                            os.environ["WATSONX_APIKEY"] = api_key
+                            os.environ["WATSONX_API_KEY"] = api_key
+                        if project_id:
+                            os.environ["WATSONX_PROJECT_ID"] = project_id
+                        if region:
+                            if region.startswith("http"):
+                                os.environ["WATSONX_URL"] = region
+                            else:
+                                os.environ["WATSONX_URL"] = f"https://{region}.ml.cloud.ibm.com"
+                            os.environ["WATSONX_REGION"] = region
 
-                        elif provider == "ollama":
-                            api_base = credentials.get("api_base") or credentials.get("url")
-                            if api_base:
-                                os.environ["OLLAMA_API_BASE"] = api_base
-                            
-                            config_data.teacher_model = f"ollama/{model_name}"
+                        config_data.teacher_model = f"watsonx/{model_name}"
 
-                        elif provider == "anthropic":
-                            api_key = credentials.get("api_key") or credentials.get("apikey")
-                            if api_key:
-                                os.environ["ANTHROPIC_API_KEY"] = api_key
-                            config_data.teacher_model = f"anthropic/{model_name}"
+                    elif provider == "openai":
+                        api_key = credentials.get("api_key") or credentials.get("apikey")
+                        api_base = credentials.get("api_base") or credentials.get("url")
+                        if api_key:
+                            os.environ["OPENAI_API_KEY"] = api_key
+                        if api_base:
+                            os.environ["OPENAI_API_BASE"] = api_base
 
-                        elif provider == "google":
-                            api_key = credentials.get("api_key") or credentials.get("apikey")
-                            if api_key:
-                                os.environ["GEMINI_API_KEY"] = api_key
-                            config_data.teacher_model = f"gemini/{model_name}"
+                        config_data.teacher_model = f"openai/{model_name}"
 
-                        elif provider == "groq":
-                            api_key = credentials.get("api_key") or credentials.get("apikey")
-                            if api_key:
-                                os.environ["GROQ_API_KEY"] = api_key
-                            config_data.teacher_model = f"groq/{model_name}"
-                        else:
-                            config_data.teacher_model = f"{provider}/{model_name}"
+                    elif provider == "ollama":
+                        api_base = credentials.get("api_base") or credentials.get("url")
+                        if api_base:
+                            os.environ["OLLAMA_API_BASE"] = api_base
+
+                        config_data.teacher_model = f"ollama/{model_name}"
+
+                    elif provider == "anthropic":
+                        api_key = credentials.get("api_key") or credentials.get("apikey")
+                        if api_key:
+                            os.environ["ANTHROPIC_API_KEY"] = api_key
+                        config_data.teacher_model = f"anthropic/{model_name}"
+
+                    elif provider == "google":
+                        api_key = credentials.get("api_key") or credentials.get("apikey")
+                        if api_key:
+                            os.environ["GEMINI_API_KEY"] = api_key
+                        config_data.teacher_model = f"gemini/{model_name}"
+
+                    elif provider == "groq":
+                        api_key = credentials.get("api_key") or credentials.get("apikey")
+                        if api_key:
+                            os.environ["GROQ_API_KEY"] = api_key
+                        config_data.teacher_model = f"groq/{model_name}"
                     else:
-                        logger.warning(f"Selected LLM Config with ID {teacher_model_str} not found in database. Using default/fallback model.")
+                        config_data.teacher_model = f"{provider}/{model_name}"
+                else:
+                    logger.warning(
+                        f"Selected LLM Config with ID {teacher_model_str} not found in database. "
+                        "Using default/fallback model."
+                    )
 
         _update_global_config(config_data, "generate")
         from tool_router.generator import main as phase1_main
@@ -536,13 +544,13 @@ async def train_phase(config_data: TrainConfig):
                             )
                             
                     # Only upload the archived model directory (user-named), not the fine_tuned_tool_router
-                    if target_path and target_path.exists():
+                    if target_path and target_path.exists() and target_name:
                         ArtifactManager.upload_and_register_directory_sync(
                             workspace_id=ws_uuid,
                             phase="train",
                             artifact_type="archived_model",
                             local_dir_path=target_path,
-                            dir_name=target_name
+                            dir_name=target_name,
                         )
                 
                 # Call synchronous upload function
@@ -601,7 +609,10 @@ async def train_phase(config_data: TrainConfig):
 # RUN
 # ---------------------------------------------------------------------------
 
-async def _ensure_run_artifacts_downloaded(workspace_id: str, model_name: str = None):
+async def _ensure_run_artifacts_downloaded(
+    workspace_id: str | None,
+    model_name: str | None = None,
+):
     """Ensures tool cache, fine-tuned model, and search indexes are cached locally from COS.
     
     Returns:
@@ -743,6 +754,8 @@ async def evaluate_phase(config_data: EvaluateConfig):
         
         # Download artifacts and get the local model directory path
         model_dir = await _ensure_run_artifacts_downloaded(config_data.workspace_id, model_name)
+        if model_dir is None:
+            raise HTTPException(status_code=400, detail="workspace_id is required for evaluation")
         
         t0 = time.time()
         

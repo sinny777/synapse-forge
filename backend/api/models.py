@@ -53,24 +53,23 @@ async def list_models(workspace_id: Optional[str] = Query(None)):
     # Include both archived_model and fine_tuned_model for backward compatibility
     # but exclude the temporary fine_tuned_tool_router directory
     if workspace_id:
-        import uuid
-        from db.engine import _session_factory
-        from db.models import PipelineArtifact
-        from sqlalchemy import select
+        from db.engine import get_database, normalize_mongo_document
         try:
-            async with _session_factory() as session:
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == uuid.UUID(workspace_id),
-                    PipelineArtifact.artifact_type.in_(["archived_model", "fine_tuned_model"]),
-                    PipelineArtifact.name != "fine_tuned_tool_router"
-                )
-                db_artifacts = (await session.execute(stmt)).scalars().all()
-                
-                # Avoid duplicates
-                existing_names = {m["name"] for m in models}
-                for art in db_artifacts:
-                    if art.name not in existing_names:
-                        models.append({"name": art.name, "path": art.url})
+            db = get_database()
+            db_artifacts = await db.pipeline_artifacts.find(
+                {
+                    "workspace_id": workspace_id,
+                    "artifact_type": {"$in": ["archived_model", "fine_tuned_model"]},
+                    "name": {"$ne": "fine_tuned_tool_router"},
+                }
+            ).to_list(length=None)
+
+            existing_names = {m["name"] for m in models}
+            for artifact_doc in db_artifacts:
+                art = normalize_mongo_document(artifact_doc) or {}
+                artifact_name = art.get("name")
+                if artifact_name and artifact_name not in existing_names:
+                    models.append({"name": artifact_name, "path": art.get("url")})
         except Exception as e:
             logger.error(f"Error querying models from DB: {e}")
             
@@ -177,27 +176,30 @@ async def delete_model(model_name: str, workspace_id: Optional[str] = Query(None
 
     cos_deleted = False
     if workspace_id:
-        import uuid
-        from db.engine import _session_factory
-        from db.models import PipelineArtifact
-        from sqlalchemy import select
+        from db.engine import get_database, normalize_mongo_document
         from services.ibm_cos_service import cos_service
-        
+
         try:
-            async with _session_factory() as session:
-                # Try both archived_model and fine_tuned_model for backward compatibility
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == uuid.UUID(workspace_id),
-                    PipelineArtifact.name == model_name,
-                    PipelineArtifact.artifact_type.in_(["archived_model", "fine_tuned_model"])
+            db = get_database()
+            artifact_doc = await db.pipeline_artifacts.find_one(
+                {
+                    "workspace_id": workspace_id,
+                    "name": model_name,
+                    "artifact_type": {"$in": ["archived_model", "fine_tuned_model"]},
+                }
+            )
+            artifact = normalize_mongo_document(artifact_doc)
+            if artifact:
+                cos_service.delete_prefix(
+                    str(artifact.get("cos_key", "")),
+                    bucket_name=str(artifact.get("cos_bucket", "")),
                 )
-                artifact = (await session.execute(stmt)).scalars().first()
-                if artifact:
-                    cos_service.delete_prefix(artifact.cos_key, bucket_name=artifact.cos_bucket)
-                    await session.delete(artifact)
-                    await session.commit()
-                    cos_deleted = True
-                    logger.info(f"Deleted model {model_name} (type: {artifact.artifact_type}) from IBM COS and database.")
+                await db.pipeline_artifacts.delete_one({"_id": artifact["id"]})
+                cos_deleted = True
+                logger.info(
+                    f"Deleted model {model_name} (type: {artifact.get('artifact_type')}) "
+                    "from IBM COS and database."
+                )
         except Exception as e:
             logger.error(f"Error deleting model from IBM COS: {e}")
 

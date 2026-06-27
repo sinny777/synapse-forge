@@ -10,12 +10,12 @@ import shutil
 import logging
 import uuid
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional
 
 from services.ibm_cos_service import cos_service
 import db.engine as db_engine
+from db.engine import get_database, normalize_mongo_document, prepare_document
 from db.models import PipelineArtifact
-from sqlalchemy import select
 
 logger = logging.getLogger("ntr.services.artifact_manager")
 
@@ -61,33 +61,29 @@ class ArtifactManager:
             )
 
             # 2. Register in Database
-            async with db_engine._session_factory() as session:
-                # Remove any existing artifact of the same type in this workspace/phase
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == workspace_id,
-                    PipelineArtifact.phase == phase,
-                    PipelineArtifact.artifact_type == artifact_type,
-                    PipelineArtifact.name == filename,
-                )
-                existing = (await session.execute(stmt)).scalars().first()
-                if existing:
-                    await session.delete(existing)
-
-                artifact = PipelineArtifact(
-                    workspace_id=workspace_id,
-                    phase=phase,
-                    artifact_type=artifact_type,
-                    name=filename,
-                    cos_bucket=bucket_name or cos_service.default_bucket,
-                    cos_key=cos_key,
-                    cos_endpoint=cos_service.endpoint,
-                    url=cos_url,
-                    created_by="system",
-                    updated_by="system",
-                )
-                session.add(artifact)
-                await session.commit()
-                await session.refresh(artifact)
+            db = get_database()
+            artifact = PipelineArtifact(
+                workspace_id=str(workspace_id),
+                phase=phase,
+                artifact_type=artifact_type,
+                name=filename,
+                cos_bucket=bucket_name or cos_service.default_bucket,
+                cos_key=cos_key,
+                cos_endpoint=cos_service.endpoint,
+                url=cos_url,
+                created_by="system",
+                updated_by="system",
+            )
+            await db.pipeline_artifacts.replace_one(
+                {
+                    "workspace_id": str(workspace_id),
+                    "phase": phase,
+                    "artifact_type": artifact_type,
+                    "name": filename,
+                },
+                prepare_document(artifact.model_dump()),
+                upsert=True,
+            )
 
             logger.info(f"✓ Registered file artifact: {artifact_type} ({filename}) -> {cos_url}")
 
@@ -132,33 +128,29 @@ class ArtifactManager:
             )
 
             # 2. Register in Database
-            async with db_engine._session_factory() as session:
-                # Remove any existing artifact of the same type in this workspace/phase
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == workspace_id,
-                    PipelineArtifact.phase == phase,
-                    PipelineArtifact.artifact_type == artifact_type,
-                    PipelineArtifact.name == dir_name,
-                )
-                existing = (await session.execute(stmt)).scalars().first()
-                if existing:
-                    await session.delete(existing)
-
-                artifact = PipelineArtifact(
-                    workspace_id=workspace_id,
-                    phase=phase,
-                    artifact_type=artifact_type,
-                    name=dir_name,
-                    cos_bucket=bucket_name or cos_service.default_bucket,
-                    cos_key=cos_key,
-                    cos_endpoint=cos_service.endpoint,
-                    url=cos_url,
-                    created_by="system",
-                    updated_by="system",
-                )
-                session.add(artifact)
-                await session.commit()
-                await session.refresh(artifact)
+            db = get_database()
+            artifact = PipelineArtifact(
+                workspace_id=str(workspace_id),
+                phase=phase,
+                artifact_type=artifact_type,
+                name=dir_name,
+                cos_bucket=bucket_name or cos_service.default_bucket,
+                cos_key=cos_key,
+                cos_endpoint=cos_service.endpoint,
+                url=cos_url,
+                created_by="system",
+                updated_by="system",
+            )
+            await db.pipeline_artifacts.replace_one(
+                {
+                    "workspace_id": str(workspace_id),
+                    "phase": phase,
+                    "artifact_type": artifact_type,
+                    "name": dir_name,
+                },
+                prepare_document(artifact.model_dump()),
+                upsert=True,
+            )
 
             logger.info(f"✓ Registered directory artifact: {artifact_type} ({dir_name}) -> {cos_url}")
 
@@ -194,14 +186,17 @@ class ArtifactManager:
         logger.info(f"Local file {filename} not found. Checking COS database registry...")
 
         try:
-            async with db_engine._session_factory() as session:
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == workspace_id,
-                    PipelineArtifact.phase == phase,
-                    PipelineArtifact.artifact_type == artifact_type,
-                    PipelineArtifact.name == filename,
-                )
-                artifact = (await session.execute(stmt)).scalars().first()
+            db = get_database()
+            artifact_doc = await db.pipeline_artifacts.find_one(
+                {
+                    "workspace_id": str(workspace_id),
+                    "phase": phase,
+                    "artifact_type": artifact_type,
+                    "name": filename,
+                }
+            )
+            artifact_data = normalize_mongo_document(artifact_doc)
+            artifact = PipelineArtifact(**artifact_data) if artifact_data else None
 
             if not artifact:
                 logger.warning(
@@ -244,14 +239,17 @@ class ArtifactManager:
         logger.info(f"Local directory {dir_name} not found or empty. Checking COS database registry...")
 
         try:
-            async with db_engine._session_factory() as session:
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == workspace_id,
-                    PipelineArtifact.phase == phase,
-                    PipelineArtifact.artifact_type == artifact_type,
-                    PipelineArtifact.name == dir_name,
-                )
-                artifact = (await session.execute(stmt)).scalars().first()
+            db = get_database()
+            artifact_doc = await db.pipeline_artifacts.find_one(
+                {
+                    "workspace_id": str(workspace_id),
+                    "phase": phase,
+                    "artifact_type": artifact_type,
+                    "name": dir_name,
+                }
+            )
+            artifact_data = normalize_mongo_document(artifact_doc)
+            artifact = PipelineArtifact(**artifact_data) if artifact_data else None
 
             if not artifact:
                 logger.warning(
@@ -328,49 +326,36 @@ class ArtifactManager:
                 bucket_name=bucket_name,
             )
 
-            # 2. Register in Database (synchronous)
-            from sqlalchemy import create_engine
-            from sqlalchemy.orm import sessionmaker
-            
-            # Build database URL from environment variables (same as db.engine)
-            user = os.getenv("POSTGRES_USER", "ntr_user")
-            password = os.getenv("POSTGRES_PASSWORD", "ntr_secret_2026")
-            host = os.getenv("POSTGRES_HOST", "localhost")
-            port = os.getenv("POSTGRES_PORT", "5432")
-            db = os.getenv("POSTGRES_DB", "synapse_forge")
-            database_url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
-            
-            sync_engine = create_engine(database_url, echo=False)
-            SyncSession = sessionmaker(bind=sync_engine)
-            
-            with SyncSession() as session:
-                # Remove any existing artifact of the same type in this workspace/phase
-                from sqlalchemy import select
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == workspace_id,
-                    PipelineArtifact.phase == phase,
-                    PipelineArtifact.artifact_type == artifact_type,
-                    PipelineArtifact.name == filename,
-                )
-                existing = session.execute(stmt).scalars().first()
-                if existing:
-                    session.delete(existing)
+            # 2. Register in Database (synchronous wrapper over async MongoDB client)
+            artifact = PipelineArtifact(
+                workspace_id=str(workspace_id),
+                phase=phase,
+                artifact_type=artifact_type,
+                name=filename,
+                cos_bucket=bucket_name or cos_service.default_bucket,
+                cos_key=cos_key,
+                cos_endpoint=cos_service.endpoint,
+                url=cos_url,
+                created_by="system",
+                updated_by="system",
+            )
 
-                artifact = PipelineArtifact(
-                    workspace_id=workspace_id,
-                    phase=phase,
-                    artifact_type=artifact_type,
-                    name=filename,
-                    cos_bucket=bucket_name or cos_service.default_bucket,
-                    cos_key=cos_key,
-                    cos_endpoint=cos_service.endpoint,
-                    url=cos_url,
-                    created_by="system",
-                    updated_by="system",
+            async def _register_artifact() -> None:
+                database = get_database()
+                await database.pipeline_artifacts.replace_one(
+                    {
+                        "workspace_id": str(workspace_id),
+                        "phase": phase,
+                        "artifact_type": artifact_type,
+                        "name": filename,
+                    },
+                    prepare_document(artifact.model_dump()),
+                    upsert=True,
                 )
-                session.add(artifact)
-                session.commit()
-                session.refresh(artifact)
+
+            import asyncio
+
+            asyncio.run(_register_artifact())
 
             logger.info(f"✓ Registered file artifact: {artifact_type} ({filename}) -> {cos_url}")
 
@@ -414,49 +399,36 @@ class ArtifactManager:
                 bucket_name=bucket_name,
             )
 
-            # 2. Register in Database (synchronous)
-            from sqlalchemy import create_engine
-            from sqlalchemy.orm import sessionmaker
-            
-            # Build database URL from environment variables (same as db.engine)
-            user = os.getenv("POSTGRES_USER", "ntr_user")
-            password = os.getenv("POSTGRES_PASSWORD", "ntr_secret_2026")
-            host = os.getenv("POSTGRES_HOST", "localhost")
-            port = os.getenv("POSTGRES_PORT", "5432")
-            db = os.getenv("POSTGRES_DB", "synapse_forge")
-            database_url = f"postgresql://{user}:{password}@{host}:{port}/{db}"
-            
-            sync_engine = create_engine(database_url, echo=False)
-            SyncSession = sessionmaker(bind=sync_engine)
-            
-            with SyncSession() as session:
-                # Remove any existing artifact of the same type in this workspace/phase
-                from sqlalchemy import select
-                stmt = select(PipelineArtifact).where(
-                    PipelineArtifact.workspace_id == workspace_id,
-                    PipelineArtifact.phase == phase,
-                    PipelineArtifact.artifact_type == artifact_type,
-                    PipelineArtifact.name == dir_name,
-                )
-                existing = session.execute(stmt).scalars().first()
-                if existing:
-                    session.delete(existing)
+            # 2. Register in Database (synchronous wrapper over async MongoDB client)
+            artifact = PipelineArtifact(
+                workspace_id=str(workspace_id),
+                phase=phase,
+                artifact_type=artifact_type,
+                name=dir_name,
+                cos_bucket=bucket_name or cos_service.default_bucket,
+                cos_key=cos_key,
+                cos_endpoint=cos_service.endpoint,
+                url=cos_url,
+                created_by="system",
+                updated_by="system",
+            )
 
-                artifact = PipelineArtifact(
-                    workspace_id=workspace_id,
-                    phase=phase,
-                    artifact_type=artifact_type,
-                    name=dir_name,
-                    cos_bucket=bucket_name or cos_service.default_bucket,
-                    cos_key=cos_key,
-                    cos_endpoint=cos_service.endpoint,
-                    url=cos_url,
-                    created_by="system",
-                    updated_by="system",
+            async def _register_artifact() -> None:
+                database = get_database()
+                await database.pipeline_artifacts.replace_one(
+                    {
+                        "workspace_id": str(workspace_id),
+                        "phase": phase,
+                        "artifact_type": artifact_type,
+                        "name": dir_name,
+                    },
+                    prepare_document(artifact.model_dump()),
+                    upsert=True,
                 )
-                session.add(artifact)
-                session.commit()
-                session.refresh(artifact)
+
+            import asyncio
+
+            asyncio.run(_register_artifact())
 
             logger.info(f"✓ Registered directory artifact: {artifact_type} ({dir_name}) -> {cos_url}")
 

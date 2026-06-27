@@ -1,69 +1,47 @@
 """
-SynapseForge — SQLAlchemy ORM Models
+SynapseForge — MongoDB Domain Models
 
-Defines the core tables from the Platform Requirements:
-  • Workspace   — multi-tenant container
-  • Tool        — registered tools (REST / MCP) with pgvector embedding
-  • Agent       — LLM agent definitions
-  • Orchestration — workflow definitions (LangGraph, CrewAI, AutoGen)
-  • MCPServer   — MCP server configurations (stdio/sse)
-  • LLMConfig   — per-workspace LLM provider configurations
-
-All tables use UUID primary keys and carry a workspace_id foreign key
-(except Workspace itself) for strict multi-tenant isolation.
+Defines the core document models used by the platform while preserving the
+existing UUID-based API contract. These models replace the previous
+SQLAlchemy/PostgreSQL ORM layer for Phase 1 of the MongoDB migration.
 """
+
+from __future__ import annotations
 
 import enum
 import uuid
 from datetime import datetime, timezone
+from typing import Any
 
-from sqlalchemy import (
-    Boolean,
-    Column,
-    DateTime,
-    Enum,
-    Float,
-    ForeignKey,
-    Index,
-    Integer,
-    String,
-    Text,
-)
-from sqlalchemy.dialects.postgresql import ARRAY, JSONB, UUID
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from pgvector.sqlalchemy import Vector
+from pydantic import BaseModel, Field, ConfigDict
 
 
-# ---------------------------------------------------------------------------
-# Declarative Base
-# ---------------------------------------------------------------------------
-
-class Base(DeclarativeBase):
-    """Shared declarative base for all NTR models."""
-    pass
-
-
-def _utcnow() -> datetime:
+def utcnow() -> datetime:
+    """Return the current UTC timestamp."""
     return datetime.now(timezone.utc)
 
 
-class AuditMixin:
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False
-    )
-    created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    updated_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
+class MongoDocument(BaseModel):
+    """Base document model with UUID string IDs and audit metadata."""
 
+    model_config = ConfigDict(use_enum_values=False)
 
-# ---------------------------------------------------------------------------
-# Enums
-# ---------------------------------------------------------------------------
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    created_at: datetime = Field(default_factory=utcnow)
+    updated_at: datetime = Field(default_factory=utcnow)
+    created_by: str | None = None
+    updated_by: str | None = None
+
+    def touch(self, updated_by: str | None = None) -> None:
+        """Update modification metadata."""
+        self.updated_at = utcnow()
+        if updated_by is not None:
+            self.updated_by = updated_by
+
 
 class ToolType(str, enum.Enum):
     """Transport type used to connect to the tool."""
+
     REST = "REST"
     MCP_SERVER = "MCP_SERVER"
     MCP_TOOL = "MCP_TOOL"
@@ -71,12 +49,14 @@ class ToolType(str, enum.Enum):
 
 class MCPTransportType(str, enum.Enum):
     """MCP server transport protocol."""
+
     STDIO = "stdio"
     SSE = "sse"
 
 
 class MCPServerStatus(str, enum.Enum):
     """MCP server connection status."""
+
     ACTIVE = "active"
     DISABLED = "disabled"
     ERROR = "error"
@@ -84,6 +64,7 @@ class MCPServerStatus(str, enum.Enum):
 
 class OrchestrationFramework(str, enum.Enum):
     """Supported orchestration frameworks."""
+
     LANGGRAPH = "LANGGRAPH"
     CREWAI = "CREWAI"
     AUTOGEN = "AUTOGEN"
@@ -91,6 +72,7 @@ class OrchestrationFramework(str, enum.Enum):
 
 class ArchitectureType(str, enum.Enum):
     """Supported multi-agent architecture patterns."""
+
     REACT = "REACT"
     SUPERVISOR = "SUPERVISOR"
     PLANNER = "PLANNER"
@@ -98,6 +80,7 @@ class ArchitectureType(str, enum.Enum):
 
 class WorkspaceStatus(str, enum.Enum):
     """Tracks the container / environment lifecycle of a workspace."""
+
     STOPPED = "STOPPED"
     RUNNING = "RUNNING"
     FAILED = "FAILED"
@@ -105,6 +88,7 @@ class WorkspaceStatus(str, enum.Enum):
 
 class LLMProviderEnum(str, enum.Enum):
     """Supported LLM provider types."""
+
     OLLAMA = "ollama"
     OPENAI = "openai"
     ANTHROPIC = "anthropic"
@@ -117,311 +101,90 @@ class LLMProviderEnum(str, enum.Enum):
     VERTEX_AI = "vertex_ai"
 
 
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
+class Workspace(MongoDocument):
+    """Multi-tenant workspace root document."""
 
-class Workspace(Base, AuditMixin):
-    """
-    Multi-tenant workspace.
-
-    Every other entity references a workspace_id so that tools, agents, and
-    orchestrations are scoped to a single tenant context.
-    """
-    __tablename__ = "workspaces"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # --- Per-workspace embedding configuration ---
-    # Each workspace can choose its own embedding model and dimension.
-    # The dimension here is informational / enforced at application level;
-    # the Tool.embedding column is untyped vector (accepts any dimension).
-    embedding_model: Mapped[str] = mapped_column(
-        String(255),
-        nullable=False,
-        default="sentence-transformers/all-MiniLM-L6-v2",
-        server_default="sentence-transformers/all-MiniLM-L6-v2",
-    )
-    embedding_dim: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=384, server_default="384"
-    )
-
-    # --- Default workspace & environment status flags ---
-    is_default: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false",
-    )
-    status: Mapped[WorkspaceStatus] = mapped_column(
-        Enum(WorkspaceStatus, name="workspace_status", create_constraint=True),
-        nullable=False,
-        default=WorkspaceStatus.STOPPED,
-        server_default="STOPPED",
-    )
-
-    shared_with: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
-
-    # Relationships
-    tools = relationship("Tool", back_populates="workspace", cascade="all, delete-orphan")
-    agents = relationship("Agent", back_populates="workspace", cascade="all, delete-orphan")
-    orchestrations = relationship(
-        "Orchestration", back_populates="workspace", cascade="all, delete-orphan"
-    )
-    llm_configs = relationship(
-        "LLMConfig", back_populates="workspace", cascade="all, delete-orphan"
-    )
-
-    def __repr__(self) -> str:
-        return f"<Workspace id={self.id!s} name={self.name!r}>"
+    name: str
+    description: str | None = None
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dim: int = 384
+    is_default: bool = False
+    status: WorkspaceStatus = WorkspaceStatus.STOPPED
+    shared_with: list[str] | None = None
 
 
-class Tool(Base, AuditMixin):
-    """
-    A unified tool registry entry.
-    
-    Can represent:
-    1. A standalone REST tool.
-    2. An MCP Server configuration (provider).
-    3. An individual tool discovered from an MCP Server.
-    """
-    __tablename__ = "tools"
+class Tool(MongoDocument):
+    """Unified tool registry document."""
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
-    )
-    
-    # Common fields
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    type: Mapped[ToolType] = mapped_column(
-        Enum(ToolType, name="tool_type", create_constraint=True),
-        nullable=False,
-        default=ToolType.REST,
-    )
-    is_enabled: Mapped[bool] = mapped_column(default=True, nullable=False)
-    
-    # REST / MCP Tool specific
-    connection_config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    schema_def: Mapped[dict | None] = mapped_column(
-        "schema", JSONB, nullable=True
-    )
-
-    # MCP Server specific (for type=MCP_SERVER)
-    transport: Mapped[MCPTransportType | None] = mapped_column(
-        Enum(MCPTransportType, name="mcp_transport_type", create_constraint=True),
-        nullable=True,
-    )
-    command: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    args: Mapped[list[str] | None] = mapped_column(ARRAY(String), nullable=True)
-    env: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    
-    # Status and Discovery
-    status: Mapped[MCPServerStatus] = mapped_column(
-        Enum(MCPServerStatus, name="mcp_server_status", create_constraint=True),
-        nullable=False,
-        default=MCPServerStatus.ACTIVE,
-    )
-    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
-    # Hierarchical link (MCP_TOOL -> MCP_SERVER)
-    parent_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("tools.id", ondelete="CASCADE"), nullable=True
-    )
-    
-    # pgvector embedding
-    embedding = Column(Vector(), nullable=True)
-
-    # Relationships
-    workspace = relationship("Workspace", back_populates="tools")
-    parent = relationship("Tool", remote_side=[id], back_populates="children")
-    children = relationship("Tool", back_populates="parent", cascade="all, delete-orphan")
-
-    # Indexes
-    __table_args__ = (
-        Index("ix_tools_workspace_id", "workspace_id"),
-        Index("ix_tools_name", "name"),
-        Index("ix_tools_type", "type"),
-        Index("ix_tools_parent_id", "parent_id"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<Tool id={self.id!s} name={self.name!r} type={self.type.value}>"
+    workspace_id: str
+    name: str
+    description: str | None = None
+    type: ToolType = ToolType.REST
+    is_enabled: bool = True
+    connection_config: dict[str, Any] | None = None
+    schema_def: dict[str, Any] | None = None
+    transport: MCPTransportType | None = None
+    command: str | None = None
+    args: list[str] | None = None
+    env: dict[str, Any] | None = None
+    url: str | None = None
+    status: MCPServerStatus = MCPServerStatus.ACTIVE
+    last_error: str | None = None
+    parent_id: str | None = None
+    embedding: list[float] | None = None
 
 
-class Agent(Base, AuditMixin):
-    """
-    An LLM agent definition bound to a workspace.
+class Agent(MongoDocument):
+    """LLM agent definition document."""
 
-    ``attached_tool_ids`` stores a list of Tool UUIDs that this agent
-    is allowed to invoke.  At runtime, SynapseForge further narrows
-    these down to the most relevant subset for each prompt.
-    """
-    __tablename__ = "agents"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    system_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
-    llm_config_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("llm_configs.id", ondelete="SET NULL"), nullable=True
-    )
-    use_neural_router: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default="false"
-    )
-    router_model_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    router_top_k: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    memory_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    memory_window: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    max_iterations: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    timeout_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    attached_tool_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
-        ARRAY(UUID(as_uuid=True)), nullable=True
-    )
-    collaborator_agent_ids: Mapped[list[uuid.UUID] | None] = mapped_column(
-        ARRAY(UUID(as_uuid=True)), nullable=True
-    )
-
-    # Relationships
-    workspace = relationship("Workspace", back_populates="agents")
-    llm_config = relationship("LLMConfig")
-
-    __table_args__ = (
-        Index("ix_agents_workspace_id", "workspace_id"),
-        Index("ix_agents_llm_config_id", "llm_config_id"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<Agent id={self.id!s} name={self.name!r}>"
+    workspace_id: str
+    name: str
+    description: str | None = None
+    system_prompt: str | None = None
+    llm_config_id: str | None = None
+    use_neural_router: bool = False
+    router_model_id: str | None = None
+    router_top_k: int | None = None
+    memory_type: str | None = None
+    memory_window: int | None = None
+    max_iterations: int | None = None
+    timeout_seconds: int | None = None
+    attached_tool_ids: list[str] | None = None
+    collaborator_agent_ids: list[str] | None = None
 
 
-class Orchestration(Base, AuditMixin):
-    """
-    A multi-agent orchestration / workflow definition.
+class Orchestration(MongoDocument):
+    """Multi-agent orchestration definition document."""
 
-    ``config`` holds the JSONB map of agent roles, graph topology,
-    and framework-specific settings consumed by the LangGraph (or
-    CrewAI / AutoGen) engine at execution time.
-    """
-    __tablename__ = "orchestrations"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    framework: Mapped[OrchestrationFramework] = mapped_column(
-        Enum(OrchestrationFramework, name="orchestration_framework", create_constraint=True),
-        nullable=False,
-        default=OrchestrationFramework.LANGGRAPH,
-    )
-    architecture_type: Mapped[ArchitectureType] = mapped_column(
-        Enum(ArchitectureType, name="architecture_type", create_constraint=True),
-        nullable=False,
-        default=ArchitectureType.REACT,
-    )
-    config: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-
-    # Relationships
-    workspace = relationship("Workspace", back_populates="orchestrations")
-
-    __table_args__ = (
-        Index("ix_orchestrations_workspace_id", "workspace_id"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<Orchestration id={self.id!s} name={self.name!r} framework={self.framework.value}>"
+    workspace_id: str
+    name: str
+    framework: OrchestrationFramework = OrchestrationFramework.LANGGRAPH
+    architecture_type: ArchitectureType = ArchitectureType.REACT
+    config: dict[str, Any] | None = None
 
 
-class LLMConfig(Base, AuditMixin):
-    """
-    Per-workspace LLM provider configuration.
+class LLMConfig(MongoDocument):
+    """Per-workspace LLM provider configuration document."""
 
-    Each workspace can have multiple named LLM configs (e.g. Teacher Config,
-    Expansion Config, Heavy Config). The Default Workspace ships with
-    pre-seeded Ollama configs for local development.
-
-    ``credentials`` stores provider-specific auth details as encrypted JSONB
-    (api_key, api_base, project_id, etc.).
-    """
-    __tablename__ = "llm_configs"
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
-    )
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    provider: Mapped[LLMProviderEnum] = mapped_column(
-        Enum(LLMProviderEnum, name="llm_provider_enum", create_constraint=True),
-        nullable=False,
-        default=LLMProviderEnum.OLLAMA,
-    )
-    model_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    credentials: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    temperature: Mapped[float] = mapped_column(
-        Float, nullable=False, default=0.7, server_default="0.7"
-    )
-    max_tokens: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=2048, server_default="2048"
-    )
-
-    # Relationships
-    workspace = relationship("Workspace", back_populates="llm_configs")
-
-    __table_args__ = (
-        Index("ix_llm_configs_workspace_id", "workspace_id"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<LLMConfig id={self.id!s} name={self.name!r} provider={self.provider.value}>"
+    workspace_id: str
+    name: str
+    provider: LLMProviderEnum = LLMProviderEnum.OLLAMA
+    model_name: str
+    credentials: dict[str, Any] | None = None
+    temperature: float = 0.7
+    max_tokens: int = 2048
 
 
-class PipelineArtifact(Base, AuditMixin):
-    """
-    Tracks metadata and IBM Cloud Object Storage (COS) references
-    for artifacts generated during SynapseForge pipeline phases (Generate and Train).
-    """
-    __tablename__ = "pipeline_artifacts"
+class PipelineArtifact(MongoDocument):
+    """Artifact metadata document for COS-backed pipeline outputs."""
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
-    workspace_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workspaces.id", ondelete="CASCADE"), nullable=False
-    )
-    phase: Mapped[str] = mapped_column(String(50), nullable=False) # 'generate' or 'train'
-    artifact_type: Mapped[str] = mapped_column(String(100), nullable=False) # 'dataset', 'tool_cache', 'fine_tuned_model', 'faiss_index', 'bm25_index'
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    cos_bucket: Mapped[str] = mapped_column(String(255), nullable=False)
-    cos_key: Mapped[str] = mapped_column(String(1024), nullable=False) # Key path or directory prefix
-    cos_endpoint: Mapped[str] = mapped_column(String(500), nullable=False)
-    url: Mapped[str | None] = mapped_column(Text, nullable=True) # Full S3/COS reference URL
-
-    # Relationships
-    workspace = relationship("Workspace")
-
-    __table_args__ = (
-        Index("ix_pipeline_artifacts_workspace_id", "workspace_id"),
-        Index("ix_pipeline_artifacts_phase", "phase"),
-        Index("ix_pipeline_artifacts_artifact_type", "artifact_type"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<PipelineArtifact id={self.id!s} workspace_id={self.workspace_id!s} phase={self.phase!r} type={self.artifact_type!r}>"
-
+    workspace_id: str
+    phase: str
+    artifact_type: str
+    name: str
+    cos_bucket: str
+    cos_key: str
+    cos_endpoint: str
+    url: str | None = None
 
 # Made with Bob

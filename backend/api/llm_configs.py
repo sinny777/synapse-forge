@@ -1,23 +1,20 @@
 """
 SynapseForge — LLM Configuration API Routes
 
-  • GET    /api/workspaces/{workspace_id}/llm-configs       — list configs
-  • POST   /api/workspaces/{workspace_id}/llm-configs       — create config
-  • GET    /api/workspaces/{workspace_id}/llm-configs/{id}   — get config
-  • PUT    /api/workspaces/{workspace_id}/llm-configs/{id}   — update config
-  • DELETE /api/workspaces/{workspace_id}/llm-configs/{id}   — delete config
+CRUD operations for workspace LLM configurations using MongoDB.
 """
+
+from __future__ import annotations
 
 import logging
 import uuid
 
-from fastapi import APIRouter, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi import APIRouter, Depends, HTTPException, status
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
-from db.engine import AsyncSessionDep
+from db.engine import get_db, normalize_mongo_document, prepare_document, utcnow
 from db.models import LLMConfig, Workspace
-from db.schemas import LLMConfigCreate, LLMConfigUpdate, LLMConfigRead
+from db.schemas import LLMConfigCreate, LLMConfigRead, LLMConfigUpdate
 
 logger = logging.getLogger("ntr.api.llm_configs")
 
@@ -27,44 +24,55 @@ router = APIRouter(
 )
 
 
+def _llm_config_from_doc(document: dict | None) -> LLMConfig | None:
+    """Convert a MongoDB document into an LLMConfig model."""
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
+        return None
+    return LLMConfig.model_validate(normalized)
+
+
 async def _get_workspace(
-    workspace_id: uuid.UUID, session: AsyncSession
+    workspace_id: uuid.UUID,
+    db: AsyncIOMotorDatabase,
 ) -> Workspace:
     """Fetch workspace or 404."""
-    ws = await session.get(Workspace, workspace_id)
-    if ws is None:
+    document = await db.workspaces.find_one({"_id": str(workspace_id)})
+    normalized = normalize_mongo_document(document)
+    if normalized is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Workspace {workspace_id} not found",
         )
-    return ws
+    return Workspace.model_validate(normalized)
 
 
 @router.get("", response_model=list[LLMConfigRead])
 async def list_llm_configs(
     workspace_id: uuid.UUID,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """List all LLM configurations for a workspace."""
-    await _get_workspace(workspace_id, session)
-    result = await session.execute(
-        select(LLMConfig)
-        .where(LLMConfig.workspace_id == workspace_id)
-        .order_by(LLMConfig.created_at)
-    )
-    return result.scalars().all()
+    await _get_workspace(workspace_id, db)
+    cursor = db.llm_configs.find({"workspace_id": str(workspace_id)}).sort("created_at", 1)
+
+    configs: list[LLMConfigRead] = []
+    async for document in cursor:
+        config = _llm_config_from_doc(document)
+        if config is not None:
+            configs.append(LLMConfigRead.model_validate(config))
+    return configs
 
 
 @router.post("", response_model=LLMConfigRead, status_code=status.HTTP_201_CREATED)
 async def create_llm_config(
     workspace_id: uuid.UUID,
     body: LLMConfigCreate,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Create a new LLM configuration in a workspace."""
-    ws = await _get_workspace(workspace_id, session)
+    ws = await _get_workspace(workspace_id, db)
 
-    # Prevent modifications to the default workspace
     if ws.is_default:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -72,9 +80,9 @@ async def create_llm_config(
         )
 
     config = LLMConfig(
-        workspace_id=workspace_id,
+        workspace_id=str(workspace_id),
         name=body.name,
-        provider=body.provider,
+        provider=body.provider.value if hasattr(body.provider, "value") else body.provider,
         model_name=body.model_name,
         credentials=body.credentials,
         temperature=body.temperature,
@@ -82,35 +90,27 @@ async def create_llm_config(
         created_by="system",
         updated_by="system",
     )
-    session.add(config)
-    await session.flush()
-    await session.refresh(config)
+    await db.llm_configs.insert_one(prepare_document(config.model_dump()))
 
     logger.info("Created LLM config '%s' in workspace %s", config.name, workspace_id)
-    return config
+    return LLMConfigRead.model_validate(config)
 
 
 @router.get("/{config_id}", response_model=LLMConfigRead)
 async def get_llm_config(
     workspace_id: uuid.UUID,
     config_id: uuid.UUID,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Get a specific LLM configuration."""
-    await _get_workspace(workspace_id, session)
-    result = await session.execute(
-        select(LLMConfig).where(
-            LLMConfig.id == config_id,
-            LLMConfig.workspace_id == workspace_id,
-        )
-    )
-    config = result.scalar_one_or_none()
-    if config is None:
+    await _get_workspace(workspace_id, db)
+    config = _llm_config_from_doc(await db.llm_configs.find_one({"_id": str(config_id)}))
+    if config is None or config.workspace_id != str(workspace_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"LLM config {config_id} not found in workspace {workspace_id}",
         )
-    return config
+    return LLMConfigRead.model_validate(config)
 
 
 @router.put("/{config_id}", response_model=LLMConfigRead)
@@ -118,10 +118,10 @@ async def update_llm_config(
     workspace_id: uuid.UUID,
     config_id: uuid.UUID,
     body: LLMConfigUpdate,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Update an LLM configuration."""
-    ws = await _get_workspace(workspace_id, session)
+    ws = await _get_workspace(workspace_id, db)
 
     if ws.is_default:
         raise HTTPException(
@@ -129,14 +129,8 @@ async def update_llm_config(
             detail="Cannot modify LLM configurations in the default workspace",
         )
 
-    result = await session.execute(
-        select(LLMConfig).where(
-            LLMConfig.id == config_id,
-            LLMConfig.workspace_id == workspace_id,
-        )
-    )
-    config = result.scalar_one_or_none()
-    if config is None:
+    config = _llm_config_from_doc(await db.llm_configs.find_one({"_id": str(config_id)}))
+    if config is None or config.workspace_id != str(workspace_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"LLM config {config_id} not found",
@@ -144,24 +138,31 @@ async def update_llm_config(
 
     update_data = body.model_dump(exclude_unset=True)
     for field, value in update_data.items():
-        setattr(config, field, value)
-    config.updated_by = "system"
+        if field == "provider" and value is not None and hasattr(value, "value"):
+            setattr(config, field, value.value)
+        else:
+            setattr(config, field, value)
 
-    await session.flush()
-    await session.refresh(config)
+    config.updated_by = "system"
+    config.updated_at = utcnow()
+
+    await db.llm_configs.replace_one(
+        {"_id": str(config_id)},
+        prepare_document(config.model_dump()),
+    )
 
     logger.info("Updated LLM config '%s' (%s)", config.name, config_id)
-    return config
+    return LLMConfigRead.model_validate(config)
 
 
 @router.delete("/{config_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_llm_config(
     workspace_id: uuid.UUID,
     config_id: uuid.UUID,
-    session: AsyncSessionDep,
+    db: AsyncIOMotorDatabase = Depends(get_db),
 ):
     """Delete an LLM configuration."""
-    ws = await _get_workspace(workspace_id, session)
+    ws = await _get_workspace(workspace_id, db)
 
     if ws.is_default:
         raise HTTPException(
@@ -169,19 +170,12 @@ async def delete_llm_config(
             detail="Cannot delete LLM configurations from the default workspace",
         )
 
-    result = await session.execute(
-        select(LLMConfig).where(
-            LLMConfig.id == config_id,
-            LLMConfig.workspace_id == workspace_id,
-        )
-    )
-    config = result.scalar_one_or_none()
-    if config is None:
+    config = _llm_config_from_doc(await db.llm_configs.find_one({"_id": str(config_id)}))
+    if config is None or config.workspace_id != str(workspace_id):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"LLM config {config_id} not found",
         )
 
-    await session.delete(config)
-
+    await db.llm_configs.delete_one({"_id": str(config_id)})
     logger.info("Deleted LLM config '%s' (%s)", config.name, config_id)
