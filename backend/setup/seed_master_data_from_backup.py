@@ -65,9 +65,13 @@ logger = logging.getLogger("seed_master_data_from_backup")
 DEFAULT_BACKUP_PATH = _backend_dir / "db" / "backup" / "synapse-backup-v2-260526"
 TARGET_TABLES = ("workspaces", "llm_configs", "tools", "agents", "orchestrations", "pipeline_artifacts")
 SECRET_KEY_PATTERN = re.compile(r"(api[_-]?key|token|secret|password|credential)", re.IGNORECASE)
+# NOTE: re.DOTALL is required so that '.' in (?P<values>.*) crosses embedded newlines
+# inside SQL string literals (multi-line system prompts, etc.).
+# The ;\Z anchor matches the literal semicolon at the very end of the statement string.
 INSERT_PATTERN = re.compile(
     r"INSERT INTO public\.(?P<table>workspaces|llm_configs|tools|agents|orchestrations|pipeline_artifacts)\s*"
-    r"\((?P<columns>.*?)\)\s*VALUES\s*\((?P<values>.*)\);$"
+    r"\((?P<columns>.*?)\)\s*VALUES\s*\((?P<values>.*)\);\Z",
+    re.DOTALL,
 )
 
 
@@ -196,7 +200,10 @@ def _sanitize_structure(value: Any) -> Any:
 
 
 def _parse_insert_line(line: str) -> tuple[str, dict[str, Any]] | None:
-    match = INSERT_PATTERN.match(line.strip())
+    # Use search() so that leading SQL comment lines (-- ...) before the INSERT
+    # keyword are ignored.  DOTALL on the pattern means this correctly handles
+    # multi-line statements with embedded newlines.
+    match = INSERT_PATTERN.search(line)
     if not match:
         return None
 
@@ -219,16 +226,65 @@ def _parse_insert_line(line: str) -> tuple[str, dict[str, Any]] | None:
     return table, row
 
 
+def _extract_sql_statements(text: str) -> list[str]:
+    """
+    Extract complete SQL statements from a pg_dump file.
+
+    A statement ends at a semicolon that is NOT inside a single-quoted string
+    literal.  This handles system prompts and JSON config values that contain
+    embedded newlines and semicolons.
+    """
+    statements: list[str] = []
+    current: list[str] = []
+    in_string = False
+    i = 0
+    n = len(text)
+
+    while i < n:
+        ch = text[i]
+
+        # Handle escaped single-quote inside a string literal ('').
+        if in_string and ch == "'" and i + 1 < n and text[i + 1] == "'":
+            current.append("''")
+            i += 2
+            continue
+
+        if ch == "'":
+            in_string = not in_string
+            current.append(ch)
+            i += 1
+            continue
+
+        if not in_string and ch == ";":
+            current.append(ch)
+            stmt = "".join(current).strip()
+            if stmt:
+                statements.append(stmt)
+            current = []
+            i += 1
+            continue
+
+        current.append(ch)
+        i += 1
+
+    # Trailing content without a semicolon
+    remainder = "".join(current).strip()
+    if remainder:
+        statements.append(remainder)
+
+    return statements
+
+
 def _load_backup_rows(backup_path: Path) -> dict[str, list[dict[str, Any]]]:
     data: dict[str, list[dict[str, Any]]] = {table: [] for table in TARGET_TABLES}
 
-    with backup_path.open("r", encoding="utf-8") as handle:
-        for line in handle:
-            parsed = _parse_insert_line(line)
-            if not parsed:
-                continue
-            table, row = parsed
-            data[table].append(row)
+    raw = backup_path.read_text(encoding="utf-8")
+    for stmt in _extract_sql_statements(raw):
+        parsed = _parse_insert_line(stmt)
+        if not parsed:
+            continue
+        table, row = parsed
+        data[table].append(row)
 
     return data
 

@@ -31,8 +31,15 @@ class LiteLLMChatOpenAI(ChatOpenAI):
             elif isinstance(m, HumanMessage) or (hasattr(m, "type") and m.type == "human"):
                 litellm_messages.append({"role": "user", "content": m.content})
             elif isinstance(m, ToolMessage) or (hasattr(m, "type") and m.type == "tool"):
-                is_local = "watsonx/" in self.litellm_model.lower() or "ollama/" in self.litellm_model.lower()
-                if is_local:
+                # Use the standard tool-role message for all models.
+                # The old "is_local" workaround (converting tool results to user messages)
+                # was written assuming local models don't support function calling, but
+                # Granite 4.1:8b and similar models do — and the text-based workaround
+                # breaks the tool-call/result correlation, causing the model to re-call
+                # tools with empty arguments on the next turn.
+                # WatsonX still needs the text workaround as it doesn't support tool role.
+                is_watsonx = "watsonx/" in self.litellm_model.lower()
+                if is_watsonx:
                     tool_name = getattr(m, "name", "tool") or "tool"
                     litellm_messages.append({
                         "role": "user",
@@ -46,19 +53,17 @@ class LiteLLMChatOpenAI(ChatOpenAI):
                     })
             elif isinstance(m, AIMessage) or (hasattr(m, "type") and m.type in ("assistant", "ai")):
                 content = m.content or ""
-                is_local = "watsonx/" in self.litellm_model.lower() or "ollama/" in self.litellm_model.lower()
-                if is_local and hasattr(m, "tool_calls") and m.tool_calls:
-                    # Append text representation of tool calls to content so local model sees it
+                # WatsonX doesn't support native tool_calls in the message format,
+                # so we inline a text representation into the assistant content instead.
+                is_watsonx = "watsonx/" in self.litellm_model.lower()
+                if is_watsonx and hasattr(m, "tool_calls") and m.tool_calls:
                     tool_calls_text = []
                     for tc in m.tool_calls:
                         tool_calls_text.append(f"Tool Call: {tc.get('name')}({json.dumps(tc.get('args'))})")
-                    if content:
-                        content += "\n\n" + "\n".join(tool_calls_text)
-                    else:
-                        content = "\n".join(tool_calls_text)
-                
+                    content = (content + "\n\n" + "\n".join(tool_calls_text)).strip() if content else "\n".join(tool_calls_text)
+
                 msg_dict = {"role": "assistant", "content": content}
-                if not is_local and hasattr(m, "tool_calls") and m.tool_calls:
+                if not is_watsonx and hasattr(m, "tool_calls") and m.tool_calls:
                     msg_dict["tool_calls"] = [
                         {
                             "id": tc.get("id"),

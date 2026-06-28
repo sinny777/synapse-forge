@@ -30,6 +30,13 @@ print(f"[Main] Loaded environment from: {env_path}")
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("fastapi_app")
 
+# File handler so logs are readable even without a live terminal session
+_log_file = Path(__file__).parent / "agent_debug.log"
+_fh = logging.FileHandler(_log_file, mode="a", encoding="utf-8")
+_fh.setLevel(logging.INFO)
+_fh.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+logging.getLogger().addHandler(_fh)
+
 
 # ---------------------------------------------------------------------------
 # FastAPI Lifespan — initialise & tear down DB + Redis connections

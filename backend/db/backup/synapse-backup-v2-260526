@@ -623,6 +623,67 @@ For every claim processing request, you MUST follow these steps IN ORDER. Do NOT
 ## CRITICAL RULES
 - NEVER call calculate_claimable_amount or submit_mediclaim without first getting data from Policy Agent AND Billing Agent.
 - NEVER call submit_mediclaim more than once per claim.', 'ff21c29c-6802-4fdd-a9c6-478dc04c5af2', true, 3, 'summary', 12, 15, 240, '{922b9c29-54f9-46d5-860a-b7ef699481d3}', '{d82efc6e-ff32-4ac9-aac4-208ed46464a5,5b35861f-24b8-45fb-9a33-beb3f46ec262}', '2026-05-26 11:39:36.424383+00', '2026-05-26 11:58:38.340335+00', 'system', 'demo@synapseforge.dev');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('f1e2d3c4-0010-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002', 'Research Agent (Free)', 'A fully free research agent using only public APIs that require no API keys. Uses Wikipedia (factual summaries), ArXiv (academic papers), and Hacker News (tech news) REST tools plus the Web Fetch Server MCP to read any URL. Ready to use immediately — no configuration needed.', 'You are a research assistant with access to free, public data sources. Use these tools to answer research questions accurately and concisely.
+
+## AVAILABLE TOOLS
+
+**Wikipedia Search** — look up factual summaries, definitions, and encyclopedia articles on any topic.
+**ArXiv Search** — find academic papers and research preprints by topic or keyword.
+**Hacker News Search** — discover recent technology discussions, news, and community insights.
+**Web Fetch / fetch** (if enabled) — retrieve the full content of any URL for deeper reading.
+
+## HOW TO USE TOOLS
+
+- For factual or definitional questions: start with Wikipedia Search.
+- For academic or scientific topics: use ArXiv Search.
+- For technology news or community sentiment: use Hacker News Search.
+- When you have a specific URL to read in detail: use Web Fetch.
+- Chain tools as needed: search first to find sources, then fetch to read them deeply.
+
+## RESPONSE FORMAT
+
+Always respond in Markdown with:
+1. A brief direct answer (1-2 sentences)
+2. Key findings with source citations (include URLs where available)
+3. A short conclusion
+
+Do NOT output raw JSON. If a tool returns an error, note it and continue with other tools.', 'ff21c29c-6802-4fdd-a9c6-478dc04c5af2', false, NULL, 'buffer', 10, 8, 120, '{f1e2d3c4-0001-4000-8000-000000000001,f1e2d3c4-0002-4000-8000-000000000001,f1e2d3c4-0003-4000-8000-000000000001,b51345f3-ff8c-43de-847b-90bbad62dfae}', NULL, '2026-05-26 12:00:00.000000+00', '2026-05-26 12:00:00.000000+00', 'system', 'system');
+INSERT INTO public.agents (id, workspace_id, name, description, system_prompt, llm_config_id, use_neural_router, router_top_k, memory_type, memory_window, max_iterations, timeout_seconds, attached_tool_ids, collaborator_agent_ids, created_at, updated_at, created_by, updated_by) VALUES ('a1b2c3d4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002', 'Research Agent (Pro)', 'Pro research agent with access to premium web intelligence tools. Connects to Brave Search MCP (web search), Firecrawl MCP (scraping and crawling), Web Fetch Server (URL fetching), and Perplexity MCP (AI-powered synthesis). Delivers deeply sourced, cited findings. Requires API keys configured in each MCP server env settings before use.', '# Research Agent (Pro) — Core Instructions
+
+You are an expert research assistant with access to powerful paid web intelligence tools.
+Your mission is to investigate topics deeply, gather evidence from multiple sources,
+and present comprehensive, well-cited findings.
+
+## 1. THINK, PLAN, ACT FRAMEWORK
+
+For every research request:
+
+### THINK
+- What is the research question or topic?
+- Which tools give the best coverage for this question?
+
+### PLAN
+State: **Current Task:** <immediate next step>
+
+### ACT
+Execute the step, evaluate the result, determine the next step.
+
+## 2. AVAILABLE MCP TOOLS
+
+**Brave Search** (`brave_web_search`): Privacy-focused web search. Use for: broad discovery, recent news, source lists.
+**Firecrawl** (`scrape`, `crawl`, `map`, `extract`, `search`): Full-page extraction with JS rendering. Use for: reading articles in depth, extracting structured data, site-wide crawls.
+**Web Fetch** (`fetch`): Fetch any URL directly. Use for: API endpoints, raw text, documentation.
+**Perplexity** (`perplexity_ask`): AI synthesis with citations. Use for: questions needing cross-source synthesis.
+
+## 3. RESEARCH METHODOLOGY
+
+1. Start with Brave Search or Perplexity for an overview.
+2. Use Firecrawl or Web Fetch for in-depth source reading.
+3. Cross-reference across multiple sources.
+
+## 4. FINAL RESPONSE FORMAT
+
+Present findings in Markdown: executive summary, key findings with citations, conclusion. Do NOT output raw JSON.', 'ff21c29c-6802-4fdd-a9c6-478dc04c5af2', true, 4, 'buffer', 12, 10, 180, '{a337d605-c2a8-4168-ad38-d08eb7a7e95b,6829f554-def1-4c9d-bd04-783a343d847a,b51345f3-ff8c-43de-847b-90bbad62dfae,58029774-4230-4fab-94a0-41afd98e9bd9}', NULL, '2026-05-26 12:00:00.000000+00', '2026-05-26 12:00:00.000000+00', 'system', 'system');
 
 
 --
@@ -657,6 +718,8 @@ INSERT INTO public.orchestrations (id, workspace_id, name, framework, architectu
 INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('f24583df-2d66-461c-a285-42065e74a4da', '00000000-0000-0000-0000-000000000001', 'UHNW Private Banking Concierge Orchestrator', 'LANGGRAPH', 'REACT', '{"graph": {"start": "supervisor", "workers": {"Concierge": "Premium Concierge Agent", "TaxCompliance": "Tax & Compliance Officer Agent", "TradingAnalyst": "Trading & Market Analyst Agent", "PortfolioManager": "Portfolio Manager Agent"}, "supervisor": {"routes": ["PortfolioManager", "TradingAnalyst", "TaxCompliance", "Concierge", "FINISH"]}}, "description": "Models the LangGraph UHNW banking example with a supervisor agent routing requests to portfolio, market, tax/compliance, and concierge specialists.", "example_app": "langgraph_UHNW_banking", "entry_agent_ids": ["40d5d91d-20d9-426f-af05-1e5bf9f81236", "d8a67d8e-5d7e-4011-9da2-a514b5f4f92d", "fef11f1f-8885-430e-a6af-26f0fb411b76", "6f931f02-32d1-45f1-89b0-9546729fc9b8", "cb5e86ad-727c-4d90-a706-d94c9141c4b6"], "framework_origin": "langgraph", "worker_agent_ids": ["d8a67d8e-5d7e-4011-9da2-a514b5f4f92d", "fef11f1f-8885-430e-a6af-26f0fb411b76", "6f931f02-32d1-45f1-89b0-9546729fc9b8", "cb5e86ad-727c-4d90-a706-d94c9141c4b6"], "execution_pattern": "supervisor_routing", "supervisor_agent_id": "40d5d91d-20d9-426f-af05-1e5bf9f81236"}', '2026-05-26 11:39:36.402227+00', '2026-05-26 11:39:36.402229+00', 'system', 'system');
 INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('37b93c21-e0af-4da8-bcf0-e6bcc0595128', '00000000-0000-0000-0000-000000000002', 'Mediclaim Claim Processing Orchestrator', 'LANGGRAPH', 'REACT', '{"sequence": ["Policy Agent", "Billing Agent", "Claim Processing Agent"], "description": "Models the BeeAI mediclaim example where policy verification and billing validation feed into final claim calculation and submission.", "example_app": "beeai_mediclaim_processing", "context_handoff": {"Policy Agent": ["Claim Processing Agent"], "Billing Agent": ["Claim Processing Agent"]}, "entry_agent_ids": ["d82efc6e-ff32-4ac9-aac4-208ed46464a5", "5b35861f-24b8-45fb-9a33-beb3f46ec262", "15be7d3f-ab0a-47ac-9d2c-b25cbf93e27b"], "framework_origin": "beeai", "worker_agent_ids": ["d82efc6e-ff32-4ac9-aac4-208ed46464a5", "5b35861f-24b8-45fb-9a33-beb3f46ec262"], "execution_pattern": "sequential_context_handoff", "supervisor_agent_id": "15be7d3f-ab0a-47ac-9d2c-b25cbf93e27b"}', '2026-05-26 11:39:36.435836+00', '2026-05-26 11:39:36.435838+00', 'system', 'system');
 INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('b6731dc6-e21a-4d22-8f79-10395cf9760a', '00000000-0000-0000-0000-000000000002', 'UHNW Private Banking Concierge Orchestrator', 'LANGGRAPH', 'REACT', '{"graph": {"start": "supervisor", "workers": {"Concierge": "Premium Concierge Agent", "TaxCompliance": "Tax & Compliance Officer Agent", "TradingAnalyst": "Trading & Market Analyst Agent", "PortfolioManager": "Portfolio Manager Agent"}, "supervisor": {"routes": ["PortfolioManager", "TradingAnalyst", "TaxCompliance", "Concierge", "FINISH"]}}, "description": "Models the LangGraph UHNW banking example with a supervisor agent routing requests to portfolio, market, tax/compliance, and concierge specialists.", "example_app": "langgraph_UHNW_banking", "entry_agent_ids": ["593bca15-b3d8-4bf2-92ba-bec24a5d1f17", "5d4ac1bf-4930-4749-88a3-66951c8308f8", "5fb95a57-8aae-44c9-a74c-e797603c730f", "a424ebbf-899f-448f-9c5e-f5e15338d05f", "1e03a280-c75f-491c-a35a-17f76b84458d"], "framework_origin": "langgraph", "worker_agent_ids": ["5d4ac1bf-4930-4749-88a3-66951c8308f8", "5fb95a57-8aae-44c9-a74c-e797603c730f", "a424ebbf-899f-448f-9c5e-f5e15338d05f", "1e03a280-c75f-491c-a35a-17f76b84458d"], "execution_pattern": "supervisor_routing", "supervisor_agent_id": "593bca15-b3d8-4bf2-92ba-bec24a5d1f17"}', '2026-05-26 11:39:36.436816+00', '2026-05-26 11:39:36.436817+00', 'system', 'system');
+INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('f1e2d3c4-0020-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002', 'Research Agent (Free) Orchestrator', 'LANGGRAPH', 'REACT', '{"agent_id": "f1e2d3c4-0010-4000-8000-000000000001", "description": "Zero-configuration research orchestration using only free public APIs: Wikipedia, ArXiv, Hacker News, and Web Fetch. No API keys required. Ready to run immediately.", "execution_pattern": "react_single_agent", "entry_agent_ids": ["f1e2d3c4-0010-4000-8000-000000000001"], "framework_origin": "langgraph", "tools": ["Wikipedia Search", "ArXiv Search", "Hacker News Search", "Web Fetch Server"]}', '2026-05-26 12:00:00.000000+00', '2026-05-26 12:00:00.000000+00', 'system', 'system');
+INSERT INTO public.orchestrations (id, workspace_id, name, framework, architecture_type, config, created_at, updated_at, created_by, updated_by) VALUES ('a1b2c3d4-0002-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002', 'Research Agent (Pro) Orchestrator', 'LANGGRAPH', 'REACT', '{"agent_id": "a1b2c3d4-0001-4000-8000-000000000001", "description": "Pro research orchestration using Brave Search, Firecrawl, Web Fetch, and Perplexity. Requires API keys configured in each MCP server env settings.", "execution_pattern": "react_single_agent", "entry_agent_ids": ["a1b2c3d4-0001-4000-8000-000000000001"], "framework_origin": "langgraph", "tool_servers": ["Brave Search MCP", "Firecrawl MCP", "Web Fetch Server", "Perplexity MCP"], "setup_note": "Add BRAVE_API_KEY, FIRECRAWL_API_KEY, PERPLEXITY_API_KEY via Tool Registry before running."}', '2026-05-26 12:00:00.000000+00', '2026-05-26 12:00:00.000000+00', 'system', 'system');
 
 
 --
@@ -731,6 +794,9 @@ INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled,
 INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('5ab8a3fd-824b-4985-8a60-528892e3777b', '00000000-0000-0000-0000-000000000002', 'fetch_discharge_summary', 'Fetch the hospital discharge summary for a patient.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415195+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
 INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('f801af8d-1c2a-458d-b380-09da26093053', '00000000-0000-0000-0000-000000000002', 'verify_hospital_bills', 'Verify and retrieve itemized hospital bills for a patient.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415198+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
 INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('e765c9c4-625b-4882-abc4-f5a4d1e725e3', '00000000-0000-0000-0000-000000000002', 'calculate_claimable_amount', 'Calculate the final claimable amount after applying coverage limits and co-pay.', 'MCP_TOOL', true, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'DISABLED', NULL, '922b9c29-54f9-46d5-860a-b7ef699481d3', NULL, '2026-05-26 11:39:36.415201+00', '2026-05-26 11:43:49.837228+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('f1e2d3c4-0001-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002', 'Wikipedia Search', 'Search Wikipedia for summaries and articles. Free public API — no key required. Returns article title, summary, and URL for any topic. Ideal for factual lookups, definitions, and general knowledge research.', 'REST', true, '{"url": "https://en.wikipedia.org/api/rest_v1/page/summary/{topic}", "method": "GET", "headers": {"User-Agent": "SynapseForge-ResearchAgent/1.0"}, "payload_mode": "get"}', '{"type": "object", "required": ["topic"], "properties": {"topic": {"type": "string", "description": "The Wikipedia article title or topic to look up (e.g. ''Artificial intelligence'', ''LangGraph'', ''Monte Carlo method'')"}}, "description": "Search Wikipedia for a topic and return its summary, introduction, and article URL."}', NULL, NULL, NULL, NULL, NULL, 'ACTIVE', NULL, NULL, NULL, '2026-05-26 12:00:00.000000+00', '2026-05-26 12:00:00.000000+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('f1e2d3c4-0002-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002', 'ArXiv Search', 'Search ArXiv for academic papers and preprints. Free public API — no key required. Returns paper titles, authors, abstracts, and PDF links. Ideal for scientific and technical research.', 'REST', true, '{"url": "https://export.arxiv.org/api/query", "method": "GET", "payload_mode": "get"}', '{"type": "object", "required": ["search_query"], "properties": {"search_query": {"type": "string", "description": "Search terms for ArXiv papers (e.g. ''large language models'', ''neural networks'', ''quantum computing'')"}, "max_results": {"type": "integer", "description": "Maximum number of results to return (default: 5, max: 20)"}}, "description": "Search ArXiv academic preprint server for papers matching the query. Returns titles, authors, abstracts, and PDF links."}', NULL, NULL, NULL, NULL, NULL, 'ACTIVE', NULL, NULL, NULL, '2026-05-26 12:00:00.000000+00', '2026-05-26 12:00:00.000000+00', 'system', 'system');
+INSERT INTO public.tools (id, workspace_id, name, description, type, is_enabled, connection_config, schema, transport, command, args, env, url, status, last_error, parent_id, embedding, created_at, updated_at, created_by, updated_by) VALUES ('f1e2d3c4-0003-4000-8000-000000000001', '00000000-0000-0000-0000-000000000002', 'Hacker News Search', 'Search Hacker News stories and discussions via the free Algolia HN Search API. No key required. Returns story titles, URLs, scores, and comment counts. Ideal for technology news and community insights.', 'REST', true, '{"url": "https://hn.algolia.com/api/v1/search", "method": "GET", "payload_mode": "get"}', '{"type": "object", "required": ["query"], "properties": {"query": {"type": "string", "description": "Search terms for Hacker News stories (e.g. ''AI agents'', ''LLM'', ''startup'')"}, "tags": {"type": "string", "description": "Filter by type: ''story'', ''comment'', ''show_hn'', ''ask_hn'' (optional)"}}, "description": "Search Hacker News via the Algolia HN Search API. Returns story titles, links, upvote scores, and comment counts for tech community insights."}', NULL, NULL, NULL, NULL, NULL, 'ACTIVE', NULL, NULL, NULL, '2026-05-26 12:00:00.000000+00', '2026-05-26 12:00:00.000000+00', 'system', 'system');
 
 
 --

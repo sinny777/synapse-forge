@@ -733,18 +733,47 @@ class DynamicLangGraphAgentExecutor:
                 
                 if actual_tools:
                     tool_names = [t.name for t in langchain_tools]
+
+                    # Build detailed tool signatures so local/non-function-calling models
+                    # (e.g. Ollama/granite) know exactly which parameters each tool requires
+                    # and can extract values from the user's query.
+                    tool_signatures_lines = []
+                    for t in langchain_tools:
+                        if t.name == "fetch_tools_for_task":
+                            continue
+                        try:
+                            schema = t.args_schema.model_json_schema() if t.args_schema else {}
+                            props = schema.get("properties", {})
+                            req = set(schema.get("required", []))
+                            params = []
+                            for pname, pinfo in props.items():
+                                ptype = pinfo.get("type", "string")
+                                pdesc = pinfo.get("description", "")
+                                required_marker = " (required)" if pname in req else " (optional)"
+                                params.append(f"  - {pname}: {ptype}{required_marker} — {pdesc}")
+                            sig = f"• {t.name}({', '.join(props.keys())})"
+                            if params:
+                                sig += "\n" + "\n".join(params)
+                            tool_signatures_lines.append(sig)
+                        except Exception:
+                            tool_signatures_lines.append(f"• {t.name}")
+
+                    tool_signatures_str = "\n".join(tool_signatures_lines)
+
                     tool_usage_instruction = f"""
 
-IMPORTANT: You have access to the following tools: {', '.join(tool_names)}
+IMPORTANT: You have access to the following tools:
+
+{tool_signatures_str}
 
 **Think, Plan, Act Framework:**
-1. **Think**: Analyze the user's request and identify what information you need
-2. **Plan**: Determine which tools to use and in what order
-3. **Act**: Execute the tools to gather information
+1. **Think**: Analyse the user's request and identify ALL parameter values needed (e.g. IDs, names, amounts) directly from the user's message.
+2. **Plan**: Determine which tools to use and what argument values to supply. ALWAYS extract concrete values from the conversation — never call a tool with empty or missing required arguments.
+3. **Act**: Execute the tool with the correct, populated arguments.
 
 You MUST use these tools to gather information before providing your final answer. Do not make assumptions or provide answers without using the available tools first.
 
-For delegating to sub-agents (collaborators), use the delegate_to_* tools when the task requires specialized expertise.
+For delegating to sub-agents (collaborators), use the delegate_to_* tools when the task requires specialised expertise.
 
 Always use tools when they are relevant to the user's question."""
 
@@ -826,20 +855,106 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
 
                 # Invoke LLM with streaming to show updates in real-time
                 start_time = time.perf_counter()
-                
+                stream_failed = False
+
                 full_message = None
-                async for chunk in llm_with_tools.astream(llm_messages):
-                    if full_message is None:
-                        full_message = chunk
-                    else:
-                        full_message += chunk
-                    
-                    if full_message.content:
-                        # Emit reasoning streaming update
+                last_streamed_reasoning = ""
+                try:
+                    async for chunk in llm_with_tools.astream(llm_messages):
+                        if full_message is None:
+                            full_message = chunk
+                        else:
+                            full_message += chunk
+                        
+                        current_content = getattr(full_message, "content", "") or ""
+                        if current_content and current_content != last_streamed_reasoning:
+                            last_streamed_reasoning = current_content
+                            # Emit reasoning streaming update
+                            await executor.put_event(_sse_event(
+                                "reasoning",
+                                "Agent Reasoning",
+                                current_content,
+                                status_value="running",
+                                metadata={
+                                    "depth": depth,
+                                    "agent_id": str(agent_obj.id),
+                                    "agent_name": agent_obj.name,
+                                },
+                            ))
+                except Exception as stream_error:
+                    stream_failed = True
+                    logger.warning(
+                        "Streaming LLM response failed for agent %s, falling back to non-streaming generation: %s",
+                        agent_obj.id,
+                        stream_error,
+                    )
+                    await executor.put_event(_sse_event(
+                        "thought",
+                        "Streaming Unavailable",
+                        "Falling back to buffered LLM generation to preserve full output and tool calls.",
+                        status_value="running",
+                        metadata={
+                            "depth": depth,
+                            "agent_id": str(agent_obj.id),
+                            "agent_name": agent_obj.name,
+                            "error": str(stream_error),
+                        },
+                    ))
+                
+                latency_ms = (time.perf_counter() - start_time) * 1000
+
+                # When tools are bound and streaming produced no structured tool_calls,
+                # re-invoke without streaming.  Some models that support tool calling
+                # return structured tool_calls only through the non-streaming path; the
+                # streaming path may return them as plain-text JSON in the content field
+                # instead.  This is a generic guard — it applies to any model, not just
+                # specific providers.
+                stream_missing_tool_calls = (
+                    full_message is not None
+                    and not stream_failed
+                    and langchain_tools  # tools were bound — model could have called one
+                    and not getattr(full_message, "tool_calls", None)
+                    and not (getattr(full_message, "content", "") or "").strip()
+                    # Only re-invoke when content is empty (model tried to call a tool but
+                    # streaming lost the structured payload).  If content is non-empty text
+                    # the model chose to respond in prose — respect that.
+                )
+
+                # Broader case: content looks like a tool call object but tool_calls is empty
+                stream_has_text_tool_call = (
+                    full_message is not None
+                    and not stream_failed
+                    and not getattr(full_message, "tool_calls", None)
+                    and bool((getattr(full_message, "content", "") or "").strip())
+                    # Content starts with { or [ — likely a serialised tool call
+                    and (getattr(full_message, "content", "") or "").strip()[0] in ("{", "[")
+                )
+
+                _dbg = (
+                    f"[LLM_NODE] turn stream_failed={stream_failed} "
+                    f"stream_tc={bool(getattr(full_message,'tool_calls',None) if full_message else None)} "
+                    f"stream_content={str((getattr(full_message,'content','') or '') if full_message else '')[:80]!r} "
+                    f"stream_missing={stream_missing_tool_calls} "
+                    f"stream_text_tc={stream_has_text_tool_call} "
+                    f"tools_bound={len(langchain_tools)}"
+                )
+                logger.info(_dbg)
+
+                if full_message is None or stream_failed or stream_missing_tool_calls or stream_has_text_tool_call:
+                    if stream_missing_tool_calls or stream_has_text_tool_call:
+                        logger.info(
+                            "Streaming did not yield structured tool_calls for agent %s "
+                            "(stream_missing=%s, stream_text_tool_call=%s) — "
+                            "re-invoking without streaming to obtain structured response.",
+                            agent_obj.id, stream_missing_tool_calls, stream_has_text_tool_call,
+                        )
+                    response = await llm_with_tools.ainvoke(llm_messages)
+                    latency_ms = (time.perf_counter() - start_time) * 1000
+                    if response.content:
                         await executor.put_event(_sse_event(
                             "reasoning",
                             "Agent Reasoning",
-                            full_message.content,
+                            response.content,
                             status_value="running",
                             metadata={
                                 "depth": depth,
@@ -847,11 +962,6 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
                                 "agent_name": agent_obj.name,
                             },
                         ))
-                
-                latency_ms = (time.perf_counter() - start_time) * 1000
-                
-                if full_message is None:
-                    response = AIMessage(content="")
                 else:
                     response = full_message
 
@@ -1132,21 +1242,27 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
                         tool = tool_map[tool_name]
                         tool_start_time = time.perf_counter()
                         try:
-                            # Execute tool
-                            if hasattr(tool, "coroutine") and tool.coroutine:
-                                result = await tool.coroutine(**tool_args)
-                            else:
-                                result = await tool.ainvoke(tool_args)
+                            # Unwrap {"kwargs": {...}} that some LLMs emit instead of flat args
+                            if (
+                                isinstance(tool_args, dict)
+                                and list(tool_args.keys()) == ["kwargs"]
+                                and isinstance(tool_args.get("kwargs"), dict)
+                            ):
+                                tool_args = tool_args["kwargs"]
+
+                            # Always use ainvoke so LangChain handles schema validation
+                            result = await tool.ainvoke(tool_args)
                             
                             tool_latency_ms = (time.perf_counter() - tool_start_time) * 1000
                             result_str = str(result)
+                            is_success = not result_str.strip().lower().startswith(("http 4", "http 5", "rest tool error", "mcp tool error", "tool execution failed"))
                             
                             # Emit tool result
                             await executor.put_event(_sse_event(
                                 "tool_result",
                                 f"{tool_name} Result",
                                 result_str,
-                                status_value="success",
+                                status_value="success" if is_success else "error",
                                 latency_ms=tool_latency_ms,
                                 metadata={
                                     "depth": depth,
@@ -1155,7 +1271,7 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
                                     "tool_name": tool_name,
                                     "tool_args": tool_args,
                                     "result": result_str,
-                                    "success": True,
+                                    "success": is_success,
                                     "execution_time": tool_latency_ms,
                                 },
                             ))
@@ -1169,7 +1285,32 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
                             )
                         except Exception as e:
                             tool_latency_ms = (time.perf_counter() - tool_start_time) * 1000
-                            error_msg = f"Tool execution failed: {str(e)}"
+                            from pydantic import ValidationError as PydanticValidationError
+                            if isinstance(e, PydanticValidationError):
+                                # Build a clear, actionable retry message for the LLM so it
+                                # knows exactly which arguments to fix before calling again.
+                                missing = [
+                                    str(err.get("loc", ("?",))[0])
+                                    for err in e.errors()
+                                    if err.get("type") == "missing"
+                                ]
+                                extra = [
+                                    str(err.get("loc", ("?",))[0])
+                                    for err in e.errors()
+                                    if err.get("type") == "extra_forbidden"
+                                ]
+                                parts = []
+                                if missing:
+                                    parts.append(f"Missing required arguments: {', '.join(missing)}.")
+                                if extra:
+                                    parts.append(f"Unexpected arguments (remove them): {', '.join(extra)}.")
+                                parts.append(
+                                    f"Please retry {tool_name} and supply ALL required arguments "
+                                    "with values extracted from the user's original request."
+                                )
+                                error_msg = " ".join(parts)
+                            else:
+                                error_msg = f"Tool execution failed: {str(e)}"
                             logger.error(f"Tool {tool_name} failed: {e}")
                             
                             await executor.put_event(_sse_event(
@@ -1368,22 +1509,26 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
             # Since our graph has 3 nodes per iteration loop (neural_routing -> llm -> tools),
             # we scale the limit to allow up to max_iterations loops.
             config = {"recursion_limit": (agent.max_iterations or 10) * 3 + 5}
-            state_messages = list(initial_messages)
+            latest_state = initial_state
             
             async for event in app.astream(initial_state, config=config):
                 # Flush queued events
                 while self.event_queue:
                     await self.put_event(self.event_queue.pop(0))
                 
-                # Check for updates in the state from any node to extract assistant responses
-                for node_name, node_output in event.items():
-                    if isinstance(node_output, dict) and "messages" in node_output:
-                        for msg in node_output["messages"]:
-                            state_messages.append(msg)
+                # Keep the latest graph state so final output reflects tool results and later LLM turns
+                for node_output in event.values():
+                    if isinstance(node_output, dict):
+                        latest_state = {
+                            **latest_state,
+                            **node_output,
+                        }
  
-            # Extract the final response by scanning state_messages backwards
+            final_messages = list(latest_state.get("messages", initial_messages))
+
+            # Extract the final response by scanning final graph messages backwards
             final_response = ""
-            for msg in reversed(state_messages):
+            for msg in reversed(final_messages):
                 is_ai = (isinstance(msg, AIMessage) or 
                          msg.__class__.__name__ in ("AIMessage", "AIMessageChunk"))
                 if is_ai and msg.content:
@@ -1416,15 +1561,30 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
             
             if not final_response:
                 # Fallback to the last assistant message content if no non-tool AIMessage is found
-                for msg in reversed(state_messages):
-                    is_ai = (isinstance(msg, AIMessage) or 
+                for msg in reversed(final_messages):
+                    is_ai = (isinstance(msg, AIMessage) or
                              msg.__class__.__name__ in ("AIMessage", "AIMessageChunk"))
                     if is_ai and msg.content:
                         final_response = msg.content
                         break
-                        
+
             if not final_response:
-                final_response = "Agent completed execution"
+                # Next fallback: use the most recent tool output or error so the UI never shows a blank/generic result
+                for msg in reversed(final_messages):
+                    is_tool = isinstance(msg, ToolMessage) or msg.__class__.__name__ == "ToolMessage"
+                    if is_tool and getattr(msg, "content", None):
+                        final_response = str(msg.content)
+                        break
+
+            if not final_response:
+                for msg in reversed(final_messages):
+                    content = getattr(msg, "content", None)
+                    if content:
+                        final_response = str(content)
+                        break
+
+            if not final_response:
+                final_response = "No final response was generated. Review the tool output and event timeline above."
             
             response_text = str(final_response)
             
@@ -1481,13 +1641,31 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
         for tool in tools:
             try:
                 schema = tool.schema_def or {}
+
                 if isinstance(schema.get("inputSchema"), dict):
                     input_schema = schema["inputSchema"]
                 else:
                     input_schema = schema
-                
+
                 properties = input_schema.get("properties", {})
                 required = input_schema.get("required", [])
+
+                # When the stored schema is empty (no properties) and the tool is an
+                # MCP_TOOL, fetch the live schema directly from the running MCP server.
+                # This handles the case where tools were registered in the DB without
+                # their inputSchema being populated.
+                if not properties and tool.type.value == "MCP_TOOL" and tool.parent_id:
+                    try:
+                        live_props, live_required = await self._fetch_mcp_tool_schema(tool)
+                        if live_props:
+                            properties = live_props
+                            required = live_required
+                            logger.info(
+                                "Loaded live MCP schema for %r: props=%s required=%s",
+                                tool.name, list(properties.keys()), required,
+                            )
+                    except Exception as schema_err:
+                        logger.warning("Could not fetch live MCP schema for %r: %s", tool.name, schema_err)
                 
                 # Create Pydantic model for tool inputs
                 fields = {}
@@ -1495,7 +1673,7 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
                     prop_type = prop_schema.get("type", "string")
                     prop_desc = prop_schema.get("description", "")
                     is_required = prop_name in required
-                    
+
                     if prop_type == "string":
                         py_type = str
                     elif prop_type == "integer":
@@ -1506,31 +1684,32 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
                         py_type = bool
                     else:
                         py_type = str
-                    
+
                     if is_required:
                         fields[prop_name] = (py_type, Field(description=prop_desc))
                     else:
                         fields[prop_name] = (py_type | None, Field(default=None, description=prop_desc))
-                
-                if fields:
-                    InputModel = create_model(f"{tool.name}Input", **fields)
-                else:
-                    InputModel = None
-                
-                # Create tool execution function using a factory to prevent loop variable capture issues
+
+                # Always provide an args_schema so LangChain/Pydantic validation is predictable.
+                # An empty model (no fields) prevents "unexpected kwargs" errors for no-arg tools.
+                InputModel = create_model(f"{tool.name}Input", **fields)
+
+                # Create tool execution function using a factory to prevent loop variable capture issues.
+                # Pass only `coroutine` (not `func`) for async tools — passing both causes Pydantic v2
+                # to route ainvoke through the sync `func` slot and bypass schema validation correctly.
                 def make_tool_func(tool_to_exec):
                     async def tool_func(**kwargs):
                         return await self._execute_tool(tool_to_exec, kwargs)
+                    tool_func.__name__ = tool_to_exec.name
                     return tool_func
-                
+
                 tool_func = make_tool_func(tool)
-                
+
                 lc_tool = StructuredTool.from_function(
-                    func=tool_func,
+                    coroutine=tool_func,
                     name=tool.name,
                     description=tool.description or f"Execute {tool.name}",
                     args_schema=InputModel,
-                    coroutine=tool_func,
                 )
                 
                 langchain_tools.append(lc_tool)
@@ -1544,6 +1723,14 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
     async def _execute_tool(self, tool: Tool, args: dict) -> str:
         """Execute a single tool and return result"""
         try:
+            # Safety: unwrap {"kwargs": {...}} that some LLMs or LangChain versions emit
+            if (
+                isinstance(args, dict)
+                and list(args.keys()) == ["kwargs"]
+                and isinstance(args.get("kwargs"), dict)
+            ):
+                args = args["kwargs"]
+
             if tool.type.value == "MCP_TOOL":
                 return await self._execute_mcp_tool(tool, args)
             elif tool.type.value == "REST":
@@ -1645,6 +1832,7 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
         """Execute REST tool"""
         try:
             import httpx
+            from urllib.parse import quote
             
             connection = tool.connection_config or {}
             method = str(connection.get("method", "POST")).upper()
@@ -1654,12 +1842,17 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
             
             if not url:
                 return "REST tool URL not configured"
+
+            request_args = dict(args or {})
+            if "{topic}" in url and request_args.get("topic") is not None:
+                topic_value = str(request_args.pop("topic")).strip()
+                url = url.replace("{topic}", quote(topic_value, safe=""))
             
-            async with httpx.AsyncClient(timeout=timeout) as client:
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=True) as client:
                 if method == "GET":
-                    response = await client.get(url, params=args, headers=headers)
+                    response = await client.get(url, params=request_args, headers=headers)
                 else:
-                    response = await client.request(method, url, json=args, headers=headers)
+                    response = await client.request(method, url, json=request_args, headers=headers)
             
             if response.is_success:
                 try:
@@ -1672,6 +1865,53 @@ Do NOT output raw JSON blocks or tool call JSON structures since execution is co
         except Exception as e:
             logger.error(f"REST tool execution error: {e}")
             return f"REST tool error: {str(e)}"
+
+    async def _fetch_mcp_tool_schema(self, tool: Tool) -> tuple[dict, list]:
+        """
+        Fetch the live input schema for an MCP tool directly from its server.
+        Returns (properties_dict, required_list).  Falls back to ({}, []) on error.
+        """
+        from tool_router.mcp_client import MCPClient
+        from tool_router.config import MCPConfig
+
+        if not tool.parent_id:
+            return {}, []
+
+        parent_server_doc = await self.db.tools.find_one({"_id": str(tool.parent_id)})
+        normalized_parent = normalize_mongo_document(parent_server_doc)
+        parent_server = Tool.model_validate(normalized_parent) if normalized_parent else None
+        if not parent_server or parent_server.type.value != "MCP_SERVER":
+            return {}, []
+        if not parent_server.transport:
+            return {}, []
+
+        server_id = str(parent_server.id)
+
+        # Reuse cached client when available
+        async with _MCP_CLIENT_LOCK:
+            if server_id not in _MCP_CLIENT_CACHE:
+                server_cfg: dict[str, Any] = {"transport": parent_server.transport.value}
+                if parent_server.transport.value == "stdio":
+                    server_cfg["command"] = parent_server.command
+                    server_cfg["args"] = parent_server.args or []
+                    server_cfg["env"] = parent_server.env or {}
+                elif parent_server.url:
+                    server_cfg["url"] = parent_server.url
+                client = MCPClient(MCPConfig(servers={server_id: server_cfg}))
+                await client.connect_all()
+                await client.list_tools()
+                _MCP_CLIENT_CACHE[server_id] = client
+            client = _MCP_CLIENT_CACHE[server_id]
+
+        tool_id = f"{server_id}.{tool.name}"
+        tool_schema = client.tools.get(tool_id)
+        if not tool_schema:
+            return {}, []
+
+        params = tool_schema.parameters or {}
+        properties = params.get("properties", {})
+        required = params.get("required", [])
+        return properties, required
 
     def _create_fetch_tools_tool(self):
         """Create a LangChain tool for fetching tools based on a task description"""

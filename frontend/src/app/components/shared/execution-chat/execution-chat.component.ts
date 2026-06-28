@@ -43,6 +43,8 @@ interface AgentStep {
   agentRole: string;
   framework: string;
   status: 'activated' | 'retrieving_tools' | 'executing_tools' | 'thinking' | 'complete';
+  reasoningStream?: string;
+  latestToolOutput?: string;
   toolsRetrieved: Array<{
     name: string;
     score: number;
@@ -67,6 +69,15 @@ interface AgentStep {
   input?: string;
   routerQuery?: string;
   updates?: string[];
+  rawEvents?: Array<{
+    type: string;
+    label: string;
+    detail?: string;
+    status?: string;
+    timestamp: string | number;
+    latency_ms?: number;
+    metadata?: Record<string, any>;
+  }>;
   response: string;
   timestamp: number;
   startTime?: number;
@@ -76,6 +87,7 @@ interface AgentStep {
   toolsExpanded: boolean;
   executionsExpanded: boolean;
   planningExpanded: boolean;
+  eventsExpanded?: boolean;
 }
 
 /**
@@ -241,6 +253,7 @@ export class ExecutionChatComponent implements AfterViewChecked {
   private handleAgentEvent(event: TraceEvent): void {
     const eventType = event.type;
     const eventData = event.metadata || {};
+    const eventDetail = this.extractAgentResponseText(event.detail);
 
     console.log('🔍 handleAgentEvent called:', {
       type: eventType,
@@ -285,8 +298,10 @@ export class ExecutionChatComponent implements AfterViewChecked {
           toolsRetrieved: normalizedTools,
           routerQuery: query,
           reasoning: '',
+          reasoningStream: '',
           toolExecutions: [],
           updates: [],
+          latestToolOutput: '',
           response: '',
           timestamp: typeof event.timestamp === 'number' ? event.timestamp : Date.now(),
           startTime: Date.now(),
@@ -294,6 +309,8 @@ export class ExecutionChatComponent implements AfterViewChecked {
           toolsExpanded: false,
           executionsExpanded: false,
           planningExpanded: false,
+          rawEvents: [],
+          eventsExpanded: false,
         };
         this.agentExecutionData.steps.push(this.currentAgentStep);
         this.pushAgentUpdate(this.currentAgentStep, `🔍 NeuralToolRouter selected ${normalizedTools.length} tools`);
@@ -307,6 +324,8 @@ export class ExecutionChatComponent implements AfterViewChecked {
       case 'llm_call': {
         const agentName = eventData['agent_name'] || this.context?.label || 'Agent';
         const inputPrompt = eventData['input'] ? this.extractAgentResponseText(eventData['input']) : '';
+        const thoughtText = eventDetail || this.extractAgentResponseText(eventData['reasoning'] || eventData['thought'] || eventData['message']);
+        const parsedThoughtToolCall = this.tryExtractStructuredToolCall(thoughtText);
 
         // If the current step was created by a router event for this agent and is waiting, reuse it
         if (this.currentAgentStep && 
@@ -316,11 +335,10 @@ export class ExecutionChatComponent implements AfterViewChecked {
           if (inputPrompt) {
             this.currentAgentStep.input = inputPrompt;
           }
-          const reasoning = event.detail || eventData['reasoning'] || eventData['thought'] || '';
-          if (reasoning) {
-            this.currentAgentStep.reasoning = reasoning;
+          if (thoughtText) {
+            this.currentAgentStep.reasoning = parsedThoughtToolCall || thoughtText;
           }
-          this.pushAgentUpdate(this.currentAgentStep, `🤔 Agent started thinking...`);
+          this.pushAgentUpdate(this.currentAgentStep, this.getThinkingUpdateText(thoughtText) || `🤔 Agent started thinking...`);
         } else {
           // Collapse previous step if exists and has no error
           if (this.currentAgentStep && !this.hasStepError(this.currentAgentStep)) {
@@ -335,9 +353,11 @@ export class ExecutionChatComponent implements AfterViewChecked {
             status: 'thinking',
             toolsRetrieved: this.agentToolsMap.get(agentName) || [],
             routerQuery: this.agentRouterQueryMap.get(agentName) || undefined,
-            reasoning: event.detail || eventData['reasoning'] || eventData['thought'] || '',
+            reasoning: parsedThoughtToolCall || thoughtText,
+            reasoningStream: '',
             toolExecutions: [],
             updates: [],
+            latestToolOutput: '',
             response: '',
             timestamp: typeof event.timestamp === 'number' ? event.timestamp : Date.now(),
             startTime: Date.now(),
@@ -345,11 +365,13 @@ export class ExecutionChatComponent implements AfterViewChecked {
             toolsExpanded: false,
             executionsExpanded: false,
             planningExpanded: false,
+            rawEvents: [],
+            eventsExpanded: false,
           };
           if (inputPrompt) {
             this.currentAgentStep.input = inputPrompt;
           }
-          this.pushAgentUpdate(this.currentAgentStep, `🤔 Agent started thinking...`);
+          this.pushAgentUpdate(this.currentAgentStep, this.getThinkingUpdateText(thoughtText) || `🤔 Agent started thinking...`);
           this.agentExecutionData.steps.push(this.currentAgentStep);
         }
         break;
@@ -357,13 +379,16 @@ export class ExecutionChatComponent implements AfterViewChecked {
 
       case 'reasoning': {
         const agentName = eventData['agent_name'] || this.context?.label || 'Agent';
-        const reasoning = event.detail || eventData['reasoning'] || eventData['thought'] || '';
+        const reasoning = eventDetail || this.extractAgentResponseText(eventData['reasoning'] || eventData['thought'] || eventData['message']);
+        const parsedReasoningToolCall = this.tryExtractStructuredToolCall(reasoning);
         
         if (this.currentAgentStep && this.currentAgentStep.agentName === agentName) {
           if (this.currentAgentStep.status === 'retrieving_tools') {
             this.currentAgentStep.status = 'thinking';
           }
-          this.currentAgentStep.reasoning = reasoning;
+          this.currentAgentStep.reasoning = parsedReasoningToolCall || reasoning;
+          this.currentAgentStep.reasoningStream = reasoning;
+          this.pushAgentUpdate(this.currentAgentStep, this.getThinkingUpdateText(reasoning));
           // Auto-expand reasoning/thinking section while agent is thinking
           this.currentAgentStep.planningExpanded = true;
         }
@@ -375,7 +400,7 @@ export class ExecutionChatComponent implements AfterViewChecked {
         if (this.currentAgentStep) {
           this.currentAgentStep.status = 'executing_tools';
           const toolName = eventData['tool_name'] || event.label?.replace('Calling ', '') || 'Unknown Tool';
-          const toolArgs = eventData['tool_args'] || eventData['args'] || {};
+          const toolArgs = eventData['tool_args'] || eventData['args'] || eventData['arguments'] || {};
 
           this.currentAgentStep.toolExecutions.push({
             tool: toolName,
@@ -386,6 +411,8 @@ export class ExecutionChatComponent implements AfterViewChecked {
             expanded: true,
           });
           
+          this.currentAgentStep.reasoning = this.buildToolCallSummary(toolName, toolArgs);
+          this.currentAgentStep.latestToolOutput = '';
           this.pushAgentUpdate(this.currentAgentStep, `🔧 Executing tool: ${toolName}`);
         }
         break;
@@ -410,15 +437,23 @@ export class ExecutionChatComponent implements AfterViewChecked {
         if (targetStep && targetStep.toolExecutions.length > 0) {
           const matchingExec = targetStep.toolExecutions.find(e => e.tool === toolResultName && e.result === 'Executing...');
           const lastExecution = matchingExec || targetStep.toolExecutions[targetStep.toolExecutions.length - 1];
-          const toolResult = event.detail || eventData['result'] || eventData['output'] || '';
+          const toolResult = eventData['result'] ?? eventData['output'] ?? eventDetail;
           const executionTime = event.latency_ms || eventData['execution_time'] || 0;
           const success = eventData['success'] !== false && event.status !== 'error';
 
-          lastExecution.result = this.normalizeToolResult(toolResult);
+          const normalizedToolResult = this.normalizeToolResult(toolResult);
+          const toolOutputText = this.extractAgentResponseText(normalizedToolResult);
+          lastExecution.result = normalizedToolResult;
           lastExecution.time = executionTime / 1000;
           lastExecution.success = success;
           
-          this.pushAgentUpdate(targetStep, success ? `✅ Tool ${toolResultName} succeeded` : `❌ Tool ${toolResultName} failed`);
+          targetStep.latestToolOutput = toolOutputText;
+          this.pushAgentUpdate(
+            targetStep,
+            success
+              ? `✅ Tool ${toolResultName} succeeded\n\n${toolOutputText}`
+              : `❌ Tool ${toolResultName} failed\n\n${toolOutputText}`
+          );
           
           this.agentExecutionData.metrics.tools_executed =
             (this.agentExecutionData.metrics.tools_executed || 0) + 1;
@@ -436,8 +471,9 @@ export class ExecutionChatComponent implements AfterViewChecked {
         // Agent final response
         if (this.currentAgentStep) {
           this.currentAgentStep.status = 'complete';
-          const response = event.detail || eventData['response'] || eventData['output'] || '';
-          this.currentAgentStep.response = this.extractAgentResponseText(response);
+          const response = eventData['response'] ?? eventData['output'] ?? eventDetail;
+          const responseText = this.extractAgentResponseText(response);
+          this.currentAgentStep.response = responseText || this.currentAgentStep.latestToolOutput || this.currentAgentStep.reasoningStream || this.currentAgentStep.reasoning;
           
           if (eventData['input']) {
             this.currentAgentStep.input = this.extractAgentResponseText(eventData['input']);
@@ -449,7 +485,7 @@ export class ExecutionChatComponent implements AfterViewChecked {
               (this.currentAgentStep.endTime - this.currentAgentStep.startTime) / 1000;
           }
           
-          this.pushAgentUpdate(this.currentAgentStep, `🏁 Agent response generated`);
+          this.pushAgentUpdate(this.currentAgentStep, `🏁 Agent response generated\n\n${this.currentAgentStep.response}`);
           
           // Collapse on completion if no error
           if (!this.hasStepError(this.currentAgentStep)) {
@@ -510,14 +546,18 @@ export class ExecutionChatComponent implements AfterViewChecked {
             status: 'complete',
             toolsRetrieved: [],
             reasoning: '',
+            reasoningStream: '',
             toolExecutions: [],
             updates: [],
+            latestToolOutput: '',
             response: '',
             timestamp: Date.now(),
             expanded: true,
             toolsExpanded: false,
             executionsExpanded: false,
             planningExpanded: false,
+            rawEvents: [],
+            eventsExpanded: false,
           };
           this.agentExecutionData.steps.push(this.currentAgentStep);
         }
@@ -527,6 +567,11 @@ export class ExecutionChatComponent implements AfterViewChecked {
         // Keep expanded to let user see error details
         this.currentAgentStep.expanded = true;
         break;
+    }
+
+    const targetStep = this.resolveEventStep(event, eventData);
+    if (targetStep) {
+      this.appendRawEvent(targetStep, event);
     }
   }
 
@@ -588,13 +633,187 @@ export class ExecutionChatComponent implements AfterViewChecked {
     const normalized = updateText?.trim();
     if (!normalized) return;
     if (!step.updates) step.updates = [];
-    
+
+    const lastIndex = step.updates.length - 1;
+    const lastUpdate = lastIndex >= 0 ? step.updates[lastIndex] : undefined;
+    if (lastUpdate) {
+      const lastNormalized = lastUpdate.trim();
+      if (normalized === lastNormalized) return;
+      if (normalized.startsWith(lastNormalized) && normalized.length > lastNormalized.length) {
+        step.updates[lastIndex] = normalized;
+        return;
+      }
+    }
+
     const condensed = normalized.replace(/\s+/g, ' ').trim();
-    const lastUpdate = step.updates[step.updates.length - 1];
     const lastCondensed = lastUpdate?.replace(/\s+/g, ' ').trim();
-    
     if (lastCondensed === condensed) return;
+
     step.updates.push(normalized);
+  }
+
+  private tryExtractStructuredToolCall(value: string): string {
+    const normalized = value?.trim();
+    if (!normalized) {
+      return '';
+    }
+
+    const parsed = this.extractToolCallObject(normalized);
+    if (!parsed) {
+      return '';
+    }
+
+    const toolName = parsed['name'] || parsed['tool'] || parsed['action'] || 'Tool';
+    const args = parsed['arguments'] || parsed['args'] || parsed['parameters'] || {};
+    return this.buildToolCallSummary(toolName, args);
+  }
+
+  private getThinkingUpdateText(value: string): string {
+    const normalized = value?.trim();
+    if (!normalized) {
+      return '';
+    }
+
+    const structuredToolCall = this.tryExtractStructuredToolCall(normalized);
+    if (structuredToolCall) {
+      return structuredToolCall;
+    }
+
+    const compact = normalized.replace(/\s+/g, ' ').trim();
+    if (compact.startsWith('{"name"') || compact === '{' || compact === '[{') {
+      return '';
+    }
+
+    return normalized;
+  }
+
+  private buildToolCallSummary(toolName: string, toolArgs: any): string {
+    const argsText = this.extractAgentResponseText(toolArgs);
+    return argsText
+      ? `Planned tool call: ${toolName}\n\nArguments:\n${argsText}`
+      : `Planned tool call: ${toolName}`;
+  }
+
+  private extractToolCallObject(value: string): Record<string, any> | null {
+    const normalized = value?.trim();
+    if (!normalized) {
+      return null;
+    }
+
+    const tryParse = (candidate: string): Record<string, any> | null => {
+      try {
+        const parsed = JSON.parse(candidate);
+        if (
+          parsed &&
+          typeof parsed === 'object' &&
+          !Array.isArray(parsed) &&
+          (parsed['name'] || parsed['tool'] || parsed['action'])
+        ) {
+          return parsed as Record<string, any>;
+        }
+      } catch {}
+      return null;
+    };
+
+    const direct = tryParse(normalized);
+    if (direct) {
+      return direct;
+    }
+
+    const matches = normalized.match(/\{[\s\S]*\}/g) || [];
+    for (let index = matches.length - 1; index >= 0; index--) {
+      const parsed = tryParse(matches[index]);
+      if (parsed) {
+        return parsed;
+      }
+    }
+
+    return null;
+  }
+
+  private appendRawEvent(step: AgentStep, event: TraceEvent): void {
+    if (!step.rawEvents) {
+      step.rawEvents = [];
+    }
+
+    const lastEvent = step.rawEvents[step.rawEvents.length - 1];
+    if (
+      lastEvent &&
+      lastEvent.type === event.type &&
+      lastEvent.label === event.label &&
+      lastEvent.detail === event.detail
+    ) {
+      return;
+    }
+
+    step.rawEvents.push({
+      type: event.type,
+      label: event.label,
+      detail: event.detail,
+      status: event.status,
+      timestamp: event.timestamp,
+      latency_ms: event.latency_ms,
+      metadata: event.metadata,
+    });
+  }
+
+  private resolveEventStep(event: TraceEvent, eventData: Record<string, any>): AgentStep | null {
+    const agentName = eventData['agent_name'];
+    const toolName = eventData['tool_name'];
+
+    if (toolName) {
+      for (let index = this.agentExecutionData.steps.length - 1; index >= 0; index--) {
+        const step = this.agentExecutionData.steps[index];
+        if (step.toolExecutions.some((execution) => execution.tool === toolName)) {
+          return step;
+        }
+      }
+    }
+
+    if (agentName) {
+      for (let index = this.agentExecutionData.steps.length - 1; index >= 0; index--) {
+        const step = this.agentExecutionData.steps[index];
+        if (step.agentName === agentName) {
+          return step;
+        }
+      }
+    }
+
+    if (this.currentAgentStep) {
+      return this.currentAgentStep;
+    }
+
+    if (this.agentExecutionData.steps.length > 0) {
+      return this.agentExecutionData.steps[this.agentExecutionData.steps.length - 1];
+    }
+
+    return null;
+  }
+
+  getEventTagType(type: string, status?: string): TagType {
+    if (status === 'error' || type === 'error') {
+      return 'red';
+    }
+
+    switch (type) {
+      case 'assistant':
+      case 'complete':
+        return 'green';
+      case 'tool_call':
+      case 'tool_result':
+        return 'blue';
+      case 'reasoning':
+      case 'thought':
+      case 'llm_call':
+        return 'purple';
+      case 'router':
+      case 'tool_retrieval':
+        return 'teal';
+      case 'collaborator':
+        return 'cyan';
+      default:
+        return 'gray';
+    }
   }
 
   onInputChange(value: string): void {

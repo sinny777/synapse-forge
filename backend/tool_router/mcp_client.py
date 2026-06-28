@@ -296,10 +296,13 @@ class MCPClient:
             
             result = await session.call_tool(tool_name, arguments)
             
+            # Respect the MCP isError flag — the server signals tool-level failures this way
+            is_error = getattr(result, "isError", False)
+            
             # Parse result content
-            parsed_result = {
+            parsed_result: Dict[str, Any] = {
                 "tool_id": tool_id,
-                "success": True,
+                "success": not is_error,
                 "content": []
             }
             
@@ -321,7 +324,15 @@ class MCPClient:
                         "resource": content_item.resource
                     })
             
-            logger.info(f"✓ Tool {tool_id} executed successfully")
+            if is_error:
+                # Consolidate content text into the error field so callers see a clean error
+                error_text = " ".join(
+                    item["text"] for item in parsed_result["content"] if item.get("type") == "text"
+                )
+                parsed_result["error"] = error_text or "Tool returned an error"
+                logger.warning(f"Tool {tool_id} returned isError=True: {error_text}")
+            else:
+                logger.info(f"✓ Tool {tool_id} executed successfully")
             return parsed_result
             
         except Exception as e:

@@ -117,6 +117,16 @@
                 </details>
               </div>
 
+              <div class="agent-step__section" *ngIf="step.latestToolOutput">
+                <p class="ibm--type-label-01" style="display: flex; align-items: center; gap: 0.5rem;">
+                  <svg cdsIcon="play--filled" size="16"></svg>
+                  Latest Tool Output
+                </p>
+                <div class="agent-response ibm--type-body-compact-01 markdown-content" style="padding: 0.75rem; background: var(--cds-layer-01); border-radius: 4px; border-left: 3px solid var(--cds-border-interactive); white-space: pre-wrap;">
+                  {{ step.latestToolOutput }}
+                </div>
+              </div>
+
               <!-- Agent Reasoning -->
               <div class="agent-step__section" *ngIf="step.reasoning">
                 <div class="collapsible-section-header" (click)="step.planningExpanded = !step.planningExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--cds-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">
@@ -265,6 +275,31 @@
                 </p>
                 <div class="agent-response ibm--type-body-compact-01 markdown-content" style="padding: 0.75rem; background: var(--cds-layer-01); border-radius: 4px; border-left: 3px solid var(--cds-border-success);">
                   <div [innerHTML]="step.response | markdown"></div>
+                </div>
+              </div>
+
+              <!-- Raw Event Timeline -->
+              <div class="agent-step__section" *ngIf="step.rawEvents?.length">
+                <div class="collapsible-section-header" (click)="step.eventsExpanded = !step.eventsExpanded" style="cursor: pointer; display: flex; align-items: center; justify-content: space-between; padding: 0.5rem; background: var(--cds-layer-01); border-radius: 4px; margin-bottom: 0.5rem;">
+                  <p class="ibm--type-label-01" style="margin: 0; display: flex; align-items: center; gap: 0.5rem;">
+                    <svg cdsIcon="list" size="16"></svg>
+                    Full Event Timeline
+                    <cds-tag type="cool-gray" size="sm">{{ step.rawEvents?.length || 0 }} events</cds-tag>
+                  </p>
+                  <svg cdsIcon="chevron--down" size="16" [class.rotated]="step.eventsExpanded"></svg>
+                </div>
+                <div *ngIf="step.eventsExpanded" style="padding: 0.75rem; background: var(--cds-layer-01); border-radius: 4px; border-left: 3px solid var(--cds-border-subtle);">
+                  <div *ngFor="let event of step.rawEvents" style="padding: 0.75rem 0; border-bottom: 1px solid var(--cds-border-subtle-01);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.5rem; flex-wrap: wrap;">
+                      <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                        <cds-tag [type]="getEventTagType(event.type, event.status)" size="sm">{{ event.type }}</cds-tag>
+                        <span class="ibm--type-label-01">{{ event.label }}</span>
+                      </div>
+                      <span class="ibm--type-helper-text-01" *ngIf="event.latency_ms">{{ event.latency_ms | number:'1.0-0' }} ms</span>
+                    </div>
+                    <div class="ibm--type-body-compact-01" *ngIf="event.detail" style="white-space: pre-wrap; margin-bottom: 0.5rem;">{{ event.detail }}</div>
+                    <pre class="tool-execution__detail-content" *ngIf="event.metadata">{{ formatStructured(event.metadata) }}</pre>
+                  </div>
                 </div>
               </div>
             </div>
