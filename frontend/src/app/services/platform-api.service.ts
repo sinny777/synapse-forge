@@ -2,12 +2,12 @@
  * SynapseForge — Platform API Service
  *
  * Typed HTTP service wrapping all platform CRUD endpoints for
- * Tools, Agents, Orchestrations, and Router predictions.
+ * Tools, Agents, Orchestrations, Router predictions, and Categories.
  * Every method that requires workspace context takes a workspaceId parameter.
  */
 
 import { Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import {
   Tool,
@@ -21,6 +21,7 @@ import {
   OrchestrationUpdate,
   RouterPredictRequest,
   RouterPredictResponse,
+  Category,
 } from '../models/platform.model';
 import { LLMModelConfig } from '../models/llm-config.model';
 
@@ -32,11 +33,30 @@ const API_BASE = 'http://localhost:8000/api';
 export class PlatformApiService {
   constructor(private http: HttpClient) {}
 
+  // ========================== CATEGORIES ===================================
+
+  listCategories(): Observable<Category[]> {
+    return this.http.get<Category[]>(`${API_BASE}/categories`);
+  }
+
+  listSubCategories(categoryId: string): Observable<{ id: string; label: string }[]> {
+    return this.http.get<{ id: string; label: string }[]>(`${API_BASE}/categories/${categoryId}/sub-categories`);
+  }
+
   // ========================== TOOLS =======================================
 
-  listTools(workspaceId: string): Observable<Tool[]> {
+  listTools(
+    workspaceId: string,
+    filters?: { category?: string; sub_category?: string; tags?: string; search?: string }
+  ): Observable<Tool[]> {
+    let params = new HttpParams();
+    if (filters?.category) { params = params.set('category', filters.category); }
+    if (filters?.sub_category) { params = params.set('sub_category', filters.sub_category); }
+    if (filters?.tags) { params = params.set('tags', filters.tags); }
+    if (filters?.search) { params = params.set('search', filters.search); }
     return this.http.get<Tool[]>(
-      `${API_BASE}/workspaces/${workspaceId}/tools`
+      `${API_BASE}/workspaces/${workspaceId}/tools`,
+      { params }
     );
   }
 
@@ -83,9 +103,18 @@ export class PlatformApiService {
 
   // ========================== AGENTS ======================================
 
-  listAgents(workspaceId: string): Observable<Agent[]> {
+  listAgents(
+    workspaceId: string,
+    filters?: { category?: string; sub_category?: string; tags?: string; search?: string }
+  ): Observable<Agent[]> {
+    let params = new HttpParams();
+    if (filters?.category) { params = params.set('category', filters.category); }
+    if (filters?.sub_category) { params = params.set('sub_category', filters.sub_category); }
+    if (filters?.tags) { params = params.set('tags', filters.tags); }
+    if (filters?.search) { params = params.set('search', filters.search); }
     return this.http.get<Agent[]>(
-      `${API_BASE}/workspaces/${workspaceId}/agents`
+      `${API_BASE}/workspaces/${workspaceId}/agents`,
+      { params }
     );
   }
 

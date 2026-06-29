@@ -74,16 +74,38 @@ def _mask_tool_secrets(tool: Tool) -> Tool:
 async def list_tools(
     workspace_id: uuid.UUID,
     db: AsyncIOMotorDatabase = Depends(get_db),
+    category: str | None = None,
+    sub_category: str | None = None,
+    tags: str | None = None,
+    search: str | None = None,
 ):
-    """List all tools in a workspace."""
+    """List all tools in a workspace with optional filtering by category, sub_category, tags, or search text."""
     await _get_workspace_or_404(db, workspace_id)
-    cursor = db.tools.find({"workspace_id": str(workspace_id)}).sort("created_at", -1)
+    query: dict = {"workspace_id": str(workspace_id)}
 
+    if category:
+        query["category"] = category
+    if sub_category:
+        query["sub_category"] = sub_category
+    if tags:
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+        if tag_list:
+            query["tags"] = {"$all": tag_list}
+
+    cursor = db.tools.find(query).sort("created_at", -1)
     tools: list[ToolRead] = []
     async for document in cursor:
         tool = _tool_from_doc(document)
-        if tool is not None:
-            tools.append(ToolRead.model_validate(_mask_tool_secrets(tool)))
+        if tool is None:
+            continue
+        if search:
+            search_lower = search.lower()
+            if not any(
+                search_lower in (field or "").lower()
+                for field in [tool.name, tool.description, tool.category, tool.sub_category]
+            ) and not any(search_lower in (tag or "").lower() for tag in (tool.tags or [])):
+                continue
+        tools.append(ToolRead.model_validate(_mask_tool_secrets(tool)))
     return tools
 
 
@@ -130,6 +152,9 @@ async def create_tool(
         ),
         parent_id=str(body.parent_id) if body.parent_id else None,
         embedding=vec,
+        category=body.category,
+        sub_category=body.sub_category,
+        tags=body.tags,
         created_by=email,
         updated_by=email,
     )

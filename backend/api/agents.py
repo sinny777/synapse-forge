@@ -1086,14 +1086,38 @@ async def _execute_single_agent(
 async def list_agents(
     workspace_id: uuid.UUID,
     db: AsyncIOMotorDatabase = Depends(get_db),
+    category: str | None = None,
+    sub_category: str | None = None,
+    tags: str | None = None,
+    search: str | None = None,
 ):
-    """List all agents in a workspace."""
+    """List all agents in a workspace with optional filtering by category, sub_category, tags, or search text."""
     await _get_workspace_or_404(db, workspace_id)
-    agent_docs = await db.agents.find(
-        {"workspace_id": str(workspace_id)}
-    ).sort("created_at", -1).to_list(length=None)
+    query: dict = {"workspace_id": str(workspace_id)}
+
+    if category:
+        query["category"] = category
+    if sub_category:
+        query["sub_category"] = sub_category
+    if tags:
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+        if tag_list:
+            query["tags"] = {"$all": tag_list}
+
+    agent_docs = await db.agents.find(query).sort("created_at", -1).to_list(length=None)
     agents = [_agent_from_doc(doc) for doc in agent_docs]
     agents = [agent for agent in agents if agent is not None]
+
+    if search:
+        search_lower = search.lower()
+        agents = [
+            agent for agent in agents
+            if any(
+                search_lower in (field or "").lower()
+                for field in [agent.name, agent.description, agent.category, agent.sub_category]
+            ) or any(search_lower in (tag or "").lower() for tag in (agent.tags or []))
+        ]
+
     return [await _build_agent_read_payload(db, agent) for agent in agents]
 
 
@@ -1137,6 +1161,9 @@ async def create_agent(
         collaborator_agent_ids=[str(agent_id) for agent_id in collaborator_agent_ids]
         if collaborator_agent_ids
         else None,
+        category=body.category,
+        sub_category=body.sub_category,
+        tags=body.tags,
         created_by=email,
         updated_by=email,
     )

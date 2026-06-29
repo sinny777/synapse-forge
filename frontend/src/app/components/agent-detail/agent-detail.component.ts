@@ -21,14 +21,14 @@ import {
   ButtonModule, NotificationModule, IconModule,
   TagModule, InputModule, DropdownModule, TabsModule,
   LoadingModule, ToggleModule, SliderModule,
-  AccordionModule, ToggletipModule,
+  AccordionModule, ToggletipModule, SelectModule,
 } from 'carbon-components-angular';
 import { IconService } from 'carbon-components-angular/icon';
 import { Subscription } from 'rxjs';
 import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
 import { LLMConfigService } from '../../services/llm-config.service';
-import { Agent, AgentCreate, ChatExecutionContext, CollaboratorAgent, PlaygroundMessage, Tool, TraceEvent, Workspace } from '../../models/platform.model';
+import { Agent, AgentCreate, Category, ChatExecutionContext, CollaboratorAgent, PlaygroundMessage, Tool, TraceEvent, Workspace } from '../../models/platform.model';
 import { LLMModelConfig } from '../../models/llm-config.model';
 import { PageHeaderComponent } from '../shared/page-header/page-header.component';
 import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
@@ -59,7 +59,7 @@ import Help16 from '@carbon/icons/es/help/16';
     ButtonModule, NotificationModule, IconModule,
     TagModule, InputModule, DropdownModule, TabsModule,
     LoadingModule, ToggleModule, SliderModule,
-    AccordionModule, ToggletipModule,
+    AccordionModule, ToggletipModule, SelectModule,
     PageHeaderComponent, PageWrapperComponent, ExecutionChatComponent,
   ],
   templateUrl: './agent-detail.component.html',
@@ -97,7 +97,23 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
     timeout_seconds: 300,
     attached_tool_ids: [],
     collaborator_agent_ids: [],
+    category: '',
+    sub_category: '',
+    tags: [],
   };
+
+  // Category / Classification
+  categories: Category[] = [];
+  tagInputValue = '';
+
+  // Dropdown items for classification section
+  categoryDropdownItems: any[] = [];
+  subCategoryDropdownItems: any[] = [];
+
+  get availableFormSubCategories(): { id: string; label: string }[] {
+    const cat = this.categories.find(c => c.label === this.formData.category);
+    return cat ? cat.sub_categories : [];
+  }
 
   // Extended form fields
   temperature = 0.7;
@@ -160,6 +176,16 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.platformApi.listCategories().subscribe({
+      next: (cats) => {
+        this.categories = cats;
+        this.categoryDropdownItems = [
+          { content: 'None', id: '', selected: true },
+          ...cats.map(c => ({ content: c.label, id: c.label, selected: false })),
+        ];
+      },
+      error: () => {},
+    });
     this.subs.push(
       this.workspaceService.activeWorkspace$.subscribe((ws) => {
         this.activeWorkspace = ws;
@@ -209,6 +235,9 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
           timeout_seconds: agent.timeout_seconds || 300,
           attached_tool_ids: agent.attached_tool_ids || [],
           collaborator_agent_ids: agent.collaborator_agent_ids || [],
+          category: agent.category || '',
+          sub_category: agent.sub_category || '',
+          tags: [...(agent.tags || [])],
         };
         this.selectedLLMConfigId = agent.llm_config_id || '';
         this.selectedRouterModelId = agent.router_model_id || '';
@@ -389,6 +418,37 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ─── Classification helpers ────────────────────────────────────
+
+  addAgentTag(): void {
+    const tag = this.tagInputValue.trim();
+    if (tag && !(this.formData.tags || []).includes(tag)) {
+      this.formData.tags = [...(this.formData.tags || []), tag];
+    }
+    this.tagInputValue = '';
+  }
+
+  // Dropdown event handlers for classification
+  onCategoryDropdownSelect(event: any): void {
+    this.formData.category = event.item.id;
+    this.formData.sub_category = '';
+    const subs = this.formData.category
+      ? (this.categories.find(c => c.label === this.formData.category)?.sub_categories || [])
+      : [];
+    this.subCategoryDropdownItems = [
+      { content: 'None', id: '', selected: true },
+      ...subs.map(s => ({ content: s.label, id: s.label, selected: false })),
+    ];
+  }
+
+  onSubCategoryDropdownSelect(event: any): void {
+    this.formData.sub_category = event.item.id;
+  }
+
+  removeAgentTag(tag: string): void {
+    this.formData.tags = (this.formData.tags || []).filter(t => t !== tag);
+  }
+
   // ─── Save & Actions ────────────────────────────────────────────
 
   saveAgent(): void {
@@ -415,6 +475,10 @@ export class AgentDetailComponent implements OnInit, OnDestroy {
     if (!this.formData.llm_config_id) {
       delete this.formData.llm_config_id;
     }
+    // Classification fields — coerce empty strings to undefined
+    if (!this.formData.category) { this.formData.category = undefined; }
+    if (!this.formData.sub_category) { this.formData.sub_category = undefined; }
+    if (this.formData.tags && !this.formData.tags.length) { this.formData.tags = undefined; }
 
     const apiCall = this.isEditMode && this.agentId
       ? this.platformApi.updateAgent(this.activeWorkspace.id, this.agentId, this.formData)

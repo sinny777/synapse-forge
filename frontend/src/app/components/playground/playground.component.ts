@@ -48,6 +48,7 @@ export class PlaygroundComponent implements OnInit, OnDestroy {
   traceEvents: TraceEvent[] = [];
   orchestrations: Orchestration[] = [];
   selectedOrchestrationId: string | null = null;
+  orchestrationDropdownItems: any[] = [];
   userInput = '';
   isExecuting = false;
   showTrace = true;
@@ -88,12 +89,22 @@ export class PlaygroundComponent implements OnInit, OnDestroy {
     this.platformApi.listOrchestrations(this.activeWorkspace.id).subscribe({
       next: (orchs) => {
         this.orchestrations = orchs;
+        this.orchestrationDropdownItems = orchs.map((o) => ({
+          content: `${o.name} (${o.framework})`,
+          id: o.id,
+          selected: false,
+        }));
         if (orchs.length > 0 && !this.selectedOrchestrationId) {
           this.selectedOrchestrationId = orchs[0].id;
+          this.orchestrationDropdownItems[0].selected = true;
         }
       },
       error: () => {},
     });
+  }
+
+  onOrchestrationSelect(event: any): void {
+    this.selectedOrchestrationId = event.item.id;
   }
 
   // ─── Chat ──────────────────────────────────────────────────────

@@ -37,25 +37,93 @@
     <p>Select a workspace from the header to manage agents.</p>
   </div>
 
-  <!-- Agent List -->
-  <div *ngIf="activeWorkspace && !loading" class="agent-grid">
-    <div *ngIf="agents.length === 0" class="empty-state">
-      <svg cdsIcon="bot" size="32" class="empty-icon"></svg>
-      <h3>No Agents Yet</h3>
-      <p>Create your first AI agent to get started.</p>
-      <button *ngIf="!isDefaultWorkspace" cdsButton="tertiary" size="sm" (click)="openCreateModal()">Create Agent</button>
+  <!-- Filter & Search Bar -->
+  <div *ngIf="activeWorkspace" class="filter-bar" style="margin-bottom: 1rem;">
+    <div class="filter-bar__row" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start;">
+      <!-- Category dropdowns -->
+      <div class="filter-bar__categories" style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+        <cds-dropdown
+          size="sm"
+          placeholder="All Categories"
+          [appendInline]="true"
+          style="min-width: 160px;"
+          (selected)="onCategoryDropdownSelect($event)">
+          <cds-dropdown-list [items]="categoryDropdownItems"></cds-dropdown-list>
+        </cds-dropdown>
+
+        <cds-dropdown
+          size="sm"
+          placeholder="All Sub-categories"
+          [appendInline]="true"
+          [disabled]="!selectedCategory"
+          style="min-width: 160px;"
+          (selected)="onSubCategoryDropdownSelect($event)">
+          <cds-dropdown-list [items]="subCategoryDropdownItems"></cds-dropdown-list>
+        </cds-dropdown>
+      </div>
+
+      <!-- Text search -->
+      <cds-search
+        style="flex: 1; min-width: 200px;"
+        size="sm"
+        placeholder="Search agents by name, description, category or tags..."
+        [value]="searchQuery"
+        (valueChange)="onSearchChange($event)"
+        (clear)="onSearchClear()">
+      </cds-search>
+
+      <!-- Tag filter -->
+      <div style="display: flex; gap: 0.5rem; align-items: center;">
+        <input cdsText size="sm" [(ngModel)]="tagInputValue" placeholder="Filter by tag..." (keyup.enter)="addTagFilter()" style="width: 160px;" />
+        <button cdsButton="ghost" size="sm" (click)="addTagFilter()" [disabled]="!tagInputValue.trim()">
+          <svg cdsIcon="filter" size="16"></svg>
+        </button>
+      </div>
     </div>
 
-    <div *ngFor="let agent of agents" class="agent-card">
+    <!-- Active filters row -->
+    <div *ngIf="hasActiveFilters" class="filter-bar__active" style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap;">
+      <span style="font-size: 0.75rem; color: var(--cds-text-secondary);">Active filters:</span>
+      <cds-tag *ngIf="selectedCategory" type="blue" size="sm" style="cursor:pointer" (click)="selectedCategory=''; selectedSubCategory=''; filterAgents()">
+        {{ selectedCategory }} ×
+      </cds-tag>
+      <cds-tag *ngIf="selectedSubCategory" type="blue" size="sm" style="cursor:pointer" (click)="selectedSubCategory=''; filterAgents()">
+        {{ selectedSubCategory }} ×
+      </cds-tag>
+      <cds-tag *ngFor="let tag of activeTagFilters" type="cyan" size="sm" style="cursor:pointer" (click)="removeTagFilter(tag)">
+        {{ tag }} ×
+      </cds-tag>
+      <button cdsButton="ghost" size="sm" (click)="clearAllFilters()">Clear all</button>
+    </div>
+
+    <div style="font-size: 0.75rem; color: var(--cds-text-secondary); margin-top: 0.25rem;">
+      {{ filteredAgents.length }} agent{{ filteredAgents.length !== 1 ? 's' : '' }}
+    </div>
+  </div>
+
+  <!-- Agent List -->
+  <div *ngIf="activeWorkspace && !loading" class="agent-grid">
+    <div *ngIf="filteredAgents.length === 0" class="empty-state">
+      <svg cdsIcon="bot" size="32" class="empty-icon"></svg>
+      <h3>{{ hasActiveFilters ? 'No Agents Match Filters' : 'No Agents Yet' }}</h3>
+      <p>{{ hasActiveFilters ? 'Try adjusting or clearing your filters.' : 'Create your first AI agent to get started.' }}</p>
+      <button *ngIf="hasActiveFilters" cdsButton="ghost" size="sm" (click)="clearAllFilters()">Clear filters</button>
+      <button *ngIf="!isDefaultWorkspace && !hasActiveFilters" cdsButton="tertiary" size="sm" (click)="openCreateModal()">Create Agent</button>
+    </div>
+
+    <div *ngFor="let agent of filteredAgents" class="agent-card">
       <div class="agent-card__header">
         <div class="agent-card__avatar">
           <svg cdsIcon="bot" size="16"></svg>
         </div>
         <div class="agent-card__info">
           <h4 class="agent-card__name">{{ agent.name }}</h4>
-          <div class="agent-card__llm">
+          <div class="agent-card__llm" style="display: flex; flex-wrap: wrap; gap: 0.25rem; align-items: center;">
             <cds-tag type="teal" size="sm">{{ agent.llm_config_id ? 'LLM Configured' : 'No LLM' }}</cds-tag>
-            <span class="model-name">{{ agent.use_neural_router ? '🧠 Neural Router' : 'Manual Tools' }}</span>
+            <cds-tag *ngIf="agent.use_neural_router" type="cyan" size="sm">Neural Router</cds-tag>
+            <!-- Category badges -->
+            <cds-tag *ngIf="agent.category" type="warm-gray" size="sm">{{ agent.category }}</cds-tag>
+            <cds-tag *ngIf="agent.sub_category" type="cool-gray" size="sm">{{ agent.sub_category }}</cds-tag>
           </div>
         </div>
         <div class="agent-card__actions">
@@ -70,6 +138,11 @@
       </div>
 
       <p class="agent-card__prompt">{{ agent.description || agent.system_prompt || 'No agent description available' }}</p>
+
+      <!-- Tags row -->
+      <div *ngIf="agent.tags?.length" style="display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem;">
+        <cds-tag *ngFor="let tag of agent.tags" type="blue" size="sm">{{ tag }}</cds-tag>
+      </div>
 
       <div class="agent-card__tools" *ngIf="agent.attached_tool_ids?.length">
         <span class="tools-label">

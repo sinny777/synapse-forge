@@ -28,7 +28,7 @@ import { IconService } from 'carbon-components-angular/icon';
 import { Subscription } from 'rxjs';
 import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
-import { Tool, ToolCreate, Workspace } from '../../models/platform.model';
+import { Tool, ToolCreate, Workspace, Category } from '../../models/platform.model';
 import { MCPServerFormComponent } from './mcp-server-form.component';
 import { PageHeaderComponent } from '../shared/page-header/page-header.component';
 import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
@@ -43,6 +43,8 @@ import Renew16 from '@carbon/icons/es/renew/16';
 import Close16 from '@carbon/icons/es/close/16';
 import View16 from '@carbon/icons/es/view/16';
 import Copy16 from '@carbon/icons/es/copy/16';
+import Filter16 from '@carbon/icons/es/filter/16';
+import Tag16 from '@carbon/icons/es/tag/16';
 
 @Component({
   selector: 'app-tool-registry',
@@ -63,6 +65,32 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
   loading = false;
   searchQuery = '';
   notification: any = null;
+
+  // Category / tag filtering
+  categories: Category[] = [];
+  selectedCategory = '';
+  selectedSubCategory = '';
+  activeTagFilters: string[] = [];
+  tagInputValue = '';
+
+  // Dropdown items for filter bar
+  categoryDropdownItems: any[] = [];
+  subCategoryDropdownItems: any[] = [];
+
+  // Dropdown items for modal classification
+  formCategoryDropdownItems: any[] = [];
+  formSubCategoryDropdownItems: any[] = [];
+
+  // Tool type dropdown for modal
+  toolTypeDropdownItems: any[] = [
+    { content: 'REST API Tool', id: 'REST', selected: true },
+    { content: 'MCP Server', id: 'MCP_SERVER', selected: false },
+  ];
+
+  get availableSubCategories(): { id: string; label: string }[] {
+    const cat = this.categories.find(c => c.label === this.selectedCategory);
+    return cat ? cat.sub_categories : [];
+  }
 
   // Modal state
   showModal = false;
@@ -96,9 +124,13 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
     is_enabled: true,
     connection_config: {},
     schema_def: {},
+    category: '',
+    sub_category: '',
+    tags: [],
   };
   connectionConfigJson = '{}';
   schemaDefJson = '{}';
+  formTagInputValue = '';
 
   // MCP Form Data (handled via MCPServerFormComponent but using Tool model)
   mcpFormData: ToolCreate | null = null;
@@ -113,11 +145,25 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
     private iconService: IconService,
   ) {
     this.iconService.registerAll([
-      Add16, TrashCan16, Edit16, Search16, Api16, LogoModelContextProtocol16, Renew16, Close16, View16, Copy16,
+      Add16, TrashCan16, Edit16, Search16, Api16, LogoModelContextProtocol16, Renew16, Close16, View16, Copy16, Filter16, Tag16,
     ]);
   }
 
   ngOnInit(): void {
+    this.platformApi.listCategories().subscribe({
+      next: (cats) => {
+        this.categories = cats;
+        this.categoryDropdownItems = [
+          { content: 'All Categories', id: '', selected: true },
+          ...cats.map(c => ({ content: c.label, id: c.label, selected: false })),
+        ];
+        this.formCategoryDropdownItems = [
+          { content: 'None', id: '', selected: true },
+          ...cats.map(c => ({ content: c.label, id: c.label, selected: false })),
+        ];
+      },
+      error: () => {},
+    });
     this.subs.push(
       this.workspaceService.activeWorkspace$.subscribe((ws) => {
         this.activeWorkspace = ws;
@@ -157,7 +203,7 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
   filterTools(): void {
     let list = this.tools;
 
-    // Apply multi-filter state
+    // Type filter
     list = list.filter((t) => {
       if (t.type === 'MCP_SERVER' && this.filterState.MCP_SERVER) return true;
       if (t.type === 'MCP_TOOL' && this.filterState.MCP_TOOL) return true;
@@ -165,16 +211,111 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
       return false;
     });
 
+    // Category filter
+    if (this.selectedCategory) {
+      list = list.filter(t => t.category === this.selectedCategory);
+    }
+    if (this.selectedSubCategory) {
+      list = list.filter(t => t.sub_category === this.selectedSubCategory);
+    }
+
+    // Active tag filters
+    if (this.activeTagFilters.length > 0) {
+      list = list.filter(t =>
+        this.activeTagFilters.every(tag => (t.tags || []).includes(tag))
+      );
+    }
+
+    // Text search — covers name, description, category, sub_category, tags
     if (this.searchQuery.trim()) {
       const q = this.searchQuery.toLowerCase();
       list = list.filter(
         (t) =>
           t.name.toLowerCase().includes(q) ||
           (t.description || '').toLowerCase().includes(q) ||
-          t.type.toLowerCase().includes(q)
+          t.type.toLowerCase().includes(q) ||
+          (t.category || '').toLowerCase().includes(q) ||
+          (t.sub_category || '').toLowerCase().includes(q) ||
+          (t.tags || []).some(tag => tag.toLowerCase().includes(q))
       );
     }
     this.filteredTools = list;
+  }
+
+  onCategoryFilterChange(): void {
+    this.selectedSubCategory = '';
+    this.filterTools();
+  }
+
+  onSubCategoryFilterChange(): void {
+    this.filterTools();
+  }
+
+  // Dropdown event handlers — filter bar
+  onCategoryDropdownSelect(event: any): void {
+    this.selectedCategory = event.item.id;
+    this.selectedSubCategory = '';
+    const subs = this.selectedCategory
+      ? (this.categories.find(c => c.label === this.selectedCategory)?.sub_categories || [])
+      : [];
+    this.subCategoryDropdownItems = [
+      { content: 'All Sub-categories', id: '', selected: true },
+      ...subs.map(s => ({ content: s.label, id: s.label, selected: false })),
+    ];
+    this.filterTools();
+  }
+
+  onSubCategoryDropdownSelect(event: any): void {
+    this.selectedSubCategory = event.item.id;
+    this.filterTools();
+  }
+
+  // Dropdown event handlers — modal classification
+  onFormCategoryDropdownSelect(event: any): void {
+    this.formData.category = event.item.id;
+    this.formData.sub_category = '';
+    const subs = this.formData.category
+      ? (this.categories.find(c => c.label === this.formData.category)?.sub_categories || [])
+      : [];
+    this.formSubCategoryDropdownItems = [
+      { content: 'None', id: '', selected: true },
+      ...subs.map(s => ({ content: s.label, id: s.label, selected: false })),
+    ];
+  }
+
+  onFormSubCategoryDropdownSelect(event: any): void {
+    this.formData.sub_category = event.item.id;
+  }
+
+  // Tool type dropdown — modal
+  onToolTypeDropdownSelect(event: any): void {
+    this.selectedType = event.item.id;
+  }
+
+  addTagFilter(): void {
+    const tag = this.tagInputValue.trim();
+    if (tag && !this.activeTagFilters.includes(tag)) {
+      this.activeTagFilters = [...this.activeTagFilters, tag];
+      this.filterTools();
+    }
+    this.tagInputValue = '';
+  }
+
+  removeTagFilter(tag: string): void {
+    this.activeTagFilters = this.activeTagFilters.filter(t => t !== tag);
+    this.filterTools();
+  }
+
+  clearAllFilters(): void {
+    this.selectedCategory = '';
+    this.selectedSubCategory = '';
+    this.activeTagFilters = [];
+    this.searchQuery = '';
+    this.filterTools();
+  }
+
+  get hasActiveFilters(): boolean {
+    return !!(this.selectedCategory || this.selectedSubCategory || this.activeTagFilters.length || this.searchQuery);
   }
 
   getChildTools(parentId: string): Tool[] {
@@ -211,9 +352,13 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
       is_enabled: true,
       connection_config: {},
       schema_def: {},
+      category: '',
+      sub_category: '',
+      tags: [],
     };
     this.connectionConfigJson = '{}';
     this.schemaDefJson = '{}';
+    this.formTagInputValue = '';
     this.mcpFormData = null;
     this.mcpFormValid = false;
     this.showModal = true;
@@ -222,6 +367,7 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
   openEditModal(tool: Tool): void {
     this.editingTool = tool;
     this.selectedType = tool.type === 'MCP_SERVER' ? 'MCP_SERVER' : 'REST';
+    this.formTagInputValue = '';
     
     if (tool.type === 'REST') {
       this.formData = {
@@ -231,6 +377,9 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
         is_enabled: tool.is_enabled,
         connection_config: tool.connection_config || {},
         schema_def: tool.schema_def || {},
+        category: tool.category || '',
+        sub_category: tool.sub_category || '',
+        tags: [...(tool.tags || [])],
       };
       this.connectionConfigJson = JSON.stringify(tool.connection_config || {}, null, 2);
       this.schemaDefJson = JSON.stringify(tool.schema_def || {}, null, 2);
@@ -245,11 +394,38 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
         env: tool.env,
         url: tool.url,
         is_enabled: tool.is_enabled,
-        status: tool.status
+        status: tool.status,
+        category: tool.category || '',
+        sub_category: tool.sub_category || '',
+        tags: [...(tool.tags || [])],
+      };
+      // Also populate formData for category/tags fields used in MCP form section
+      this.formData = {
+        ...this.formData,
+        category: tool.category || '',
+        sub_category: tool.sub_category || '',
+        tags: [...(tool.tags || [])],
       };
     }
     
     this.showModal = true;
+  }
+
+  addFormTag(): void {
+    const tag = this.formTagInputValue.trim();
+    if (tag && !(this.formData.tags || []).includes(tag)) {
+      this.formData.tags = [...(this.formData.tags || []), tag];
+    }
+    this.formTagInputValue = '';
+  }
+
+  removeFormTag(tag: string): void {
+    this.formData.tags = (this.formData.tags || []).filter(t => t !== tag);
+  }
+
+  get formSubCategories(): { id: string; label: string }[] {
+    const cat = this.categories.find(c => c.label === this.formData.category);
+    return cat ? cat.sub_categories : [];
   }
 
   closeModal(): void {
@@ -292,10 +468,21 @@ export class ToolRegistryComponent implements OnInit, OnDestroy {
         this.notification = { type: 'error', title: 'Invalid JSON', message: 'Schema definition is not valid JSON' };
         return;
       }
-      payload = { ...this.formData, type: 'REST' };
+      payload = {
+        ...this.formData,
+        type: 'REST',
+        category: this.formData.category || undefined,
+        sub_category: this.formData.sub_category || undefined,
+        tags: this.formData.tags?.length ? this.formData.tags : undefined,
+      };
     } else {
       if (!this.mcpFormData || !this.mcpFormValid) return;
-      payload = this.mcpFormData;
+      payload = {
+        ...this.mcpFormData,
+        category: this.formData.category || undefined,
+        sub_category: this.formData.sub_category || undefined,
+        tags: this.formData.tags?.length ? this.formData.tags : undefined,
+      };
     }
 
     if (this.editingTool) {

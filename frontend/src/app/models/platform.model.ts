@@ -4,6 +4,20 @@
  * Mirrors the backend Pydantic schemas for type-safe API communication.
  */
 
+// ========================== CATEGORIES =====================================
+
+export interface SubCategory {
+  id: string;
+  label: string;
+}
+
+export interface Category {
+  id: string;
+  label: string;
+  description?: string;
+  sub_categories: SubCategory[];
+}
+
 // ========================== WORKSPACE ======================================
 
 export type WorkspaceStatus = 'STOPPED' | 'RUNNING' | 'FAILED';
@@ -67,6 +81,11 @@ export interface Tool {
   last_error?: string;
   parent_id?: string;
   
+  // Classification
+  category?: string;
+  sub_category?: string;
+  tags?: string[];
+  
   created_at: string;
   updated_at: string;
 }
@@ -85,6 +104,10 @@ export interface ToolCreate {
   url?: string;
   status?: MCPServerStatus;
   parent_id?: string;
+  // Classification
+  category?: string;
+  sub_category?: string;
+  tags?: string[];
 }
 
 export interface ToolUpdate {
@@ -102,6 +125,10 @@ export interface ToolUpdate {
   status?: MCPServerStatus;
   last_error?: string;
   parent_id?: string;
+  // Classification
+  category?: string;
+  sub_category?: string;
+  tags?: string[];
 }
 
 
@@ -132,6 +159,10 @@ export interface Agent {
   attached_tool_ids?: string[];
   collaborator_agent_ids?: string[];
   collaborators?: CollaboratorAgent[];
+  // Classification
+  category?: string;
+  sub_category?: string;
+  tags?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -150,6 +181,10 @@ export interface AgentCreate {
   timeout_seconds?: number;
   attached_tool_ids?: string[];
   collaborator_agent_ids?: string[];
+  // Classification
+  category?: string;
+  sub_category?: string;
+  tags?: string[];
 }
 
 export interface AgentUpdate {
@@ -166,6 +201,10 @@ export interface AgentUpdate {
   timeout_seconds?: number;
   attached_tool_ids?: string[];
   collaborator_agent_ids?: string[];
+  // Classification
+  category?: string;
+  sub_category?: string;
+  tags?: string[];
 }
 
 // ========================== ORCHESTRATION ==================================

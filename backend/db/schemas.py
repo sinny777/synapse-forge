@@ -142,6 +142,11 @@ class ToolCreate(BaseModel):
         description="ID of the parent provider/server",
     )
 
+    # Classification
+    category: str | None = Field(default=None, max_length=100, examples=["Healthcare", "BFSI", "Common"])
+    sub_category: str | None = Field(default=None, max_length=100, examples=["Mediclaim", "Wealth Management"])
+    tags: list[str] | None = Field(default=None, examples=[["insurance", "policy", "healthcare"]])
+
     @field_validator("command")
     @classmethod
     def validate_stdio_command(cls, v: str | None, info) -> str | None:
@@ -172,6 +177,9 @@ class ToolUpdate(BaseModel):
     status: MCPServerStatusEnum | None = None
     last_error: str | None = None
     parent_id: uuid.UUID | None = None
+    category: str | None = Field(default=None, max_length=100)
+    sub_category: str | None = Field(default=None, max_length=100)
+    tags: list[str] | None = None
 
 
 class ToolRead(BaseModel):
@@ -193,6 +201,9 @@ class ToolRead(BaseModel):
     status: MCPServerStatusEnum
     last_error: str | None = None
     parent_id: uuid.UUID | None = None
+    category: str | None = None
+    sub_category: str | None = None
+    tags: list[str] | None = None
     created_at: datetime
     updated_at: datetime
     created_by: str | None = None
@@ -221,6 +232,10 @@ class AgentCreate(BaseModel):
     timeout_seconds: int | None = Field(default=None, ge=1)
     attached_tool_ids: list[uuid.UUID] | None = None
     collaborator_agent_ids: list[uuid.UUID] | None = None
+    # Classification
+    category: str | None = Field(default=None, max_length=100, examples=["Healthcare", "BFSI", "Common"])
+    sub_category: str | None = Field(default=None, max_length=100, examples=["Mediclaim", "Wealth Management"])
+    tags: list[str] | None = Field(default=None, examples=[["insurance", "policy"]])
 
 
 class AgentUpdate(BaseModel):
@@ -237,6 +252,10 @@ class AgentUpdate(BaseModel):
     timeout_seconds: int | None = Field(default=None, ge=1)
     attached_tool_ids: list[uuid.UUID] | None = None
     collaborator_agent_ids: list[uuid.UUID] | None = None
+    # Classification
+    category: str | None = Field(default=None, max_length=100)
+    sub_category: str | None = Field(default=None, max_length=100)
+    tags: list[str] | None = None
 
 
 class AgentRead(BaseModel):
@@ -258,6 +277,9 @@ class AgentRead(BaseModel):
     attached_tool_ids: list[uuid.UUID] | None = None
     collaborator_agent_ids: list[uuid.UUID] | None = None
     collaborators: list[CollaboratorAgentRead] = []
+    category: str | None = None
+    sub_category: str | None = None
+    tags: list[str] | None = None
     created_at: datetime
     updated_at: datetime
     created_by: str | None = None

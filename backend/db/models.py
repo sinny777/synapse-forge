@@ -132,6 +132,10 @@ class Tool(MongoDocument):
     last_error: str | None = None
     parent_id: str | None = None
     embedding: list[float] | None = None
+    # Classification
+    category: str | None = None
+    sub_category: str | None = None
+    tags: list[str] | None = None
 
 
 class Agent(MongoDocument):
@@ -151,6 +155,10 @@ class Agent(MongoDocument):
     timeout_seconds: int | None = None
     attached_tool_ids: list[str] | None = None
     collaborator_agent_ids: list[str] | None = None
+    # Classification
+    category: str | None = None
+    sub_category: str | None = None
+    tags: list[str] | None = None
 
 
 class Orchestration(MongoDocument):

@@ -43,29 +43,72 @@
 
   <!-- Tool Registry Content -->
   <ng-container *ngIf="activeWorkspace">
-    <!-- Search Bar -->
-    <div class="search-bar" style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
-      <div style="display: flex; gap: 1rem; align-items: center;">
+    <!-- Filter & Search Bar -->
+    <div class="filter-bar">
+      <!-- Type Checkboxes -->
+      <div class="filter-bar__types">
         <cds-checkbox [(ngModel)]="filterState.MCP_SERVER" (ngModelChange)="filterTools()">MCP Servers</cds-checkbox>
         <cds-checkbox [(ngModel)]="filterState.MCP_TOOL" (ngModelChange)="filterTools()">MCP Tools</cds-checkbox>
         <cds-checkbox [(ngModel)]="filterState.REST" (ngModelChange)="filterTools()">REST Tools</cds-checkbox>
       </div>
+
+      <!-- Category Dropdowns -->
+      <div class="filter-bar__categories">
+        <cds-dropdown
+          size="sm"
+          placeholder="All Categories"
+          [appendInline]="true"
+          (selected)="onCategoryDropdownSelect($event)">
+          <cds-dropdown-list [items]="categoryDropdownItems"></cds-dropdown-list>
+        </cds-dropdown>
+
+        <cds-dropdown
+          size="sm"
+          placeholder="All Sub-categories"
+          [appendInline]="true"
+          [disabled]="!selectedCategory"
+          (selected)="onSubCategoryDropdownSelect($event)">
+          <cds-dropdown-list [items]="subCategoryDropdownItems"></cds-dropdown-list>
+        </cds-dropdown>
+      </div>
+
+      <!-- Text Search -->
       <cds-search
-        style="flex: 1;"
+        class="filter-bar__search"
         size="sm"
-        placeholder="Search by name, description or type..."
+        placeholder="Search by name, description, category or tags..."
         [value]="searchQuery"
         (valueChange)="onSearchChange($event)"
         (clear)="onSearchClear()">
       </cds-search>
-      <span class="tool-count">{{ filteredTools.length }} tool{{ filteredTools.length !== 1 ? 's' : '' }} registered</span>
+
+      <!-- Tag Filter Input -->
+      <div class="filter-bar__tags">
+        <div class="tag-input-row">
+          <input cdsText size="sm" [(ngModel)]="tagInputValue" placeholder="Filter by tag..." (keyup.enter)="addTagFilter()" />
+          <button cdsButton="ghost" size="sm" (click)="addTagFilter()" [disabled]="!tagInputValue.trim()">
+            <svg cdsIcon="tag" size="16"></svg>
+          </button>
+        </div>
+        <div class="active-tag-filters" *ngIf="activeTagFilters.length">
+          <cds-tag *ngFor="let tag of activeTagFilters" type="blue" size="sm" style="cursor:pointer" (click)="removeTagFilter(tag)">
+            {{ tag }} ×
+          </cds-tag>
+        </div>
+      </div>
+
+      <div class="filter-bar__meta">
+        <span class="tool-count">{{ filteredTools.length }} tool{{ filteredTools.length !== 1 ? 's' : '' }}</span>
+        <button *ngIf="hasActiveFilters" cdsButton="ghost" size="sm" (click)="clearAllFilters()">Clear filters</button>
+      </div>
     </div>
 
     <!-- Unified Tool List -->
     <div class="tool-list" *ngIf="!loading; else loadingSpinner">
       <div *ngIf="filteredTools.length === 0" class="empty-tools">
         <svg cdsIcon="api" size="32" class="empty-icon"></svg>
-        <p>No tools found matching your search.</p>
+        <p>No tools found matching your filters.</p>
+        <button *ngIf="hasActiveFilters" cdsButton="ghost" size="sm" (click)="clearAllFilters()">Clear all filters</button>
         <button *ngIf="!isDefaultWorkspace" cdsButton="tertiary" size="sm" (click)="openCreateModal()">
           Register a new tool
         </button>
@@ -89,6 +132,13 @@
               <cds-tag [type]="tool.is_enabled ? 'green' : 'gray'" size="sm">
                 {{ tool.is_enabled ? 'Enabled' : 'Disabled' }}
               </cds-tag>
+              <!-- Category badge -->
+              <cds-tag *ngIf="tool.category" type="warm-gray" size="sm">
+                {{ tool.category }}
+              </cds-tag>
+              <cds-tag *ngIf="tool.sub_category" type="cool-gray" size="sm">
+                {{ tool.sub_category }}
+              </cds-tag>
             </div>
           </div>
           <div class="tool-card__actions" *ngIf="tool.type !== 'MCP_TOOL'">
@@ -106,7 +156,12 @@
         <p class="tool-card__description" [class.mcp-description]="tool.type !== 'REST'">
           {{ truncateWords(tool.description) }}
         </p>
-        
+
+        <!-- Tags row -->
+        <div class="tool-card__tool-tags" *ngIf="tool.tags?.length">
+          <cds-tag *ngFor="let tag of tool.tags" type="blue" size="sm">{{ tag }}</cds-tag>
+        </div>
+
         <!-- Detailed Info for MCP Servers -->
         <div class="mcp-server-details" *ngIf="tool.type === 'MCP_SERVER' && (tool.url || tool.last_error)">
           <p *ngIf="tool.transport === 'sse' && tool.url" class="server-url">
@@ -166,13 +221,14 @@
     <div class="modal-form">
       <!-- Type Selection (only for new tools) -->
       <div class="cds--form-item" *ngIf="!editingTool">
-        <cds-label>Tool Type</cds-label>
-        <cds-select
-          [(ngModel)]="selectedType"
-          [helperText]="'Select the type of tool to register'">
-          <option value="REST">REST API Tool</option>
-          <option value="MCP_SERVER">MCP Server</option>
-        </cds-select>
+        <cds-dropdown
+          label="Tool Type"
+          placeholder="Select tool type"
+          [appendInline]="true"
+          [helperText]="'Select the type of tool to register'"
+          (selected)="onToolTypeDropdownSelect($event)">
+          <cds-dropdown-list [items]="toolTypeDropdownItems"></cds-dropdown-list>
+        </cds-dropdown>
       </div>
 
       <!-- REST Tool Form -->
@@ -209,6 +265,58 @@
           (validationChange)="onMCPFormValidationChange($event)">
         </app-mcp-server-form>
       </ng-container>
+
+      <!-- Classification (Category / Sub-category / Tags) — shown for all tool types -->
+      <div class="classification-section" *ngIf="!isDefaultWorkspace">
+        <h4 class="section-subheading">Classification</h4>
+
+        <div class="cds--form-row" style="display: flex; gap: 1rem;">
+          <div class="cds--form-item" style="flex: 1;">
+            <cds-dropdown
+              label="Category"
+              placeholder="None"
+              [appendInline]="true"
+              (selected)="onFormCategoryDropdownSelect($event)">
+              <cds-dropdown-list [items]="formCategoryDropdownItems"></cds-dropdown-list>
+            </cds-dropdown>
+          </div>
+
+          <div class="cds--form-item" style="flex: 1;">
+            <cds-dropdown
+              label="Sub-category"
+              placeholder="None"
+              [appendInline]="true"
+              [disabled]="!formData.category"
+              (selected)="onFormSubCategoryDropdownSelect($event)">
+              <cds-dropdown-list [items]="formSubCategoryDropdownItems"></cds-dropdown-list>
+            </cds-dropdown>
+          </div>
+        </div>
+
+        <div class="cds--form-item">
+          <cds-label>Tags</cds-label>
+          <div class="tag-input-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+            <input cdsText size="sm" [(ngModel)]="formTagInputValue" placeholder="Add a tag and press Enter..." (keyup.enter)="addFormTag()" style="flex: 1;" />
+            <button cdsButton="ghost" size="sm" (click)="addFormTag()" [disabled]="!formTagInputValue.trim()">Add</button>
+          </div>
+          <div class="form-tags" style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+            <cds-tag *ngFor="let tag of formData.tags" type="blue" size="sm" style="cursor:pointer;" (click)="removeFormTag(tag)">
+              {{ tag }} ×
+            </cds-tag>
+            <span *ngIf="!formData.tags?.length" style="font-size: 0.75rem; color: var(--cds-text-placeholder);">No tags added</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- View-only classification (for default workspace) -->
+      <div class="classification-section" *ngIf="isDefaultWorkspace && editingTool && (editingTool.category || editingTool.tags?.length)">
+        <h4 class="section-subheading">Classification</h4>
+        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+          <cds-tag *ngIf="editingTool.category" type="warm-gray" size="sm">{{ editingTool.category }}</cds-tag>
+          <cds-tag *ngIf="editingTool.sub_category" type="cool-gray" size="sm">{{ editingTool.sub_category }}</cds-tag>
+          <cds-tag *ngFor="let tag of editingTool.tags" type="blue" size="sm">{{ tag }}</cds-tag>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -242,9 +350,10 @@
         <cds-checkbox [checked]="isMasterToolSelected(tool.id)" style="pointer-events: none;"></cds-checkbox>
         
         <div style="flex: 1;">
-          <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
             <strong style="color: var(--cds-text-primary);">{{ tool.name }}</strong>
             <cds-tag [type]="tool.type === 'REST' ? 'blue' : 'purple'" size="sm">{{ tool.type === 'REST' ? 'REST' : 'MCP' }}</cds-tag>
+            <cds-tag *ngIf="tool.category" type="warm-gray" size="sm">{{ tool.category }}</cds-tag>
           </div>
           <p style="font-size: 0.875rem; color: var(--cds-text-secondary); margin-top: 0.25rem; line-height: 1.4;">{{ truncateWords(tool.description, 15) }}</p>
         </div>

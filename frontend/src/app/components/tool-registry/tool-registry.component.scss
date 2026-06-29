@@ -1,3 +1,84 @@
+// ─── Filter Bar ──────────────────────────────────────────────────────────────
+.filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: var(--cds-layer-01, #f4f4f4);
+  border: 1px solid var(--cds-border-subtle);
+  border-radius: 4px;
+  margin-bottom: 1rem;
+
+  &__types {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  &__categories {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    align-items: center;
+    min-width: 340px;
+  }
+
+  &__search {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  &__tags {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  &__meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+  }
+
+  .tag-input-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .active-tag-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+  }
+}
+
+// ─── Classification Section ───────────────────────────────────────────────────
+.classification-section {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--cds-border-subtle);
+
+  .section-subheading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--cds-text-primary);
+    margin-bottom: 1rem;
+  }
+}
+
+// ─── Tool card tags row ───────────────────────────────────────────────────────
+.tool-card__tool-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+}
+
+
 // ═══════════════════════════════════════════════════════════════════
 // Tool Registry — IBM Carbon Design System Styles
 // ═══════════════════════════════════════════════════════════════════

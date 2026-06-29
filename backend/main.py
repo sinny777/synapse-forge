@@ -118,6 +118,8 @@ from api.workspace_cloning import router as cloning_router
 from api.workspace_environment import router as environment_router
 from api.llm_configs import router as llm_configs_router
 
+from api.categories import router as categories_router
+
 # --- Standalone Workflow Pipeline ---
 from api.workflow import router as workflow_router
 from api.data import router as data_router
@@ -144,6 +146,7 @@ app.include_router(router_predict_router)
 app.include_router(cloning_router)
 app.include_router(environment_router)
 app.include_router(llm_configs_router)
+app.include_router(categories_router)
 
 # Standalone workflow routes
 app.include_router(workflow_router)

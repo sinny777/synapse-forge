@@ -557,8 +557,7 @@ async def main():
         print("=" * 70)
         print("ORCHESTRATION GOAL")
         print("=" * 70)
-        goal = """Process the post-hospitalisation mediclaim for Patient ID 1024 
-(Policy #POL-999) who recently had a knee replacement surgery. 
+        goal = """Process the post-hospitalisation mediclaim for Patient ID 1024 (Policy #POL-999) who recently had a knee replacement surgery. 
 Verify their coverage, analyze the hospital bills, and submit the final claim."""
         print(goal)
         print("=" * 70 + "\n")

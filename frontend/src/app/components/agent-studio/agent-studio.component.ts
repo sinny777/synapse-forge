@@ -12,13 +12,13 @@ import { Router } from '@angular/router';
 import {
   ButtonModule, NotificationModule, IconModule,
   TagModule, ModalModule, InputModule, DropdownModule, TabsModule,
-  LoadingModule,
+  LoadingModule, SearchModule, SelectModule, CheckboxModule,
 } from 'carbon-components-angular';
 import { IconService } from 'carbon-components-angular/icon';
 import { Subscription } from 'rxjs';
 import { WorkspaceService } from '../../services/workspace.service';
 import { PlatformApiService } from '../../services/platform-api.service';
-import { Agent, AgentCreate, Tool, Workspace } from '../../models/platform.model';
+import { Agent, AgentCreate, Tool, Workspace, Category } from '../../models/platform.model';
 import { PageHeaderComponent } from '../shared/page-header/page-header.component';
 import { PageWrapperComponent } from '../shared/page-wrapper/page-wrapper.component';
 
@@ -30,6 +30,7 @@ import Renew16 from '@carbon/icons/es/renew/16';
 import Link16 from '@carbon/icons/es/link/16';
 import View16 from '@carbon/icons/es/view/16';
 import Copy16 from '@carbon/icons/es/copy/16';
+import Filter16 from '@carbon/icons/es/filter/16';
 
 @Component({
   selector: 'app-agent-studio',
@@ -38,7 +39,7 @@ import Copy16 from '@carbon/icons/es/copy/16';
     CommonModule, FormsModule,
     ButtonModule, NotificationModule, IconModule,
     TagModule, ModalModule, InputModule, DropdownModule, TabsModule,
-    LoadingModule,
+    LoadingModule, SearchModule, SelectModule, CheckboxModule,
     PageHeaderComponent, PageWrapperComponent,
   ],
   templateUrl: './agent-studio.component.html',
@@ -46,9 +47,27 @@ import Copy16 from '@carbon/icons/es/copy/16';
 })
 export class AgentStudioComponent implements OnInit, OnDestroy {
   agents: Agent[] = [];
+  filteredAgents: Agent[] = [];
   tools: Tool[] = [];
   loading = false;
   notification: any = null;
+
+  // Category / tag filtering
+  categories: Category[] = [];
+  selectedCategory = '';
+  selectedSubCategory = '';
+  activeTagFilters: string[] = [];
+  tagInputValue = '';
+  searchQuery = '';
+
+  // Dropdown items for filter bar
+  categoryDropdownItems: any[] = [];
+  subCategoryDropdownItems: any[] = [];
+
+  get availableSubCategories(): { id: string; label: string }[] {
+    const cat = this.categories.find(c => c.label === this.selectedCategory);
+    return cat ? cat.sub_categories : [];
+  }
 
   activeWorkspace: Workspace | null = null;
   private subs: Subscription[] = [];
@@ -60,11 +79,21 @@ export class AgentStudioComponent implements OnInit, OnDestroy {
     private router: Router,
   ) {
     this.iconService.registerAll([
-      Add16, TrashCan16, Edit16, Bot16, Renew16, Link16, View16, Copy16,
+      Add16, TrashCan16, Edit16, Bot16, Renew16, Link16, View16, Copy16, Filter16,
     ]);
   }
 
   ngOnInit(): void {
+    this.platformApi.listCategories().subscribe({
+      next: (cats) => {
+        this.categories = cats;
+        this.categoryDropdownItems = [
+          { content: 'All Categories', id: '', selected: true },
+          ...cats.map(c => ({ content: c.label, id: c.label, selected: false })),
+        ];
+      },
+      error: () => {},
+    });
     this.subs.push(
       this.workspaceService.activeWorkspace$.subscribe((ws) => {
         this.activeWorkspace = ws;
@@ -92,6 +121,7 @@ export class AgentStudioComponent implements OnInit, OnDestroy {
     this.platformApi.listAgents(this.activeWorkspace.id).subscribe({
       next: (agents) => {
         this.agents = agents;
+        this.filterAgents();
         this.loading = false;
       },
       error: (err) => {
@@ -99,6 +129,93 @@ export class AgentStudioComponent implements OnInit, OnDestroy {
         this.loading = false;
       },
     });
+  }
+
+  filterAgents(): void {
+    let list = this.agents;
+
+    if (this.selectedCategory) {
+      list = list.filter(a => a.category === this.selectedCategory);
+    }
+    if (this.selectedSubCategory) {
+      list = list.filter(a => a.sub_category === this.selectedSubCategory);
+    }
+    if (this.activeTagFilters.length > 0) {
+      list = list.filter(a =>
+        this.activeTagFilters.every(tag => (a.tags || []).includes(tag))
+      );
+    }
+    if (this.searchQuery.trim()) {
+      const q = this.searchQuery.toLowerCase();
+      list = list.filter(a =>
+        a.name.toLowerCase().includes(q) ||
+        (a.description || '').toLowerCase().includes(q) ||
+        (a.category || '').toLowerCase().includes(q) ||
+        (a.sub_category || '').toLowerCase().includes(q) ||
+        (a.tags || []).some(t => t.toLowerCase().includes(q))
+      );
+    }
+    this.filteredAgents = list;
+  }
+
+  onCategoryFilterChange(): void {
+    this.selectedSubCategory = '';
+    this.filterAgents();
+  }
+
+  // Dropdown event handlers
+  onCategoryDropdownSelect(event: any): void {
+    this.selectedCategory = event.item.id;
+    this.selectedSubCategory = '';
+    const subs = this.selectedCategory
+      ? (this.categories.find(c => c.label === this.selectedCategory)?.sub_categories || [])
+      : [];
+    this.subCategoryDropdownItems = [
+      { content: 'All Sub-categories', id: '', selected: true },
+      ...subs.map(s => ({ content: s.label, id: s.label, selected: false })),
+    ];
+    this.filterAgents();
+  }
+
+  onSubCategoryDropdownSelect(event: any): void {
+    this.selectedSubCategory = event.item.id;
+    this.filterAgents();
+  }
+
+  onSearchChange(value: string): void {
+    this.searchQuery = value;
+    this.filterAgents();
+  }
+
+  onSearchClear(): void {
+    this.searchQuery = '';
+    this.filterAgents();
+  }
+
+  addTagFilter(): void {
+    const tag = this.tagInputValue.trim();
+    if (tag && !this.activeTagFilters.includes(tag)) {
+      this.activeTagFilters = [...this.activeTagFilters, tag];
+      this.filterAgents();
+    }
+    this.tagInputValue = '';
+  }
+
+  removeTagFilter(tag: string): void {
+    this.activeTagFilters = this.activeTagFilters.filter(t => t !== tag);
+    this.filterAgents();
+  }
+
+  clearAllFilters(): void {
+    this.selectedCategory = '';
+    this.selectedSubCategory = '';
+    this.activeTagFilters = [];
+    this.searchQuery = '';
+    this.filterAgents();
+  }
+
+  get hasActiveFilters(): boolean {
+    return !!(this.selectedCategory || this.selectedSubCategory || this.activeTagFilters.length || this.searchQuery);
   }
 
   loadTools(): void {

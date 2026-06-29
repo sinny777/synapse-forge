@@ -120,6 +120,52 @@
                   Define the agent's role, behavior, and capabilities. Use clear instructions and examples.
                 </p>
               </div>
+
+              <!-- Classification Section -->
+              <div class="section" style="margin-top: 1.5rem;">
+                <h4 class="section-title">Classification</h4>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                  <div class="cds--form-item" style="flex: 1; min-width: 160px;">
+                    <cds-dropdown
+                      label="Category"
+                      placeholder="None"
+                      [appendInline]="true"
+                      (selected)="onCategoryDropdownSelect($event)">
+                      <cds-dropdown-list [items]="categoryDropdownItems"></cds-dropdown-list>
+                    </cds-dropdown>
+                    <p class="cds--form__helper-text">Classify this agent's domain area.</p>
+                  </div>
+                  <div class="cds--form-item" style="flex: 1; min-width: 160px;">
+                    <cds-dropdown
+                      label="Sub-category"
+                      placeholder="None"
+                      [appendInline]="true"
+                      [disabled]="!formData.category"
+                      (selected)="onSubCategoryDropdownSelect($event)">
+                      <cds-dropdown-list [items]="subCategoryDropdownItems"></cds-dropdown-list>
+                    </cds-dropdown>
+                  </div>
+                </div>
+
+                <div class="cds--form-item" style="margin-top: 0.75rem;">
+                  <cds-label>Tags</cds-label>
+                  <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                    <input cdsText size="sm" [(ngModel)]="tagInputValue" placeholder="Add a tag and press Enter..."
+                      (keyup.enter)="addAgentTag()" style="flex: 1;" />
+                    <button cdsButton="ghost" size="sm" (click)="addAgentTag()" [disabled]="!tagInputValue.trim()">Add</button>
+                  </div>
+                  <div style="display: flex; flex-wrap: wrap; gap: 0.25rem;">
+                    <cds-tag *ngFor="let tag of formData.tags" type="blue" size="sm"
+                      style="cursor:pointer;" (click)="removeAgentTag(tag)">
+                      {{ tag }} ×
+                    </cds-tag>
+                    <span *ngIf="!formData.tags?.length" style="font-size: 0.75rem; color: var(--cds-text-placeholder);">
+                      No tags added yet
+                    </span>
+                  </div>
+                  <p class="cds--form__helper-text">Tags help users discover and filter agents.</p>
+                </div>
+              </div>
             </div>
           </div>
 

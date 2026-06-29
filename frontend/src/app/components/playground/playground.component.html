@@ -7,14 +7,14 @@
     <div actions>
       <!-- Orchestration Selector -->
       <div class="orch-selector">
-        <label class="selector-label">Orchestration:</label>
-        <select class="cds--select-input selector-select"
-                [(ngModel)]="selectedOrchestrationId">
-          <option *ngFor="let orch of orchestrations" [value]="orch.id">
-            {{ orch.name }} ({{ orch.framework }})
-          </option>
-          <option *ngIf="orchestrations.length === 0" [value]="null" disabled>No orchestrations</option>
-        </select>
+        <span class="selector-label">Orchestration:</span>
+        <cds-dropdown
+          placeholder="Select orchestration"
+          [appendInline]="true"
+          size="sm"
+          (selected)="onOrchestrationSelect($event)">
+          <cds-dropdown-list [items]="orchestrationDropdownItems"></cds-dropdown-list>
+        </cds-dropdown>
       </div>
     </div>
   </app-page-header>
