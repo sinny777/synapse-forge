@@ -7,7 +7,7 @@ import { BehaviorSubject, Observable, catchError, of, tap } from 'rxjs';
 })
 export class AuthService {
   private apiUrl = 'http://localhost:8000/api/auth';
-  
+
   private authState = new BehaviorSubject<{isAuthenticated: boolean, user: any}>({
     isAuthenticated: false,
     user: null
@@ -18,23 +18,33 @@ export class AuthService {
   constructor(private http: HttpClient) {}
 
   checkAuth(): Observable<any> {
-    // TODO: Add dev mode header for automatic authentication
-    const headers = { 'X-Dev-Mode': 'true' };
-    return this.http.get(`${this.apiUrl}/me`, { withCredentials: true, headers }).pipe(
+    return this.http.get(`${this.apiUrl}/me`, { withCredentials: true }).pipe(
       tap((res: any) => {
         this.authState.next({ isAuthenticated: true, user: res });
       }),
-      catchError((err) => {
+      catchError(() => {
         this.authState.next({ isAuthenticated: false, user: null });
         return of(null);
       })
     );
   }
 
-  logout() {
+  loginWithCredentials(email: string, password: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/login/demo`, { email, password }, { withCredentials: true }).pipe(
+      tap(() => {
+        this.checkAuth().subscribe();
+      })
+    );
+  }
+
+  getProviders(): Observable<{ google: boolean; github: boolean }> {
+    return this.http.get<{ google: boolean; github: boolean }>(`${this.apiUrl}/providers`);
+  }
+
+  logout(): Observable<any> {
     return this.http.post(`${this.apiUrl}/logout`, {}, { withCredentials: true }).pipe(
       tap(() => {
-        this.logoutLocally();
+        this.clearLocalSession();
       })
     );
   }
@@ -47,7 +57,10 @@ export class AuthService {
     );
   }
 
-  logoutLocally() {
+  /** Clear all client-side session state (auth state, localStorage, sessionStorage). */
+  clearLocalSession(): void {
     this.authState.next({ isAuthenticated: false, user: null });
+    localStorage.clear();
+    sessionStorage.clear();
   }
 }

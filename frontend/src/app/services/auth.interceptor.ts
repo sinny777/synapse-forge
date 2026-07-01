@@ -40,7 +40,7 @@ function handle401Error(req: HttpRequest<any>, next: HttpHandlerFn, authService:
       }),
       catchError((err) => {
         isRefreshing = false;
-        authService.logoutLocally();
+        authService.clearLocalSession();
         return throwError(() => err);
       })
     );

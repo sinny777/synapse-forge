@@ -236,9 +236,28 @@ export class AppComponent implements OnInit {
   }
 
   logout(): void {
-    this.authService.logout().subscribe(() => {
-      this.isProfileMenuOpen = false;
-      this.router.navigate(['/login']);
+    this.authService.logout().subscribe({
+      next: () => {
+        this.isProfileMenuOpen = false;
+        // Clear any remaining browser storage and redirect to landing page
+        this.authService.clearLocalSession();
+        // Delete all cookies visible to the page
+        document.cookie.split(';').forEach(cookie => {
+          const name = cookie.split('=')[0].trim();
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+        });
+        this.router.navigate(['/']);
+      },
+      error: () => {
+        // Even if backend call fails, clean up client-side and redirect
+        this.isProfileMenuOpen = false;
+        this.authService.clearLocalSession();
+        document.cookie.split(';').forEach(cookie => {
+          const name = cookie.split('=')[0].trim();
+          document.cookie = `${name}=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/`;
+        });
+        this.router.navigate(['/']);
+      }
     });
   }
 

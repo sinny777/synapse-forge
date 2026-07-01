@@ -5,19 +5,83 @@
       <p class="login-subtitle">Sign in to access your workspaces</p>
     </div>
 
+    <!-- OAuth error banner -->
+    <div *ngIf="oauthError" class="cds--inline-notification cds--inline-notification--error login-notification" role="alert">
+      <span class="cds--inline-notification__title">Authentication failed</span>
+      <span class="cds--inline-notification__subtitle">{{ oauthError }}</span>
+    </div>
+
+    <!-- OAuth Buttons -->
     <div class="login-actions">
-      <button class="cds--btn cds--btn--primary login-btn" (click)="loginWithGoogle()">
-        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="cds--btn__icon">
+      <button
+        class="cds--btn cds--btn--primary login-btn"
+        [disabled]="!googleAvailable"
+        [title]="googleAvailable ? 'Continue with Google' : 'Google OAuth is not configured'"
+        (click)="loginWithGoogle()">
+        <svg focusable="false" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"
+          fill="currentColor" width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" class="cds--btn__icon">
           <path d="M8.159 6.856v2.744h4.537c-.183 1.177-1.359 3.45-4.537 3.45-2.73 0-4.959-2.261-4.959-5.05s2.23-5.05 4.959-5.05c1.554 0 2.594.661 3.189 1.235l2.164-2.091C12.126.69 10.339 0 8.159 0 3.653 0 0 3.653 0 8.159s3.653 8.159 8.159 8.159c4.71 0 7.84-3.313 7.84-7.985 0-.534-.057-1.045-.14-1.477H8.159z"/>
         </svg>
         Continue with Google
+        <span *ngIf="!googleAvailable" class="provider-badge">not configured</span>
       </button>
 
-      <button class="cds--btn cds--btn--tertiary login-btn" (click)="loginWithGithub()">
+      <button
+        class="cds--btn cds--btn--tertiary login-btn"
+        [disabled]="!githubAvailable"
+        [title]="githubAvailable ? 'Continue with GitHub' : 'GitHub OAuth is not configured'"
+        (click)="loginWithGithub()">
         <svg cdsIcon="logo--github" size="16" class="cds--btn__icon"></svg>
         Continue with GitHub
+        <span *ngIf="!githubAvailable" class="provider-badge">not configured</span>
       </button>
     </div>
+
+    <!-- Divider -->
+    <div class="login-divider">
+      <span>or sign in with email</span>
+    </div>
+
+    <!-- Credential Login Form -->
+    <form class="login-form" (ngSubmit)="loginWithCredentials()" #credForm="ngForm" novalidate>
+
+      <div *ngIf="loginError" class="cds--inline-notification cds--inline-notification--error login-notification" role="alert">
+        <span class="cds--inline-notification__subtitle">{{ loginError }}</span>
+      </div>
+
+      <div class="cds--form-item">
+        <label class="cds--label" for="login-email">Email</label>
+        <input
+          id="login-email"
+          class="cds--text-input"
+          type="email"
+          name="email"
+          autocomplete="username"
+          placeholder="demo@synapseforge.dev"
+          [(ngModel)]="email"
+          required />
+      </div>
+
+      <div class="cds--form-item">
+        <label class="cds--label" for="login-password">Password</label>
+        <input
+          id="login-password"
+          class="cds--text-input"
+          type="password"
+          name="password"
+          autocomplete="current-password"
+          placeholder="Password"
+          [(ngModel)]="password"
+          required />
+      </div>
+
+      <button
+        type="submit"
+        class="cds--btn cds--btn--primary login-btn"
+        [disabled]="isLoading">
+        {{ isLoading ? 'Signing in…' : 'Sign In' }}
+      </button>
+    </form>
 
     <div class="login-footer">
       <p>By signing in, you agree to our <a href="#">Terms of Service</a> and <a href="#">Privacy Policy</a>.</p>

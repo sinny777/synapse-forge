@@ -919,3 +919,33 @@ cds-hamburger,
 .logout-btn:hover {
   background-color: var(--cds-layer-02, #393939);
 }
+
+
+/* ─────────────────────────────────────────────────────────
+   HEADER LOGIN TEXT LINK (shown when unauthenticated)
+   ───────────────────────────────────────────────────────── */
+.header-login-link {
+  display: inline-flex;
+  align-items: center;
+  height: 3rem; /* 48px — matches Carbon header height */
+  padding: 0 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--cds-text-primary, #f4f4f4);
+  font-size: 0.875rem;
+  font-weight: 400;
+  font-family: 'IBM Plex Sans', sans-serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: background-color 0.11s;
+
+  &:hover {
+    background-color: var(--cds-background-hover, #353535);
+  }
+
+  &:focus {
+    outline: 2px solid var(--cds-focus, #0f62fe);
+    outline-offset: -2px;
+  }
+}

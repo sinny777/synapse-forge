@@ -18,8 +18,20 @@
       <svg cdsIcon="switcher" size="16"></svg>
     </cds-header-action>
 
-    <!-- User Profile Dropdown -->
-    <div *ngIf="authService.authState$ | async as auth" class="header-user-menu" style="position: relative; display: flex;">
+    <!-- Help button -->
+    <cds-header-action title="Help">
+      <svg cdsIcon="help" size="20"></svg>
+    </cds-header-action>
+
+    <!-- User Profile / Login — always rightmost before theme toggle -->
+    <div *ngIf="authService.authState$ | async as auth" class="header-user-menu" style="position: relative; display: flex; align-items: center;">
+
+      <!-- Not authenticated: text Login link -->
+      <button *ngIf="!auth.isAuthenticated" class="header-login-link" (click)="navigateTo('/login')">
+        Login
+      </button>
+
+      <!-- Authenticated: show avatar / profile menu -->
       <button *ngIf="auth.isAuthenticated" class="user-profile-btn" title="User Profile" (click)="toggleProfileMenu()">
         <img *ngIf="auth.user?.avatar" [src]="auth.user?.avatar" class="profile-img" />
         <svg *ngIf="!auth.user?.avatar" cdsIcon="user--avatar" size="20" class="profile-svg"></svg>
@@ -35,11 +47,6 @@
         </button>
       </div>
     </div>
-
-    <!-- Help button -->
-    <cds-header-action title="Help">
-      <svg cdsIcon="help" size="20"></svg>
-    </cds-header-action>
 
     <!-- Theme Toggle -->
     <button
