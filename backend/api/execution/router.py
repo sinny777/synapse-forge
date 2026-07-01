@@ -1,69 +1,78 @@
 """
-SynapseForge — Orchestrator Execute API Route
+SynapseForge — Execution domain: route handlers.
 
-POST /api/orchestrator/{orchestration_id}/execute — Execute an orchestration
-with SSE streaming for real-time trace events.
-
-This endpoint:
-  1. Loads the Orchestration config from the database.
-  2. Uses SynapseForge to find relevant tools for the prompt.
-  3. Streams trace events (tool routing, LLM calls, tool execution) via SSE.
+Routes:
+  POST /api/router/predict                          — semantic tool retrieval
+  POST /api/orchestrator/{orchestration_id}/execute — SSE streaming execution
 """
 
 import json
 import uuid
-import time
 import logging
-import asyncio
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, Field
 
 from api.auth import get_current_user
+from api.common.utils import sse_event
 from db.engine import get_db, normalize_mongo_document
 from db.models import Orchestration, Tool, Workspace, Agent
+from db.schemas import RouterPredictRequest
+from services.router_service import RouterService
 
-logger = logging.getLogger("ntr.api.execute")
+from .helpers import _get_redis_or_none
+from .schemas import ExecuteRequest
 
-router = APIRouter(prefix="/api/orchestrator", tags=["Orchestrator"])
+logger = logging.getLogger("ntr.api.execution")
+
+# ---------------------------------------------------------------------------
+# Router instances
+# ---------------------------------------------------------------------------
+
+router_predict = APIRouter(prefix="/api/router", tags=["Neural Router"])
+orchestrator_router = APIRouter(prefix="/api/orchestrator", tags=["Orchestrator"])
 
 
 # ---------------------------------------------------------------------------
-# Request / Response schemas
+# POST /api/router/predict
 # ---------------------------------------------------------------------------
 
-class ExecuteRequest(BaseModel):
-    user_prompt: str = Field(..., min_length=1, examples=["What is my account balance?"])
-    top_k: int = Field(default=5, ge=1, le=50)
-    thread_id: str | None = Field(default=None, description="Session thread for multi-turn")
+@router_predict.post("/predict")
+async def predict(
+    body: RouterPredictRequest,
+    db: AsyncIOMotorDatabase = Depends(get_db),
+):
+    """
+    Semantic tool retrieval for a user prompt.
+
+    Accepts a natural-language prompt and workspace_id, and returns
+    the top-K most relevant tools from the workspace's current embedding index.
+    """
+    redis = await _get_redis_or_none()
+
+    try:
+        result = await RouterService.predict(
+            db=db,
+            workspace_id=body.workspace_id,
+            user_prompt=body.user_prompt,
+            top_k=body.top_k,
+            redis=redis,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        logger.error("Router predict failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail="Internal router error")
+
+    return result
 
 
 # ---------------------------------------------------------------------------
-# SSE Helpers
+# POST /api/orchestrator/{orchestration_id}/execute
 # ---------------------------------------------------------------------------
 
-def _sse_event(event_type: str, label: str, detail: str = "",
-               latency_ms: float = 0, status: str = "success") -> str:
-    """Format a single SSE data frame."""
-    payload = {
-        "type": event_type,
-        "label": label,
-        "detail": detail,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "latency_ms": round(latency_ms, 2),
-        "status": status,
-    }
-    return f"data: {json.dumps(payload)}\n\n"
-
-
-# ---------------------------------------------------------------------------
-# EXECUTE (SSE Streaming)
-# ---------------------------------------------------------------------------
-
-@router.post("/{orchestration_id}/execute")
+@orchestrator_router.post("/{orchestration_id}/execute")
 async def execute_orchestration(
     orchestration_id: uuid.UUID,
     body: ExecuteRequest,
@@ -110,14 +119,14 @@ async def execute_orchestration(
     agent_id = None
     if orch.config:
         agent_id = orch.config.get("agent_id") or orch.config.get("supervisor_agent_id")
-    
+
     if not agent_id:
         logger.error(f"No agent_id found in orchestration config: {orch.config}")
         raise HTTPException(
             status_code=400,
             detail="Orchestration must have an 'agent_id' or 'supervisor_agent_id' in config"
         )
-    
+
     logger.info(f"Loading agent: {agent_id} from workspace: {ws.id}")
     agent_doc = await db.agents.find_one({"_id": agent_id, "workspace_id": str(ws.id)})
     logger.info(f"Agent doc found: {agent_doc is not None}")
@@ -133,10 +142,10 @@ async def execute_orchestration(
 
     # 4. Setup session management
     session_id = body.thread_id or str(uuid.uuid4())
-    
+
     from db.redis_pool import get_redis_pool
     import redis.asyncio as aioredis
-    
+
     redis_pool = get_redis_pool()
     redis_client = aioredis.Redis(connection_pool=redis_pool)
 
@@ -149,7 +158,7 @@ async def execute_orchestration(
             # Initialize conversation service
             conv_service = ConversationService(redis_client)
             await conv_service.get_or_create_session(session_id, uuid.UUID(str(agent.id)))
-            
+
             # Get conversation history
             history = await conv_service.get_history(
                 session_id=session_id,
@@ -158,11 +167,11 @@ async def execute_orchestration(
             )
 
             # Emit initial event
-            yield _sse_event(
+            yield sse_event(
                 "thought",
                 "User Prompt Received",
                 body.user_prompt,
-                status="success",
+                status_value="success",
             )
 
             # Execute agent with DynamicLangGraphAgentExecutor
@@ -177,7 +186,7 @@ async def execute_orchestration(
                 router_top_k_override=body.top_k,
             ):
                 yield event
-                
+
                 # Track assistant response for conversation history
                 try:
                     event_data = json.loads(event.replace("data: ", "").strip())
@@ -192,7 +201,7 @@ async def execute_orchestration(
                 role="user",
                 content=body.user_prompt,
             )
-            
+
             if assistant_response:
                 await conv_service.add_message(
                     session_id=session_id,
@@ -201,17 +210,17 @@ async def execute_orchestration(
                 )
 
             # Emit completion event
-            yield _sse_event(
+            yield sse_event(
                 "complete",
                 "Execution Complete",
                 f"Session: {session_id}",
-                status="success",
+                status_value="success",
             )
 
         except Exception as e:
             logger.error("Execution error: %s", e, exc_info=True)
-            yield _sse_event("error", "Execution Failed", str(e), status="error")
-            yield _sse_event("complete", "Execution Complete", "Completed with errors", status="error")
+            yield sse_event("error", "Execution Failed", str(e), status_value="error")
+            yield sse_event("complete", "Execution Complete", "Completed with errors", status_value="error")
 
     return StreamingResponse(
         event_stream(),

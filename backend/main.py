@@ -11,6 +11,7 @@ This is the thin application shell. All route handlers live in the
 """
 
 import logging
+import os
 from pathlib import Path
 from contextlib import asynccontextmanager
 
@@ -88,7 +89,6 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="SynapseForge API", lifespan=lifespan)
 
-import os
 secret_key = os.environ.get("SECRET_KEY", "super-secret-key-for-dev")
 app.add_middleware(SessionMiddleware, secret_key=secret_key)
 
@@ -105,68 +105,10 @@ app.add_middleware(
 # Mount all API routers
 # ---------------------------------------------------------------------------
 
-# --- Auth ---
-from api.auth import router as auth_router
+from api import ALL_ROUTERS
 
-# --- Platform CRUD (Phase 3 & 4) ---
-from api.workspaces import router as workspaces_router
-from api.tools import router as tools_router
-from api.agents import router as agents_router
-from api.orchestrations import router as orchestrations_router
-from api.router import router as router_predict_router
-from api.workspace_cloning import router as cloning_router
-from api.workspace_environment import router as environment_router
-from api.llm_configs import router as llm_configs_router
-
-from api.categories import router as categories_router
-
-# --- Standalone Workflow Pipeline ---
-from api.workflow import router as workflow_router
-from api.data import router as data_router
-from api.models import router as models_router
-from api.datasets import router as datasets_router
-from api.env_config import router as env_config_router
-from api.scenarios import router as scenarios_router
-try:
-    from api.execute import router as execute_router
-    print("✓ Execute router imported successfully")
-except Exception as e:
-    print(f"✗ Failed to import execute router: {e}")
-    import traceback
-    traceback.print_exc()
-    execute_router = None
-
-# Platform routes
-app.include_router(auth_router)
-app.include_router(workspaces_router)
-app.include_router(tools_router)
-app.include_router(agents_router)
-app.include_router(orchestrations_router)
-app.include_router(router_predict_router)
-app.include_router(cloning_router)
-app.include_router(environment_router)
-app.include_router(llm_configs_router)
-app.include_router(categories_router)
-
-# Standalone workflow routes
-app.include_router(workflow_router)
-app.include_router(data_router)
-app.include_router(models_router)
-app.include_router(datasets_router)
-app.include_router(env_config_router)
-app.include_router(scenarios_router)
-if execute_router is not None:
-    app.include_router(execute_router)
-    print("✓ Execute router registered")
-    # Debug: Print all orchestrator routes
-    print("\n=== Registered Orchestrator Routes ===")
-    for route in app.routes:
-        if hasattr(route, 'path') and 'orchestrator' in route.path:
-            methods = getattr(route, 'methods', set())
-            print(f"  {methods} {route.path}")
-    print("=====================================\n")
-else:
-    print("✗ Execute router not registered due to import error")
+for router in ALL_ROUTERS:
+    app.include_router(router)
 
 
 # ---------------------------------------------------------------------------
